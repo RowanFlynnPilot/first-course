@@ -92,6 +92,8 @@ README.md                      bring-up, definition of done, publishing
 supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                00002_chef.sql (chefs: one named chef per account)
                                00003_chef_look.sql (skin, hair, and editing the chef)
+                               00004_shop_kit_and_cook_edits.sql (plan, pantry, checks,
+                                 prices, kit, finish_shopping(), editing the cook log)
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
@@ -325,11 +327,21 @@ build; a failed run keeps its traces as an artifact.
   editable at `/chef/edit`. The grant is column-level, so `user_id` and
   `created_at` cannot be updated even by the owner. Supabase refuses an
   update with no filter, which is why `updateChef` takes the user id.
-- **All three migrations have run against plain Postgres 16** with stand-ins
-  for `auth.users`, `auth.uid()` and the `authenticated` role: own-rows RLS,
-  grants, the rating, name and look checks, cascade delete, and `00003`
-  applied on top of a chef created before it. They have not run against a
-  real Supabase project.
+- **All four migrations are applied to the live project** (October 4, 2026).
+  Before the push, `00004` ran on a throwaway local Supabase stack (Postgres
+  17, PostgREST, Auth) with `auto_expose_new_tables = false`, and a script
+  made the app's calls through supabase-js as two cooks and as anon: own rows
+  only, anon refused everywhere, idempotent adds, no recipe change on a cook,
+  the rating and price checks, and `finish_shopping` leaving the other cook's
+  rows alone. To repeat that for a new migration, copy `supabase/` to a
+  scratch folder, give `config.toml` its own `project_id` and ports outside
+  Windows' reserved ranges (`netsh interface ipv4 show excludedportrange
+  protocol=tcp`), and `npx supabase start --workdir <folder>`. Another
+  project's stack may already hold the default ports; leave it running.
+- **Upserting a price override needs the update grant on `ingredient_id`**,
+  not only `price_cents`: PostgREST's upsert sets every column it was sent,
+  and Postgres checks that privilege before it knows whether the row exists.
+  Tested both ways.
 - **Grocery prices are estimates** for a midwestern supermarket, October
   2026. They are wrong for anyone else until Phase 2 price overrides.
 - **Email confirmation** is off for development (see README). Turn it on
@@ -339,14 +351,22 @@ build; a failed run keeps its traces as an artifact.
 
 The grocery list, the pantry, and prices you can correct.
 
-Migration `00002_phase2_shop.sql`, all tables keyed by `user_id` with the
-same own-rows RLS and explicit grants as `cook_logs`:
+Migration `00004_shop_kit_and_cook_edits.sql` (applied), all tables keyed by
+`user_id` with the same own-rows RLS and explicit grants as `cook_logs`:
 
 - `plan_items (user_id, recipe_id, added_at)`, primary key `(user_id, recipe_id)`
 - `pantry_items (user_id, ingredient_id)`, primary key both
 - `grocery_checks (user_id, ingredient_id)`, primary key both
 - `price_overrides (user_id, ingredient_id, price_cents > 0)`, primary key
-  `(user_id, ingredient_id)`
+  `(user_id, ingredient_id)`; select, insert, update, delete
+- `kit_items (user_id, equipment_id)`, primary key both
+- `finish_shopping(bought_staples text[])`: "Done shopping" in one
+  transaction, security invoker, executable by `authenticated` only
+- `cook_logs` gains update of `cooked_on`, `rating` and `notes` (never
+  `recipe_id`) and delete
+
+Plan, pantry, checks and kit grant select, insert and delete only; adding is
+an insert that ignores duplicates, so adding twice is harmless.
 
 Behavior:
 

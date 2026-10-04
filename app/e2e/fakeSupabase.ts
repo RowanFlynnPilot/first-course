@@ -4,8 +4,9 @@
 // and every request to that host lands in FakeSupabase.handle. Tables live in
 // memory and mirror the real schema: the columns each table has, its primary
 // key, the grants (which columns a cook may update, whether rows can be
-// deleted) and own-rows RLS. A request this file does not understand is
-// answered with a 501 and recorded, and the test fails on it.
+// deleted), own-rows RLS, and the functions the migrations define. A request
+// this file does not understand is answered with a 501 and recorded, and the
+// test fails on it.
 
 import type { Page, Request, Route } from '@playwright/test'
 
@@ -23,7 +24,8 @@ type Rating = 1 | 2 | 3
 interface TableSpec {
   readonly columns: readonly string[]
   readonly key: readonly string[]
-  readonly defaults: () => Row
+  /** Column defaults. `now` is a timestamp that increases with every row written. */
+  readonly defaults: (now: string) => Row
   /** Columns a cook may update, as granted in the migrations. Empty = no update grant. */
   readonly updatable: readonly string[]
   readonly deletable: boolean
@@ -31,19 +33,24 @@ interface TableSpec {
   readonly check: (row: Row) => string | null
 }
 
+const PASSES = () => null
+
+// One entry per table in supabase/migrations, kept in step with them.
 const TABLES: Record<string, TableSpec> = {
+  // 00001, with update and delete from 00004
   cook_logs: {
     columns: ['id', 'user_id', 'recipe_id', 'cooked_on', 'rating', 'notes', 'created_at'],
     key: ['id'],
-    defaults: () => ({ id: crypto.randomUUID(), notes: '' }),
-    updatable: [],
-    deletable: false,
+    defaults: (now) => ({ id: crypto.randomUUID(), notes: '', created_at: now }),
+    updatable: ['cooked_on', 'rating', 'notes'],
+    deletable: true,
     check: (row) => (row.rating === 1 || row.rating === 2 || row.rating === 3 ? null : 'rating must be 1 to 3'),
   },
+  // 00002 and 00003
   chefs: {
     columns: ['user_id', 'name', 'skin', 'hair', 'created_at'],
     key: ['user_id'],
-    defaults: () => ({ skin: 1, hair: 1 }),
+    defaults: (now) => ({ skin: 1, hair: 1, created_at: now }),
     updatable: ['name', 'skin', 'hair'],
     deletable: false,
     check: (row) => {
@@ -53,6 +60,48 @@ const TABLES: Record<string, TableSpec> = {
       }
       return null
     },
+  },
+  // 00004
+  plan_items: {
+    columns: ['user_id', 'recipe_id', 'added_at'],
+    key: ['user_id', 'recipe_id'],
+    defaults: (now) => ({ added_at: now }),
+    updatable: [],
+    deletable: true,
+    check: PASSES,
+  },
+  pantry_items: {
+    columns: ['user_id', 'ingredient_id'],
+    key: ['user_id', 'ingredient_id'],
+    defaults: () => ({}),
+    updatable: [],
+    deletable: true,
+    check: PASSES,
+  },
+  grocery_checks: {
+    columns: ['user_id', 'ingredient_id'],
+    key: ['user_id', 'ingredient_id'],
+    defaults: () => ({}),
+    updatable: [],
+    deletable: true,
+    check: PASSES,
+  },
+  price_overrides: {
+    columns: ['user_id', 'ingredient_id', 'price_cents'],
+    key: ['user_id', 'ingredient_id'],
+    defaults: () => ({}),
+    updatable: ['ingredient_id', 'price_cents'],
+    deletable: true,
+    check: (row) =>
+      Number.isInteger(row.price_cents) && Number(row.price_cents) > 0 ? null : 'price_cents must be above zero',
+  },
+  kit_items: {
+    columns: ['user_id', 'equipment_id'],
+    key: ['user_id', 'equipment_id'],
+    defaults: () => ({}),
+    updatable: [],
+    deletable: true,
+    check: PASSES,
   },
 }
 
@@ -69,6 +118,16 @@ export interface Seed {
   /** null = the account has not created a chef yet. */
   readonly chef?: { readonly name: string; readonly skin: number; readonly hair: number } | null
   readonly logs?: readonly SeedLog[]
+  /** Recipe ids added to this week. */
+  readonly plan?: readonly string[]
+  /** Ingredient ids. */
+  readonly pantry?: readonly string[]
+  /** Ingredient ids already in the cart. */
+  readonly checks?: readonly string[]
+  /** Package prices the cook corrected, by ingredient id. */
+  readonly prices?: Readonly<Record<string, number>>
+  /** Equipment ids the cook owns. */
+  readonly kit?: readonly string[]
 }
 
 interface Account {
@@ -111,17 +170,25 @@ export class FakeSupabase {
   }
 
   async load(page: Page, seed: Seed) {
+    const user_id = this.userId
     const chef = seed.chef === undefined ? { name: 'Remy', skin: 1, hair: 1 } : seed.chef
-    if (chef !== null) this.insertRow('chefs', { ...chef, user_id: this.userId })
+    if (chef !== null) this.insertRow('chefs', { ...chef, user_id })
     for (const log of seed.logs ?? []) {
       this.insertRow('cook_logs', {
-        user_id: this.userId,
+        user_id,
         recipe_id: log.recipe,
         rating: log.rating,
         cooked_on: log.cookedOn ?? '2026-10-01',
         notes: log.notes ?? '',
       })
     }
+    for (const recipe_id of seed.plan ?? []) this.insertRow('plan_items', { user_id, recipe_id })
+    for (const ingredient_id of seed.pantry ?? []) this.insertRow('pantry_items', { user_id, ingredient_id })
+    for (const ingredient_id of seed.checks ?? []) this.insertRow('grocery_checks', { user_id, ingredient_id })
+    for (const [ingredient_id, price_cents] of Object.entries(seed.prices ?? {})) {
+      this.insertRow('price_overrides', { user_id, ingredient_id, price_cents })
+    }
+    for (const equipment_id of seed.kit ?? []) this.insertRow('kit_items', { user_id, equipment_id })
     if (seed.signedIn === false) return
     // Store the session once per tab, as supabase-js would after a sign-in.
     // A reload keeps whatever the app has done to it since (a sign-out stays signed out).
@@ -217,19 +284,22 @@ export class FakeSupabase {
   // ── PostgREST ──
 
   private async rest(route: Route, request: Request, url: URL) {
+    // A table name, or rpc/<function>.
     const name = url.pathname.slice('/rest/v1/'.length)
-    const spec = TABLES[name]
     const method = request.method()
-    if (spec === undefined) {
-      return json(route, request, 404, { code: '42P01', message: `relation "public.${name}" does not exist` })
-    }
     const userId = this.userFrom(request)
-    if (userId === null) return json(route, request, 401, { code: '42501', message: `permission denied for table ${name}` })
+    if (userId === null) return json(route, request, 401, { code: '42501', message: `permission denied for ${name}` })
 
     const failure = this.failures.find((candidate) => candidate.table === name && candidate.method === method)
     if (failure !== undefined) {
       this.failures.splice(this.failures.indexOf(failure), 1)
       return json(route, request, 500, { code: 'XX000', message: failure.message })
+    }
+
+    if (name.startsWith('rpc/')) return this.rpc(route, request, name.slice('rpc/'.length), userId)
+    const spec = TABLES[name]
+    if (spec === undefined) {
+      return json(route, request, 404, { code: '42P01', message: `relation "public.${name}" does not exist` })
     }
 
     const prefer = request.headers().prefer ?? ''
@@ -277,11 +347,16 @@ export class FakeSupabase {
       for (const values of incoming) {
         for (const column of Object.keys(values)) {
           if (!spec.columns.includes(column)) return unknownColumn(route, request, name, column)
+          // An upsert sets every column it was sent, so each needs the update grant,
+          // whether or not the row exists yet. Postgres checks it before running.
+          if (merge && !spec.updatable.includes(column)) {
+            return json(route, request, 403, { code: '42501', message: `permission denied for table ${name}` })
+          }
         }
         if ('user_id' in values && values.user_id !== userId) {
           return json(route, request, 403, { code: '42501', message: `new row violates row-level security policy for table "${name}"` })
         }
-        const candidate: Row = { ...spec.defaults(), ...values, user_id: userId }
+        const candidate = this.newRow(name, { ...values, user_id: userId })
         const existing = table.find((row) => spec.key.every((column) => row[column] === candidate[column]))
         if (existing !== undefined) {
           if (ignore) continue
@@ -296,7 +371,8 @@ export class FakeSupabase {
         }
         const problem = spec.check(candidate)
         if (problem !== null) return json(route, request, 400, { code: '23514', message: problem })
-        written.push(this.insertRow(name, candidate))
+        table.push(candidate)
+        written.push(candidate)
       }
       if (!prefer.includes('return=representation')) return route.fulfill({ status: 201, headers: corsHeaders(request) })
       return respond(written, 201)
@@ -332,17 +408,49 @@ export class FakeSupabase {
     return this.reject(route, `${method} ${url.pathname}`)
   }
 
-  private insertRow(name: string, values: Row): Row {
+  // ── Functions (rpc/<name>), as written in the migrations ──
+
+  private rpc(route: Route, request: Request, fn: string, userId: string) {
+    if (request.method() !== 'POST') return this.reject(route, `${request.method()} rpc/${fn}`)
+    const args = request.postDataJSON() as Record<string, unknown>
+
+    if (fn === 'finish_shopping') {
+      const staples = args.bought_staples
+      if (Object.keys(args).join() !== 'bought_staples' || !Array.isArray(staples) || !staples.every((id) => typeof id === 'string')) {
+        return json(route, request, 404, {
+          code: 'PGRST202',
+          message: `Could not find the function public.finish_shopping(${Object.keys(args).join(', ')})`,
+        })
+      }
+      // 00004: stock the pantry with the bought staples, then clear the checks and the plan.
+      for (const ingredient_id of new Set(staples)) {
+        const stocked = this.table('pantry_items').some((row) => row.user_id === userId && row.ingredient_id === ingredient_id)
+        if (!stocked) this.insertRow('pantry_items', { user_id: userId, ingredient_id })
+      }
+      this.rows.grocery_checks = this.table('grocery_checks').filter((row) => row.user_id !== userId)
+      this.rows.plan_items = this.table('plan_items').filter((row) => row.user_id !== userId)
+      // A function returning void answers 204.
+      return route.fulfill({ status: 204, headers: corsHeaders(request) })
+    }
+
+    return this.reject(route, `POST rpc/${fn}`)
+  }
+
+  /** A row with the table's defaults filled in, not yet stored. */
+  private newRow(name: string, values: Row): Row {
     const spec = TABLES[name]
-    const table = this.rows[name]
-    if (spec === undefined || table === undefined) throw new Error(`The fake has no table ${name}`)
+    if (spec === undefined) throw new Error(`The fake has no table ${name}`)
     // Strictly increasing, so order=created_at is the order rows were written.
     this.clock += 1000
-    const row = { ...spec.defaults(), created_at: new Date(this.clock).toISOString(), ...values }
-    const problem = spec.check(row)
+    return { ...spec.defaults(new Date(this.clock).toISOString()), ...values }
+  }
+
+  /** Stores a seed row, which must pass the table's checks. */
+  private insertRow(name: string, values: Row) {
+    const row = this.newRow(name, values)
+    const problem = TABLES[name]?.check(row) ?? null
     if (problem !== null) throw new Error(`Seed row for ${name} fails its check: ${problem}`)
-    table.push(row)
-    return row
+    this.rows[name]?.push(row)
   }
 
   private reject(route: Route, what: string) {
