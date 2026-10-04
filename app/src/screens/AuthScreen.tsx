@@ -5,22 +5,25 @@ export function AuthScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  // "Confirm email" is on for the live project: a new account waits for its link.
+  const [confirmationSent, setConfirmationSent] = useState(false)
 
   async function signIn(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    setConfirmationSent(false)
+    const { error: failure } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false)
-    setMessage(error ? error.message : null)
+    setError(failure ? failure.message : null)
   }
 
   async function createAccount() {
     setBusy(true)
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error: failure } = await supabase.auth.signUp({ email, password })
     setBusy(false)
-    if (error) setMessage(error.message)
-    else if (data.session === null) setMessage('Check your email to confirm the account, then sign in.')
+    setError(failure ? failure.message : null)
+    setConfirmationSent(failure === null && data.session === null)
   }
 
   return (
@@ -49,9 +52,14 @@ export function AuthScreen() {
             onChange={(event) => setPassword(event.target.value)}
           />
         </label>
-        {message !== null && (
+        {error !== null && (
           <p className="notice notice-error" role="alert">
-            {message}
+            {error}
+          </p>
+        )}
+        {confirmationSent && (
+          <p className="notice" role="status">
+            Check your email to confirm the account, then sign in.
           </p>
         )}
         <button className="button" type="submit" disabled={busy}>

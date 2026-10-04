@@ -40,6 +40,17 @@ test.describe('signing in and creating a chef', () => {
     await expect(page.getByRole('heading', { name: 'Create your chef' })).toBeVisible()
   })
 
+  test('with email confirmation on, as on the live site, sign-up says to check email', async ({ page, kitchen }) => {
+    await kitchen.open('./', { signedIn: false, confirmEmail: true })
+    await page.getByLabel('Email').fill('new-cook@example.test')
+    await page.getByLabel('Password').fill('a long enough password')
+    await page.getByRole('button', { name: 'Create account' }).click()
+    // Good news, so a plain notice, not an error.
+    await expect(page.getByRole('status')).toHaveText('Check your email to confirm the account, then sign in.')
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
+  })
+
   test('signs out and stays signed out after a reload', async ({ page, kitchen }) => {
     await kitchen.open('./')
     await page.getByRole('button', { name: 'Sign out' }).click()

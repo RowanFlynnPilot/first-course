@@ -466,8 +466,18 @@ build; a failed run keeps its traces as an artifact.
 - **Grocery prices are estimates** for a midwestern supermarket, October
   2026, until the cook corrects one on the grocery list. A corrected price
   replaces the estimate everywhere, past cooks' kept totals included.
-- **Email confirmation** is off for development (see README). Turn it on
-  before anyone else signs up.
+- **Email confirmation is on for the live project** (October 4, 2026), and
+  its Site URL is the Pages URL. Sign-up returns no session until the email
+  link is clicked; the sign-in screen says "Check your email" as a plain
+  notice. The e2e fake does this with `confirmEmail: true` in the seed and
+  otherwise behaves like development (confirmation off).
+- **Never `npx supabase config push` the repo's `config.toml`.** It holds
+  local-development values (site URL `127.0.0.1`, confirmation off, MFA off)
+  and pushing it would reset ten live settings. To change one live setting,
+  push a throwaway `config.toml` that declares only that setting (undeclared
+  settings are left alone), after `npx supabase config diff --workdir
+  <folder> --project-ref yqqxhsacxnvybffrittz` shows that it is the only
+  update. That is how confirmation was turned on.
 - **Run `git status` after committing a new folder.** An unanchored
   `.gitignore` entry (`screens`, meant for the screenshot folder) once hid
   `src/screens/` and broke the CI build. The Playwright entries in
@@ -538,7 +548,7 @@ precisely" and "Design").
 
 As of October 4, 2026: Phases 1 to 3 are built and deployed, the First,
 Second and Third courses are written (18 of 31 recipes), all four migrations
-are on the live project, and every push runs 76 unit tests and 58 e2e tests
+are on the live project, and every push runs 76 unit tests and 59 e2e tests
 before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:

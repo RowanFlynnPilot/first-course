@@ -55,11 +55,19 @@ a cook touches only their own rows:
 If earlier migrations are already pushed, the same command applies only the
 new ones. `npx supabase db push --dry-run` shows which first.
 
-**3. Auth setting (dev convenience)**
+**3. Auth settings**
 
-Dashboard → Authentication → Sign In / Up → Email → turn **off** "Confirm
-email" while developing, so "Create account" signs you straight in. Turn it
-back on before anyone else uses the app.
+"Confirm email" is **on** for the live project (since October 4, 2026), and
+its Site URL is the Pages URL, so a new account gets a link that lands on the
+app. "Create account" then says to check your email. For a brand-new
+project, set both in Dashboard → Authentication.
+
+Never run `npx supabase config push` with the repo's `supabase/config.toml`:
+it holds local-development values (a `127.0.0.1` site URL, confirmation off,
+MFA off) and would push them all to the live project. To change one live
+setting from the CLI, push a throwaway `config.toml` that declares only that
+setting (undeclared settings are left alone), after previewing it with
+`npx supabase config diff --workdir <folder> --project-ref <ref>`.
 
 **4. Frontend env**
 
@@ -102,7 +110,7 @@ The deploy workflow runs these, and nothing deploys unless all pass:
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 58 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 59 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, and creating and changing the chef
   - cooking and logging, the after-cook notice and what unlocks, and Back
@@ -161,6 +169,5 @@ boundary, which is why plain repo variables are fine.
 
 Live at `https://rowanflynnpilot.github.io/first-course/`.
 
-Before sharing the URL with anyone: turn "Confirm email" back on, and set
-Authentication → URL Configuration → Site URL to the Pages URL so
-confirmation links land in the right place.
+Email confirmation is on and the Site URL is the Pages URL, so the live site
+is ready for other people to sign up.

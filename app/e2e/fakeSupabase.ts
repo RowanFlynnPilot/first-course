@@ -115,6 +115,11 @@ export interface SeedLog {
 export interface Seed {
   /** Start with a stored session, as if the cook signed in earlier. Default true. */
   readonly signedIn?: boolean
+  /**
+   * "Confirm email" on, as on the live project since October 4, 2026: sign-up
+   * returns the new user without a session. Default false, as in development.
+   */
+  readonly confirmEmail?: boolean
   /** null = the account has not created a chef yet. */
   readonly chef?: { readonly name: string; readonly skin: number; readonly hair: number } | null
   readonly logs?: readonly SeedLog[]
@@ -150,6 +155,7 @@ export class FakeSupabase {
   private readonly rows: Record<string, Row[]> = Object.fromEntries(Object.keys(TABLES).map((name) => [name, []]))
   private readonly failures: { table: string; method: string; message: string }[] = []
   private clock = Date.parse('2026-10-01T12:00:00Z')
+  private confirmEmail = false
 
   get userId(): string {
     const account = this.accounts[0]
@@ -170,6 +176,7 @@ export class FakeSupabase {
   }
 
   async load(page: Page, seed: Seed) {
+    this.confirmEmail = seed.confirmEmail ?? false
     const user_id = this.userId
     const chef = seed.chef === undefined ? { name: 'Remy', skin: 1, hair: 1 } : seed.chef
     if (chef !== null) this.insertRow('chefs', { ...chef, user_id })
@@ -266,7 +273,12 @@ export class FakeSupabase {
       }
       const account = { id: crypto.randomUUID(), email, password }
       this.accounts.push(account)
-      // "Confirm email" is off in development, so sign-up returns a session.
+      if (this.confirmEmail) {
+        // The new user, unconfirmed and with no session, until the email link is clicked.
+        const { user } = this.session(account.id)
+        return json(route, request, 200, { ...user, confirmation_sent_at: '2026-10-04T12:00:00Z' })
+      }
+      // "Confirm email" off, as in development: sign-up returns a session.
       return json(route, request, 200, this.session(account.id))
     }
     if (method === 'POST' && path === '/logout') {

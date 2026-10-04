@@ -26,6 +26,15 @@ test('sign in', async ({ page, kitchen }) => {
   await shoot(page, 'auth')
 })
 
+test('sign-up with email confirmation on', async ({ page, kitchen }) => {
+  await kitchen.open('./', { signedIn: false, confirmEmail: true })
+  await page.getByLabel('Email').fill('new-cook@example.test')
+  await page.getByLabel('Password').fill('a long enough password')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await page.getByRole('status').waitFor()
+  await shoot(page, 'auth-confirm')
+})
+
 test('create your chef', async ({ page, kitchen }) => {
   await kitchen.open('./', { chef: null })
   await page.getByLabel('Chef’s name').fill('Remy')
