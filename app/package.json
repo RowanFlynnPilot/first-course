@@ -10,6 +10,7 @@
     "lint": "oxlint --deny-warnings",
     "e2e": "playwright test --project phone",
     "screens": "playwright test --project screens",
+    "icons": "node scripts/icons.ts",
     "preview": "vite preview"
   },
   "dependencies": {

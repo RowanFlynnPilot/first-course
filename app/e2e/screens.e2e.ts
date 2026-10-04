@@ -106,6 +106,15 @@ test('change a cook', async ({ page, kitchen }) => {
   await shoot(page, 'edit-cook')
 })
 
+test('cook mode after a reload with a timer running', async ({ page, kitchen }) => {
+  await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
+  await page.getByRole('button', { name: /Start .* timer/ }).click()
+  await page.goto('#/cook/sheet-pan-sausage/4')
+  await page.reload()
+  await page.getByText('The page reloaded.').waitFor()
+  await shoot(page, 'cook-reloaded')
+})
+
 test('log', async ({ page, kitchen }) => {
   await kitchen.open('#/cook/chopped-salad/log')
   await shoot(page, 'log')

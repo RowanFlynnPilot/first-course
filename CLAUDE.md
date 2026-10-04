@@ -325,6 +325,8 @@ cd C:\Users\rpfly\Projects\first-course\app; npm install
 npm run dev
 npm test; npm run lint; npm run build; npm run e2e
 npm run screens                # every screen at 390x844, into app/screens/ (gitignored)
+npm run icons                  # redraw the home-screen icons into public/
+                               # lint fails on warnings (--deny-warnings)
 npx playwright install chromium   # once, before the first e2e run
 ```
 
@@ -349,12 +351,26 @@ build; a failed run keeps its traces as an artifact.
   screen awake here." It works on the deployed site and on localhost.
 - **The timer chime is Web Audio**, created on the tap that starts a timer.
   Not yet verified on an iPhone with the ring switch off; it may be silent.
-- **Timers live in `CookScreen` state**, keyed by step. They survive moving
-  between steps and die when you leave cook mode or reload. "Leave cook mode"
-  asks first if a timer is running, and every step has an "Ingredients and
-  amounts" panel so there is no reason to leave. A phone that reloads a
-  backgrounded tab will still lose them; if that bites, persist the end
-  times in `sessionStorage`.
+- **Timers are end times in `sessionStorage`** (`lib/timers.ts`), one entry
+  per recipe, keyed by step, each `{ endsAt, rang }`. They survive moving
+  between steps, a reload, and a phone discarding a backgrounded tab.
+  `components/useCookTimers.ts` plays every chime from one check that runs on
+  a quarter-second tick and again on `visibilitychange`, so a timer that ran
+  out while the phone was locked chimes when the cook looks again. Sound
+  needs a tap on the page first: starting a timer is one, and after a reload
+  cook mode says "Tap anywhere so your timers can chime"; a timer that runs
+  out before that tap chimes at the tap. A timer finished more than 30
+  minutes ago is dropped (`STALE_AFTER_MS`). "Leave cook mode" (which asks
+  first if one is running) and saving the cook both clear the recipe's
+  timers.
+- **Install to the home screen.** `public/manifest.webmanifest` (standalone,
+  start and scope `./`, so it opens at the menu under `/first-course/`), the
+  plate as `icon-192.png`, `icon-512.png` (also maskable: the plate sits in
+  the middle 80%) and `apple-touch-icon.png`, drawn by `npm run icons`
+  (`scripts/icons.ts`, using Playwright's Chromium; the PNGs are committed).
+  There is no service worker: the app needs the network for Supabase anyway,
+  and a cache would serve stale deploys. Standalone mode has no browser Back
+  button, so every screen keeps its own way back to the menu.
 - **The after-cook notice is app state**, held in `App.tsx`, shown on the
   menu once and cleared when you leave the menu. It is not in the URL or
   history. The log form navigates with `replace`, so Back from the menu can
@@ -450,7 +466,7 @@ Behavior:
   needs it; the menu says how many things each course still needs; recipe
   pages and step 0 of cook mode mark "Not in your kit yet"; the shop screen
   lists what the week's plan still needs.
-- **Install to home screen.** Web manifest and icons: see Phase 3.
+- **Install to home screen.** Built: see "Install to the home screen" above.
 
 ## Later, unscheduled
 

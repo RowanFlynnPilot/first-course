@@ -1,25 +1,15 @@
 // Cook mode: one step per screen, sized to be read from across the counter.
 // The step lives in the URL, so the back button and a reload both behave.
 
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
+import { useCookTimers } from '../components/useCookTimers'
 import type { EquipmentId } from '../curriculum/equipment'
 import { formatClock } from '../lib/format'
 import { cookable, type CookLog } from '../lib/progress'
-
-function ring(audio: AudioContext) {
-  for (const offset of [0, 0.4, 0.8]) {
-    const oscillator = audio.createOscillator()
-    const gain = audio.createGain()
-    oscillator.frequency.value = 880
-    gain.gain.value = 0.25
-    oscillator.connect(gain).connect(audio.destination)
-    oscillator.start(audio.currentTime + offset)
-    oscillator.stop(audio.currentTime + offset + 0.25)
-  }
-}
+import { clearTimers } from '../lib/timers'
 
 export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: ReadonlySet<EquipmentId> }) {
   const params = useParams()
@@ -32,57 +22,24 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
   if (!Number.isInteger(step) || step < 0 || step > last) throw new Error(`${recipe.title} has no step ${params.step}`)
 
   // Timers belong to the whole cook, not to one step, so a timer started on
-  // step 3 keeps running while you read step 4. Keyed by step number.
-  const [endsAt, setEndsAt] = useState<Readonly<Record<number, number>>>({})
-  const [now, setNow] = useState(() => Date.now())
-  const timeouts = useRef<Record<number, number>>({})
-  const audio = useRef<AudioContext | null>(null)
-
-  useEffect(() => {
-    const tick = window.setInterval(() => setNow(Date.now()), 250)
-    const pending = timeouts.current
-    return () => {
-      window.clearInterval(tick)
-      for (const timeout of Object.values(pending)) window.clearTimeout(timeout)
-    }
-  }, [])
-
+  // step 3 keeps running while you read step 4, and through a reload.
+  const timers = useCookTimers(recipe.id)
   const screenStaysOn = useWakeLock()
+  const elsewhere = timers.steps.filter((other) => other !== step)
 
-  function startTimer(forStep: number, seconds: number) {
-    // Created on a tap, which is what lets a phone play the chime later.
-    audio.current ??= new AudioContext()
-    const context = audio.current
-    // A phone suspends audio when the page loses focus; wake it before the chime.
-    timeouts.current[forStep] = window.setTimeout(() => void context.resume().then(() => ring(context)), seconds * 1000)
-    setEndsAt((previous) => ({ ...previous, [forStep]: Date.now() + seconds * 1000 }))
-  }
-
-  function clearTimer(forStep: number) {
-    window.clearTimeout(timeouts.current[forStep])
-    delete timeouts.current[forStep]
-    setEndsAt((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => Number(key) !== forStep)))
-  }
-
-  const secondsLeft = (forStep: number): number | null => {
-    const end = endsAt[forStep]
-    return end === undefined ? null : Math.max(0, Math.ceil((end - now) / 1000))
-  }
-
-  const elsewhere = Object.keys(endsAt)
-    .map(Number)
-    .filter((other) => other !== step)
-
-  // Leaving cook mode unmounts this screen and its timers with it.
+  // Leaving cook mode stops every timer for this recipe.
   function confirmLeave(event: MouseEvent) {
-    const running = Object.keys(endsAt).some((key) => (secondsLeft(Number(key)) ?? 0) > 0)
-    if (running && !window.confirm('A timer is still running. Leaving cook mode stops it.')) event.preventDefault()
+    if (timers.running && !window.confirm('A timer is still running. Leaving cook mode stops it.')) {
+      event.preventDefault()
+      return
+    }
+    clearTimers(sessionStorage, recipe.id)
   }
 
   const current = step === 0 ? null : content.steps[step - 1]
   if (current === undefined) throw new Error(`${recipe.title} has no step ${step}`)
   const timerSeconds = current === null ? null : current.timerSeconds
-  const left = secondsLeft(step)
+  const left = timers.secondsLeft(step)
 
   return (
     <main className="page cook">
@@ -96,10 +53,16 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
         <progress className="cook-progress" value={step} max={last} aria-label="Progress through the recipe" />
       </header>
 
+      {timers.needsTap && (
+        <p className="notice timer-sound" role="status">
+          The page reloaded. Tap anywhere so your timers can chime.
+        </p>
+      )}
+
       {elsewhere.length > 0 && (
         <ul className="timer-strip">
           {elsewhere.map((other) => {
-            const remaining = secondsLeft(other)
+            const remaining = timers.secondsLeft(other)
             return (
               <li key={other}>
                 <Link className={remaining === 0 ? 'timer-chip timer-chip-done' : 'timer-chip'} to={`/cook/${recipe.id}/${other}`}>
@@ -110,7 +73,6 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
           })}
         </ul>
       )}
-
       {current === null ? (
         <section className="cook-body">
           <h1 className="cook-text">Get everything out before you turn anything on.</h1>
@@ -130,7 +92,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
           {timerSeconds !== null && (
             <div className="timer" role="timer" aria-live="off">
               {left === null ? (
-                <button className="button button-quiet" type="button" onClick={() => startTimer(step, timerSeconds)}>
+                <button className="button button-quiet" type="button" onClick={() => timers.start(step, timerSeconds)}>
                   Start {formatClock(timerSeconds)} timer
                 </button>
               ) : (
@@ -138,7 +100,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
                   <p className={left === 0 ? 'timer-clock timer-clock-done' : 'timer-clock'}>
                     {left === 0 ? 'Time is up' : formatClock(left)}
                   </p>
-                  <button className="link-button" type="button" onClick={() => clearTimer(step)}>
+                  <button className="link-button" type="button" onClick={() => timers.reset(step)}>
                     Reset timer
                   </button>
                 </>

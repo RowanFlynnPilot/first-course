@@ -6,6 +6,7 @@ import { insertCookLog } from '../lib/cookLogs'
 import type { Prices } from '../lib/cost'
 import { cookNotice, type CookNotice } from '../lib/notice'
 import { cookable, type CookLog, type Rating } from '../lib/progress'
+import { clearTimers } from '../lib/timers'
 
 export function LogScreen({
   chef,
@@ -34,6 +35,8 @@ export function LogScreen({
     setBusy(true)
     try {
       const log = await insertCookLog({ recipeId: recipe.id, rating, notes: notes.trim() })
+      // The cook is over: its timers are done.
+      clearTimers(sessionStorage, recipe.id)
       onLogged(log, cookNotice(recipe, logs, log, chef.name, prices))
       // Replace, so Back from the menu cannot land on this form and log twice.
       navigate('/', { replace: true })
