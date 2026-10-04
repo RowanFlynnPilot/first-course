@@ -25,7 +25,7 @@ dist-ssr
 *.sw?
 
 # Playwright
-dist-e2e
-test-results
-playwright-report
-screens
+/dist-e2e
+/test-results
+/playwright-report
+/screens
