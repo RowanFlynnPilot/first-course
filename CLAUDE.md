@@ -107,7 +107,7 @@ app/
       techniques.ts            28 skills, 6 disciplines -> TechniqueId
       ingredients.ts           priced ingredients   -> IngredientId
       types.ts                 Recipe, RecipeContent, Step, Pairing
-      recipes.ts               31 recipes, RECIPES, recipeById
+      recipes.ts               31 recipes (18 written), RECIPES, recipeById
       curriculum.test.ts       graph rules the types cannot express
     lib/
       progress.ts              the rules: learned, state, mastery, next, cookable
@@ -140,13 +140,14 @@ orders. Tier 5 has seven dishes: double smash burger, crispy chicken sandwich,
 margherita pizza, ragù bolognese, pad thai, General Tso's chicken, chicken
 tikka masala.
 
-**Written so far: First course only (6 recipes).** Tiers 2 to 5 are on the
-menu with titles, blurbs, skills and prerequisites, and `content: null`. The
-UI shows them as locked rows; a recipe page with `content: null` says it is
-not written yet.
+**Written so far: the First, Second and Third courses (18 recipes).** The
+Fourth course and the usual are on the menu with titles, blurbs, skills and
+prerequisites, and `content: null`. The UI shows them as locked rows; a
+recipe page with `content: null` says it is not written yet.
 
-Write the next course when the current one is about half cooked. That is
-deliberate: how the first six go should shape how the next six are written.
+The Second and Third courses were written together on October 4, 2026, ahead
+of the usual pace, at Rowan's request. Write the Fourth course when the Third
+is about half cooked: how these go should shape how the next six are written.
 
 ### Writing a recipe
 
@@ -165,6 +166,17 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   and a price estimate. Quantities must print: `formatQty` supports wholes,
   eighths, quarters, halves and three-quarters, and throws on anything else.
 - Salt quantities assume Morton coarse kosher salt.
+- When one ingredient is used in several steps, say which part each step
+  uses ("½ teaspoon of the salt", "the remaining 2 tablespoons") and put the
+  split in the `prep` note, so the amounts add up to the list.
+- Raw meat carries `safeTempF` in `ingredients.ts` (chicken 165, ground beef
+  160). A recipe using it must list `Instant-read thermometer`, say "at least
+  N°F" where the cook checks, say "wash your hands", and clean what the raw
+  meat touched in "hot, soapy water"; `curriculum.test.ts` checks all four.
+  Cut vegetables before raw meat, never rinse chicken, keep a raw plate and a
+  cooked plate, wash tongs after they touch raw meat, and never pour fat
+  down the sink.
+- A sauce with a raw egg yolk uses `pasteurized-eggs`, and says why.
 - `delivery.menuPriceCents` is the in-app menu price of one serving of the
   nearest thing you would order.
 - `pairing.principle` is a general rule ("Match acid with acid"), so the

@@ -58,6 +58,13 @@ test('cook mode', async ({ page, kitchen }) => {
   await shoot(page, 'cook-strip')
 })
 
+test('third course: recipe page and its longest step', async ({ page, kitchen }) => {
+  await kitchen.open('#/recipe/chicken-pan-sauce', { logs: [{ recipe: 'seared-chicken-thighs', rating: 2 }] })
+  await shoot(page, 'recipe-pan-sauce')
+  await page.goto('#/cook/chicken-pan-sauce/4')
+  await shoot(page, 'cook-long-step')
+})
+
 test('log', async ({ page, kitchen }) => {
   await kitchen.open('#/cook/chopped-salad/log')
   await shoot(page, 'log')

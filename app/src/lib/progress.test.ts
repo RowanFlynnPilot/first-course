@@ -41,7 +41,8 @@ describe('progress', () => {
   it('refuses to cook or log a locked or unwritten recipe', () => {
     expect(cookable('chopped-salad', []).recipe.id).toBe('chopped-salad')
     expect(() => cookable('grilled-cheese', [])).toThrow('still locked')
-    expect(() => cookable('marinara-pasta', [])).toThrow('not written yet')
+    expect(() => cookable('marinara-pasta', [])).toThrow('still locked')
+    expect(() => cookable('carbonara', [])).toThrow('not written yet')
   })
 
   it('masters a recipe after three good cooks including one nailed', () => {

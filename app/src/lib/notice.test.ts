@@ -35,10 +35,16 @@ describe('the after-cook notice', () => {
     expect(notice.lines[1]).toBe('Remy is promoted to prep cook.')
   })
 
-  it('does not call an unwritten recipe ready to cook', () => {
+  it('names what a good cook opened up', () => {
     const before = [log('chopped-salad', 2), log('soft-scrambled-eggs', 2)]
     const notice = cookNotice(recipeById('aglio-e-olio'), before, log('aglio-e-olio', 2), 'Remy')
-    expect(notice.lines).toContain('Unlocked, but not written yet: Pasta with quick marinara and Pasta al limone.')
+    expect(notice.lines).toContain('Now ready to cook: Pasta with quick marinara and Pasta al limone.')
+  })
+
+  it('does not call an unwritten recipe ready to cook', () => {
+    const before = [log('chopped-salad', 2), log('soft-scrambled-eggs', 2), log('aglio-e-olio', 2)]
+    const notice = cookNotice(recipeById('pasta-al-limone'), before, log('pasta-al-limone', 2), 'Remy')
+    expect(notice.lines).toContain('Unlocked, but not written yet: Spaghetti carbonara.')
     expect(notice.lines.some((line) => line.startsWith('Now ready to cook'))).toBe(false)
   })
 

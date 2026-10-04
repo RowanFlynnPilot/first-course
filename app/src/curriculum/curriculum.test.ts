@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { cookCostPerServingCents, orderCostPerServingCents } from '../lib/cost'
 import { formatAmount } from '../lib/format'
-import { INGREDIENTS } from './ingredients'
+import { INGREDIENTS, type Ingredient } from './ingredients'
 import { RECIPES } from './recipes'
 import { TECHNIQUES, type TechniqueId } from './techniques'
 
@@ -92,6 +92,27 @@ describe('written recipes', () => {
       for (const step of content.steps) {
         if (step.timerSeconds !== null) expect(step.timerSeconds, id).toBeGreaterThan(0)
       }
+    }
+  })
+
+  it('never say "until done": every doneness cue is something you can see, smell, hear or measure', () => {
+    for (const { id, content } of written) {
+      for (const step of content.steps) expect(step.text, id).not.toMatch(/until (it is |they are )?done/i)
+    }
+  })
+
+  it('handle raw meat safely: the thermometer, the safe temperature, and clean hands', () => {
+    for (const { id, content } of written) {
+      const temperatures = content.ingredients.flatMap(({ ingredientId }) => {
+        const ingredient: Ingredient = INGREDIENTS[ingredientId]
+        return ingredient.safeTempF === undefined ? [] : [ingredient.safeTempF]
+      })
+      if (temperatures.length === 0) continue
+      const text = content.steps.map((step) => step.text).join(' ')
+      expect(content.equipment, id).toContain('Instant-read thermometer')
+      for (const temperature of temperatures) expect(text, id).toContain(`at least ${temperature}°F`)
+      expect(text, id).toMatch(/wash your hands/i)
+      expect(text, id).toMatch(/hot, soapy water/)
     }
   })
 
