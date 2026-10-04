@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
-    "lint": "oxlint",
+    "lint": "oxlint --deny-warnings",
     "e2e": "playwright test --project phone",
     "screens": "playwright test --project screens",
     "preview": "vite preview"

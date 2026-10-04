@@ -42,6 +42,8 @@ export function EditCookScreen({
   const [rating, setRating] = useState<Rating>(log.rating)
   const [notes, setNotes] = useState(log.notes)
   const [cookedOn, setCookedOn] = useState(log.cookedOn)
+  // A cook cannot be dated in the future. Read the clock once, not on every render.
+  const [today] = useState(() => localDateString(new Date()))
   const save = useWrite()
   const remove = useWrite()
 
@@ -88,7 +90,7 @@ export function EditCookScreen({
           <input
             type="date"
             required
-            max={localDateString(new Date())}
+            max={today}
             value={cookedOn}
             onChange={(event) => setCookedOn(event.target.value)}
           />
