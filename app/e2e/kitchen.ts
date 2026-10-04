@@ -88,5 +88,5 @@ export async function rateAndSave(page: Page, rating: 'Rough' | 'Decent' | 'Nail
 
 /** The lines of the after-cook notice on the menu. */
 export function noticeLines(page: Page) {
-  return page.getByRole('status').getByRole('listitem')
+  return page.getByRole('status').locator('.notice-lines > li')
 }

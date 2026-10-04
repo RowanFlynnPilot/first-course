@@ -45,13 +45,14 @@ export function levelFraction(xp: number): number {
 }
 
 // The kitchen brigade, bottom to top. Rank comes from level alone.
+// `costume` is what the promotion moment says changed (see chefSprites.ts).
 export const RANKS = [
-  { name: 'Dishwasher', fromLevel: 1 },
-  { name: 'Prep cook', fromLevel: 3 },
-  { name: 'Line cook', fromLevel: 6 },
-  { name: 'Sous chef', fromLevel: 10 },
-  { name: 'Head chef', fromLevel: 14 },
-  { name: 'Executive chef', fromLevel: 18 },
+  { name: 'Dishwasher', fromLevel: 1, costume: 'A bandana and yellow rubber gloves.' },
+  { name: 'Prep cook', fromLevel: 3, costume: 'A skull cap and a cobalt apron.' },
+  { name: 'Line cook', fromLevel: 6, costume: 'A white jacket and a first toque.' },
+  { name: 'Sous chef', fromLevel: 10, costume: 'A taller toque and a yolk neckerchief.' },
+  { name: 'Head chef', fromLevel: 14, costume: 'A taller toque still, and cobalt buttons.' },
+  { name: 'Executive chef', fromLevel: 18, costume: 'Gold buttons and a gold hat band.' },
 ] as const
 
 export type RankIndex = 0 | 1 | 2 | 3 | 4 | 5

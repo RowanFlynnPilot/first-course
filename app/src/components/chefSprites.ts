@@ -187,6 +187,18 @@ export function spriteRows(rank: RankIndex): readonly string[] {
   return [...HATS[rank], ...FACE, ...BODIES[rank]]
 }
 
+/**
+ * The two idle frames: standing, then a bob. The bob drops everything above
+ * the trousers by one pixel (losing the row just above them), so the chef
+ * dips at the knees while the feet stay planted and the height stays the same.
+ */
+export function spriteFrames(rank: RankIndex): readonly [readonly string[], readonly string[]] {
+  const rows = spriteRows(rank)
+  const trousers = rows.length - 3
+  const bob = ['.'.repeat(SPRITE_WIDTH), ...rows.slice(0, trousers - 1), ...rows.slice(trousers)]
+  return [rows, bob]
+}
+
 // ── Looks: the two things a cook chooses about their chef ──
 
 export type LookIndex = 0 | 1 | 2 | 3 | 4

@@ -1,13 +1,16 @@
 // The chef sheet: who your chef is, how far along, and every skill on the menu.
 
+import { useState } from 'react'
 import { Link } from 'react-router'
+import { BadgeArt } from '../components/BadgeArt'
 import { ChefSprite } from '../components/ChefSprite'
 import { XpBar } from '../components/XpBar'
 import { RECIPES } from '../curriculum/recipes'
 import { DISCIPLINES, TECHNIQUES, type TechniqueId } from '../curriculum/techniques'
+import { BADGES, earnedBadges } from '../lib/badges'
 import type { Chef } from '../lib/chefs'
 import { totalKeptCents, type Prices } from '../lib/cost'
-import { formatCents } from '../lib/format'
+import { formatCents, localDateString, plural } from '../lib/format'
 import {
   disciplineStats,
   levelForXp,
@@ -20,6 +23,7 @@ import {
   XP_PER_SKILL,
 } from '../lib/leveling'
 import { recipeState, type CookLog } from '../lib/progress'
+import { currentStreak, longestStreak } from '../lib/streak'
 
 function teacherOf(technique: TechniqueId) {
   const recipe = RECIPES.find((candidate) => candidate.teaches.includes(technique))
@@ -33,6 +37,9 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
   const rank = rankIndexForLevel(level)
   const nextRank = RANKS[rank + 1]
   const mastered = RECIPES.filter((recipe) => recipeState(recipe, logs) === 'mastered').length
+  const [today] = useState(() => localDateString(new Date()))
+  const streak = currentStreak(logs, today)
+  const earned = new Set(earnedBadges(logs, prices))
 
   return (
     <main className="page">
@@ -41,7 +48,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
       </nav>
 
       <header className="sheet-head">
-        <ChefSprite rank={rank} skin={chef.skin} hair={chef.hair} scale={5} />
+        <ChefSprite rank={rank} skin={chef.skin} hair={chef.hair} scale={5} idle />
         <div>
           <h1 className="title">{chef.name}</h1>
           <p className="sheet-rank">
@@ -71,7 +78,39 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
           <dt>Kept</dt>
           <dd>{formatCents(totalKeptCents(logs, prices))}</dd>
         </div>
+        <div>
+          <dt>Streak</dt>
+          <dd>{plural(streak.weeks, 'week', 'weeks')}</dd>
+        </div>
+        <div>
+          <dt>Badges</dt>
+          <dd>
+            {earned.size} of {BADGES.length}
+          </dd>
+        </div>
       </dl>
+      <p className="section-note record-note">
+        {streak.weeks === 0
+          ? 'A streak is weeks in a row with at least one cook. Cook this week to start one.'
+          : streak.needsThisWeek
+            ? 'Cook this week to keep your streak.'
+            : 'You have cooked this week.'}{' '}
+        Longest: {plural(longestStreak(logs), 'week', 'weeks')}.
+      </p>
+
+      <section className="section">
+        <h2 className="section-title">Badges</h2>
+        <p className="section-note">They come from your cook log, so changing a cook can change them.</p>
+        <ul className="badges">
+          {BADGES.map((badge) => (
+            <li key={badge.id} className={earned.has(badge.id) ? 'badge badge-earned' : 'badge'}>
+              <BadgeArt id={badge.id} earned={earned.has(badge.id)} scale={3} />
+              <span className="row-title">{badge.name}</span>
+              <span className="row-note">{badge.how}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="section">
         <h2 className="section-title">Skills</h2>

@@ -19,7 +19,9 @@ describe('the after-cook notice', () => {
       'Kept $22.75 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
+      'Badge: First cook.',
     ])
+    expect(notice).toMatchObject({ levelUp: 2, promotion: null, badges: ['first-cook'], usualUnlocked: [] })
   })
 
   it('says what a rough cook still owes', () => {
@@ -34,6 +36,7 @@ describe('the after-cook notice', () => {
     const notice = cookNotice(recipeById('sheet-pan-sausage'), before, log('sheet-pan-sausage', 2), 'Remy', ESTIMATES)
     expect(notice.lines[0]).toBe('+70 XP. Level 3.')
     expect(notice.lines[1]).toBe('Remy is promoted to prep cook.')
+    expect(notice).toMatchObject({ levelUp: 3, promotion: 1 })
   })
 
   it('names what a good cook opened up', () => {
@@ -55,5 +58,21 @@ describe('the after-cook notice', () => {
     expect(cookNotice(eggs, two, log(eggs.id, 3), 'Remy', ESTIMATES).lines).toContain('Soft scrambled eggs on toast is mastered.')
     const five = [...two, log(eggs.id, 3), log(eggs.id, 3), log(eggs.id, 3)]
     expect(cookNotice(eggs, five, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe('No XP this time. A recipe pays out for its first 5 cooks.')
+  })
+
+  it('makes a dish of the usual coming into reach its own moment, not a line', () => {
+    // The double smash burger needs the smash crust, caramelizing and cold emulsions.
+    const before = [log('smash-cheeseburger', 2), log('onion-melt', 2)]
+    const notice = cookNotice(recipeById('oven-fries-aioli'), before, log('oven-fries-aioli', 2), 'Remy', ESTIMATES)
+    expect(notice.usualUnlocked.map((recipe) => recipe.id)).toEqual(['double-smash-burger'])
+    expect(notice.lines.some((line) => line.includes('Double smash burger'))).toBe(false)
+  })
+
+  it('names only the badges this cook earned', () => {
+    const before = [log('chopped-salad', 2)]
+    const notice = cookNotice(recipeById('chopped-salad'), before, log('chopped-salad', 3), 'Remy', ESTIMATES)
+    expect(notice.badges).toEqual(['nailed-it'])
+    expect(notice.lines).toContain('Badge: Nailed it.')
+    expect(notice.levelUp).toBeNull()
   })
 })

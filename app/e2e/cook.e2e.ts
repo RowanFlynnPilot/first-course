@@ -44,7 +44,9 @@ test.describe('cooking and logging', () => {
       'Kept $22.75 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
+      'Badge: First cook.',
     ])
+    await expect(page.getByRole('status').getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
     await expect(page.locator('.kept')).toHaveText('$22.75 kept by cooking')
     // The yolk lands on the plate just cooked, and only there.
@@ -86,6 +88,7 @@ test.describe('cooking and logging', () => {
       '+10 XP.',
       'Kept $17.15 by not ordering.',
       'Cook it again at “Decent” or better to learn heat control.',
+      'Badge: First cook.',
     ])
     await expect(page.getByRole('link', { name: /Soft scrambled eggs/ })).toContainText('Cooked 1 time')
     await expect(page.getByRole('link', { name: /Grilled cheese/ })).toContainText('Needs heat control')

@@ -1,10 +1,13 @@
-// What one cook earned, as short lines for the menu to show once.
+// What one cook earned: short lines for the menu to show once, plus the
+// moments the menu stages around them (a level-up, a promotion, a dish of
+// the usual coming into reach) and the badges it earned.
 
 import { RECIPES } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
+import { badgeById, earnedBadges, type BadgeId } from './badges'
 import { keptPerCookCents, type Prices } from './cost'
 import { formatCents, listOf, skillList } from './format'
-import { levelForXp, rankIndexForLevel, RANKS, totalXp, XP_COOKS_PER_RECIPE } from './leveling'
+import { levelForXp, rankIndexForLevel, RANKS, totalXp, XP_COOKS_PER_RECIPE, type RankIndex } from './leveling'
 import { learnedTechniques, recipeState, type CookLog } from './progress'
 
 export interface CookNotice {
@@ -12,6 +15,14 @@ export interface CookNotice {
   readonly cookedId: string
   /** XP before this cook, so the bar can fill from there. */
   readonly xpBefore: number
+  /** The new level, when this cook reached one. */
+  readonly levelUp: number | null
+  /** The new rank, when this cook crossed into one. */
+  readonly promotion: RankIndex | null
+  /** Badges this cook earned. */
+  readonly badges: readonly BadgeId[]
+  /** Dishes of the usual whose skills are now all learned. Each one is its own moment, not a line. */
+  readonly usualUnlocked: readonly Recipe[]
 }
 
 export function cookNotice(
@@ -35,9 +46,8 @@ export function cookNotice(
     lines.push(`+${xpAfter - xpBefore} XP.${levelAfter > levelBefore ? ` Level ${levelAfter}.` : ''}`)
   }
   const rankAfter = rankIndexForLevel(levelAfter)
-  if (rankAfter > rankIndexForLevel(levelBefore)) {
-    lines.push(`${chefName} is promoted to ${RANKS[rankAfter].name.toLowerCase()}.`)
-  }
+  const promoted = rankAfter > rankIndexForLevel(levelBefore)
+  if (promoted) lines.push(`${chefName} is promoted to ${RANKS[rankAfter].name.toLowerCase()}.`)
 
   lines.push(`Kept ${formatCents(keptPerCookCents(recipe.content, prices))} by not ordering.`)
 
@@ -58,10 +68,24 @@ export function cookNotice(
   const unlocked = RECIPES.filter(
     (other) => recipeState(other, before) === 'locked' && recipeState(other, after) !== 'locked',
   )
-  const written = unlocked.filter((other) => other.content !== null).map((other) => other.title)
-  const unwritten = unlocked.filter((other) => other.content === null).map((other) => other.title)
+  const usualUnlocked = unlocked.filter((other) => other.tier === 5)
+  const courses = unlocked.filter((other) => other.tier !== 5)
+  const written = courses.filter((other) => other.content !== null).map((other) => other.title)
+  const unwritten = courses.filter((other) => other.content === null).map((other) => other.title)
   if (written.length > 0) lines.push(`Now ready to cook: ${listOf(written)}.`)
   if (unwritten.length > 0) lines.push(`Unlocked, but not written yet: ${listOf(unwritten)}.`)
 
-  return { lines, cookedId: recipe.id, xpBefore }
+  const hadBadges = new Set(earnedBadges(before, prices))
+  const badges = earnedBadges(after, prices).filter((id) => !hadBadges.has(id))
+  for (const id of badges) lines.push(`Badge: ${badgeById(id).name}.`)
+
+  return {
+    lines,
+    cookedId: recipe.id,
+    xpBefore,
+    levelUp: levelAfter > levelBefore ? levelAfter : null,
+    promotion: promoted ? rankAfter : null,
+    badges,
+    usualUnlocked,
+  }
 }

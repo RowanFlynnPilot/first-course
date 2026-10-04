@@ -115,6 +115,49 @@ test('cook mode after a reload with a timer running', async ({ page, kitchen }) 
   await shoot(page, 'cook-reloaded')
 })
 
+test('the moments after a cook: promotion, the usual, badges', async ({ page, kitchen }) => {
+  await kitchen.open('#/cook/sheet-pan-sausage/log', {
+    logs: [
+      { recipe: 'chopped-salad', rating: 2 },
+      { recipe: 'soft-scrambled-eggs', rating: 2 },
+      { recipe: 'grilled-cheese', rating: 2 },
+    ],
+  })
+  await rateAndSave(page, 'Nailed it')
+  await page.getByRole('dialog').waitFor()
+  await shoot(page, 'beat-promotion')
+  await page.getByRole('button', { name: 'Back to the menu' }).click()
+  await page.waitForTimeout(1200)
+  await shoot(page, 'menu-after-promotion')
+})
+
+test('a dish of the usual in reach', async ({ page, kitchen }) => {
+  await kitchen.open('#/cook/oven-fries-aioli/log', {
+    logs: [
+      { recipe: 'chopped-salad', rating: 2 },
+      { recipe: 'sheet-pan-sausage', rating: 2 },
+      { recipe: 'smash-cheeseburger', rating: 2 },
+      { recipe: 'onion-melt', rating: 2 },
+    ],
+  })
+  await rateAndSave(page, 'Decent')
+  await page.getByRole('dialog').waitFor()
+  await shoot(page, 'beat-usual')
+})
+
+test('chef sheet with badges', async ({ page, kitchen }) => {
+  await kitchen.open('#/chef', {
+    logs: [
+      { recipe: 'chopped-salad', rating: 2, cookedOn: '2026-09-15' },
+      { recipe: 'chopped-salad', rating: 2, cookedOn: '2026-09-22' },
+      { recipe: 'chopped-salad', rating: 3, cookedOn: '2026-09-30' },
+      { recipe: 'soft-scrambled-eggs', rating: 2, cookedOn: '2026-10-01' },
+    ],
+  })
+  await page.getByRole('heading', { name: 'Badges' }).scrollIntoViewIfNeeded()
+  await shoot(page, 'chef-badges')
+})
+
 test('log', async ({ page, kitchen }) => {
   await kitchen.open('#/cook/chopped-salad/log')
   await shoot(page, 'log')

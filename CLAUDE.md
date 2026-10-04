@@ -309,11 +309,20 @@ Other rules:
   and the marker under the kept amount. Never decoration. The sprite uses
   yolk as a costume color (gloves, neckerchief, gold trim), which is the one
   exception.
-- The sprite is the only pixel art. Do not pixelate the rest of the
-  interface or swap in a pixel font to match it.
-- Two pieces of motion, both answering "Save this cook": the yolk lands on
-  the plate you just cooked (`.plate-celebrate`) and the XP bar fills from
-  where it was (`.xp-fill`). Both respect reduced motion. Do not add more.
+- Pixel art is the chef sprite and the badges (October 4, 2026: Rowan
+  relaxed this rule to include badges), in the same format and palette:
+  rows of palette keys drawn by `components/PixelArt.tsx`. Badges add two
+  colors to the sprite palette, ketchup (already the app's) and one yolk
+  shade. Do not pixelate the rest of the interface or swap in a pixel font.
+- Motion (relaxed the same day from two pieces to these, all answering a
+  saved cook or a standing chef, all off under reduced motion): the yolk
+  lands on the plate just cooked (`.plate-celebrate`), the XP bar fills from
+  where it was (`.xp-fill`), a level-up hops the chef and pops the level
+  (`.chef-card-levelup`), new badges pop into the notice (`.badge-pop`), the
+  full-screen moments fade and rise in (`.beat`), and the chef idles in two
+  frames (`.pixels-idle`) on the menu, the chef sheet and the promotion.
+  The ladder and the editor stay still. Keep the rest of the interface
+  still.
 - Mobile first. The page column is 36rem. Tap targets are at least 3rem.
 - Copy is plain and direct. A button says what it does and keeps that name:
   "Save this cook" produces "Saved."
@@ -476,11 +485,10 @@ Behavior:
 - **Pour from the journal.** Show bottles rated in Pinpoint Noir that fit a
   recipe's pairing. Needs a decision on shared auth between two Supabase
   projects.
-- **More of the sprite.** A walk cycle or a small idle bounce, a back view,
-  or a pixel kitchen behind the chef on the sheet. Only if it earns its
-  place; one sprite standing still is the whole feature today.
-- **A cooking streak.** Weeks in a row with at least one cook, derived from
-  `cooked_on`. Display only; decide later whether it earns XP.
+- **More of the sprite.** A walk cycle, a back view, or a pixel kitchen
+  behind the chef on the sheet. The idle bob is built; the rest only if it
+  earns its place.
+- **Whether the streak earns XP.** It is display only today.
 - **Servings scaling.**
 - **Import a recipe from a link**, with Claude tagging its skills. Only
   after the curriculum exists, and storing the link plus your own notes, not
