@@ -104,6 +104,8 @@ test.describe('timers in cook mode', () => {
     await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
     page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('link', { name: 'Leave cook mode' }).click()
+    // Let the navigation to the recipe page land before going back to cook mode.
+    await expect(page.getByRole('heading', { name: 'Sheet-pan sausage and vegetables' })).toBeVisible()
     await page.goto('#/cook/sheet-pan-sausage/6')
     await expect(page.getByRole('button', { name: 'Start 20:00 timer' })).toBeVisible()
 
