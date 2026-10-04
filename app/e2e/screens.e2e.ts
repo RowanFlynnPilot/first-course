@@ -78,6 +78,34 @@ test('the three longest steps in the book', async ({ page, kitchen }) => {
   }
 })
 
+test('this week', async ({ page, kitchen }) => {
+  await kitchen.open('#/shop', {
+    logs: [{ recipe: 'chopped-salad', rating: 2 }],
+    plan: ['chopped-salad', 'sheet-pan-sausage'],
+    pantry: ['kosher-salt'],
+    checks: ['lemon', 'tomato'],
+    prices: { feta: 499 },
+    kit: ['chefs-knife', 'cutting-board'],
+  })
+  await shoot(page, 'shop')
+  await page.getByRole('button', { name: 'Correct the price of Feta' }).click()
+  await shoot(page, 'shop-price')
+})
+
+test('pantry and kit', async ({ page, kitchen }) => {
+  await kitchen.open('#/pantry', { pantry: ['kosher-salt', 'black-pepper', 'olive-oil'] })
+  await shoot(page, 'pantry')
+  await page.goto('#/kit')
+  await shoot(page, 'kit')
+})
+
+test('change a cook', async ({ page, kitchen }) => {
+  await kitchen.open('#/recipe/chopped-salad', { logs: [{ recipe: 'chopped-salad', rating: 2, notes: 'Too much onion.' }] })
+  await page.getByRole('link', { name: /Decent/ }).click()
+  await page.getByRole('radio', { name: /^Rough/ }).check()
+  await shoot(page, 'edit-cook')
+})
+
 test('log', async ({ page, kitchen }) => {
   await kitchen.open('#/cook/chopped-salad/log')
   await shoot(page, 'log')

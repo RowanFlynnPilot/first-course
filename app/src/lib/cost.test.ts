@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { INGREDIENTS } from '../curriculum/ingredients'
+import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import type { RecipeContent } from '../curriculum/types'
-import { cookCostCents, DELIVERY_FEE_CENTS, keptPerCookCents, orderCostCents, SERVICE_FEE_RATE, TIP_RATE } from './cost'
+import {
+  cookCostCents,
+  DELIVERY_FEE_CENTS,
+  ESTIMATES,
+  keptPerCookCents,
+  orderCostCents,
+  packagePriceCents,
+  SERVICE_FEE_RATE,
+  TIP_RATE,
+} from './cost'
 
 const content: RecipeContent = {
   servings: 2,
@@ -21,11 +30,19 @@ describe('cost', () => {
   it('charges only the share of each package the recipe uses', () => {
     const eggs = (4 * INGREDIENTS.eggs.package.priceCents) / INGREDIENTS.eggs.package.units
     const butter = (2 * INGREDIENTS.butter.package.priceCents) / INGREDIENTS.butter.package.units
-    expect(cookCostCents(content)).toBe(Math.round(eggs + butter))
+    expect(cookCostCents(content, ESTIMATES)).toBe(Math.round(eggs + butter))
+  })
+
+  it('uses a price the cook corrected in place of the estimate, and only for that ingredient', () => {
+    const prices = new Map<IngredientId, number>([['eggs', 600]])
+    expect(packagePriceCents('eggs', prices)).toBe(600)
+    expect(packagePriceCents('butter', prices)).toBe(INGREDIENTS.butter.package.priceCents)
+    const butter = (2 * INGREDIENTS.butter.package.priceCents) / INGREDIENTS.butter.package.units
+    expect(cookCostCents(content, prices)).toBe(Math.round((4 * 600) / 12 + butter))
   })
 
   it('prices an order as every serving plus fees, tip and one delivery fee', () => {
     expect(orderCostCents(content)).toBe(Math.round(2000 * (1 + SERVICE_FEE_RATE + TIP_RATE)) + DELIVERY_FEE_CENTS)
-    expect(keptPerCookCents(content)).toBe(orderCostCents(content) - cookCostCents(content))
+    expect(keptPerCookCents(content, ESTIMATES)).toBe(orderCostCents(content) - cookCostCents(content, ESTIMATES))
   })
 })

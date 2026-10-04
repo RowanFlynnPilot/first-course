@@ -52,3 +52,24 @@ export async function insertCookLog(input: {
   if (error) throw new Error(`Could not save this cook: ${error.message}`)
   return toCookLog(data as CookLogRow)
 }
+
+/** The date, rating and notes of a cook can change. Its recipe cannot: that would be a different cook. */
+export async function updateCookLog(
+  id: string,
+  change: { cookedOn: string; rating: Rating; notes: string },
+): Promise<CookLog> {
+  const { data, error } = await supabase
+    .from('cook_logs')
+    .update({ cooked_on: change.cookedOn, rating: change.rating, notes: change.notes })
+    .eq('id', id)
+    .select(COLUMNS)
+    .single()
+  if (error) throw new Error(`Could not save your changes: ${error.message}`)
+  return toCookLog(data as CookLogRow)
+}
+
+export async function deleteCookLog(id: string): Promise<void> {
+  const { data, error } = await supabase.from('cook_logs').delete().eq('id', id).select('id')
+  if (error) throw new Error(`Could not delete this cook: ${error.message}`)
+  if (data.length !== 1) throw new Error('That cook was not in your log')
+}

@@ -6,7 +6,7 @@ import { XpBar } from '../components/XpBar'
 import { RECIPES } from '../curriculum/recipes'
 import { DISCIPLINES, TECHNIQUES, type TechniqueId } from '../curriculum/techniques'
 import type { Chef } from '../lib/chefs'
-import { totalKeptCents } from '../lib/cost'
+import { totalKeptCents, type Prices } from '../lib/cost'
 import { formatCents } from '../lib/format'
 import {
   disciplineStats,
@@ -27,7 +27,7 @@ function teacherOf(technique: TechniqueId) {
   return recipe
 }
 
-export function ChefScreen({ chef, logs }: { chef: Chef; logs: readonly CookLog[] }) {
+export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly CookLog[]; prices: Prices }) {
   const xp = totalXp(logs)
   const level = levelForXp(xp)
   const rank = rankIndexForLevel(level)
@@ -69,7 +69,7 @@ export function ChefScreen({ chef, logs }: { chef: Chef; logs: readonly CookLog[
         </div>
         <div>
           <dt>Kept</dt>
-          <dd>{formatCents(totalKeptCents(logs))}</dd>
+          <dd>{formatCents(totalKeptCents(logs, prices))}</dd>
         </div>
       </dl>
 

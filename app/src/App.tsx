@@ -5,14 +5,19 @@ import { fetchChef, type Chef } from './lib/chefs'
 import { fetchCookLogs } from './lib/cookLogs'
 import type { CookNotice } from './lib/notice'
 import type { CookLog } from './lib/progress'
+import { fetchShop, type Shop, type ShopChange } from './lib/shop'
 import { AuthScreen } from './screens/AuthScreen'
 import { ChefScreen } from './screens/ChefScreen'
 import { CookScreen } from './screens/CookScreen'
 import { EditChefScreen } from './screens/EditChefScreen'
+import { EditCookScreen } from './screens/EditCookScreen'
+import { KitScreen } from './screens/KitScreen'
 import { LogScreen } from './screens/LogScreen'
 import { MenuScreen } from './screens/MenuScreen'
 import { NameChefScreen } from './screens/NameChefScreen'
+import { PantryScreen } from './screens/PantryScreen'
 import { RecipeScreen } from './screens/RecipeScreen'
+import { ShopScreen } from './screens/ShopScreen'
 import { supabase } from './supabase'
 
 export default function App() {
@@ -34,13 +39,15 @@ function Kitchen({ userId }: { userId: string }) {
   const [logs, setLogs] = useState<readonly CookLog[] | null>(null)
   // undefined = still loading; null = this account has not named a chef.
   const [chef, setChef] = useState<Chef | null | undefined>(undefined)
+  const [shop, setShop] = useState<Shop | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([fetchCookLogs(), fetchChef()])
-      .then(([loadedLogs, loadedChef]) => {
+    Promise.all([fetchCookLogs(), fetchChef(), fetchShop()])
+      .then(([loadedLogs, loadedChef, loadedShop]) => {
         setLogs(loadedLogs)
         setChef(loadedChef)
+        setShop(loadedShop)
       })
       .catch((cause: Error) => setError(cause.message))
   }, [])
@@ -52,8 +59,14 @@ function Kitchen({ userId }: { userId: string }) {
       </p>
     )
   }
-  if (logs === null || chef === undefined) return <p className="status">Loading your kitchen…</p>
+  if (logs === null || chef === undefined || shop === null) return <p className="status">Loading your kitchen…</p>
   if (chef === null) return <NameChefScreen onCreated={setChef} />
+
+  const changeShop: ShopChange = (change) =>
+    setShop((previous) => {
+      if (previous === null) throw new Error('The shop changed before it loaded')
+      return change(previous)
+    })
 
   return (
     <HashRouter>
@@ -61,8 +74,12 @@ function Kitchen({ userId }: { userId: string }) {
         userId={userId}
         chef={chef}
         logs={logs}
+        shop={shop}
         onLogged={(log) => setLogs([...logs, log])}
+        onLogUpdated={(log) => setLogs(logs.map((other) => (other.id === log.id ? log : other)))}
+        onLogDeleted={(id) => setLogs(logs.filter((other) => other.id !== id))}
         onChefSaved={setChef}
+        onShopChange={changeShop}
       />
     </HashRouter>
   )
@@ -72,14 +89,22 @@ function Pages({
   userId,
   chef,
   logs,
+  shop,
   onLogged,
+  onLogUpdated,
+  onLogDeleted,
   onChefSaved,
+  onShopChange,
 }: {
   userId: string
   chef: Chef
   logs: readonly CookLog[]
+  shop: Shop
   onLogged: (log: CookLog) => void
+  onLogUpdated: (log: CookLog) => void
+  onLogDeleted: (id: string) => void
   onChefSaved: (chef: Chef) => void
+  onShopChange: ShopChange
 }) {
   const { pathname } = useLocation()
   const navigationType = useNavigationType()
@@ -99,19 +124,20 @@ function Pages({
 
   return (
     <Routes>
-      <Route path="/" element={<MenuScreen chef={chef} logs={logs} notice={notice} />} />
-      <Route path="/chef" element={<ChefScreen chef={chef} logs={logs} />} />
+      <Route path="/" element={<MenuScreen chef={chef} logs={logs} shop={shop} notice={notice} />} />
+      <Route path="/chef" element={<ChefScreen chef={chef} logs={logs} prices={shop.prices} />} />
       <Route
         path="/chef/edit"
         element={<EditChefScreen userId={userId} chef={chef} logs={logs} onSaved={onChefSaved} />}
       />
-      <Route path="/recipe/:id" element={<RecipeScreen logs={logs} />} />
+      <Route path="/recipe/:id" element={<RecipeScreen logs={logs} shop={shop} onShopChange={onShopChange} />} />
       <Route
         path="/cook/:id/log"
         element={
           <LogScreen
             chef={chef}
             logs={logs}
+            prices={shop.prices}
             onLogged={(log, earned) => {
               onLogged(log)
               setNotice(earned)
@@ -119,7 +145,14 @@ function Pages({
           />
         }
       />
-      <Route path="/cook/:id/:step" element={<CookScreen logs={logs} />} />
+      <Route path="/cook/:id/:step" element={<CookScreen logs={logs} kit={shop.kit} />} />
+      <Route
+        path="/cook-log/:id"
+        element={<EditCookScreen logs={logs} onUpdated={onLogUpdated} onDeleted={onLogDeleted} />}
+      />
+      <Route path="/shop" element={<ShopScreen shop={shop} onShopChange={onShopChange} />} />
+      <Route path="/pantry" element={<PantryScreen shop={shop} onShopChange={onShopChange} />} />
+      <Route path="/kit" element={<KitScreen shop={shop} onShopChange={onShopChange} />} />
       <Route path="*" element={<NotOnTheMenu />} />
     </Routes>
   )

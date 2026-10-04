@@ -1,3 +1,4 @@
+import type { EquipmentId } from './equipment'
 import type { IngredientId } from './ingredients'
 import type { TechniqueId } from './techniques'
 
@@ -30,7 +31,7 @@ export interface RecipeContent {
   readonly servings: number
   readonly activeMinutes: number
   readonly totalMinutes: number
-  readonly equipment: readonly string[]
+  readonly equipment: readonly EquipmentId[]
   readonly ingredients: readonly RecipeIngredient[]
   readonly steps: readonly Step[]
   /** What you would have ordered instead, at its in-app menu price per serving. */

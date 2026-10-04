@@ -1,17 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { RatingPicker } from '../components/RatingPicker'
 import type { Chef } from '../lib/chefs'
 import { insertCookLog } from '../lib/cookLogs'
+import type { Prices } from '../lib/cost'
 import { cookNotice, type CookNotice } from '../lib/notice'
-import { cookable, RATINGS, type CookLog, type Rating } from '../lib/progress'
+import { cookable, type CookLog, type Rating } from '../lib/progress'
 
 export function LogScreen({
   chef,
   logs,
+  prices,
   onLogged,
 }: {
   chef: Chef
   logs: readonly CookLog[]
+  prices: Prices
   onLogged: (log: CookLog, earned: CookNotice) => void
 }) {
   const { id } = useParams()
@@ -30,7 +34,7 @@ export function LogScreen({
     setBusy(true)
     try {
       const log = await insertCookLog({ recipeId: recipe.id, rating, notes: notes.trim() })
-      onLogged(log, cookNotice(recipe, logs, log, chef.name))
+      onLogged(log, cookNotice(recipe, logs, log, chef.name, prices))
       // Replace, so Back from the menu cannot land on this form and log twice.
       navigate('/', { replace: true })
     } catch (cause) {
@@ -46,22 +50,7 @@ export function LogScreen({
       </nav>
       <h1 className="title">How did it go?</h1>
       <form className="form" onSubmit={save}>
-        <fieldset className="ratings">
-          <legend className="visually-hidden">Rate this cook</legend>
-          {RATINGS.map((option) => (
-            <label key={option.value} className={rating === option.value ? 'rating rating-chosen' : 'rating'}>
-              <input
-                type="radio"
-                name="rating"
-                value={option.value}
-                checked={rating === option.value}
-                onChange={() => setRating(option.value)}
-              />
-              <span className="row-title">{option.label}</span>
-              <span className="row-note">{option.hint}</span>
-            </label>
-          ))}
-        </fieldset>
+        <RatingPicker value={rating} onChange={setRating} />
         <label className="field">
           Notes for next time
           <textarea

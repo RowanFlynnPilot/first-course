@@ -67,6 +67,26 @@ export function nextRecipe(logs: readonly CookLog[]): Recipe | null {
   )
 }
 
+/**
+ * What changing the log from `before` to `after` takes away: skills that are
+ * no longer learned, recipes that lock again, and masteries lost. Editing or
+ * deleting a cook re-scores everything, so the cook is told first.
+ */
+export function progressLost(
+  before: readonly CookLog[],
+  after: readonly CookLog[],
+): { skills: TechniqueId[]; locked: Recipe[]; unmastered: Recipe[] } {
+  const had = learnedTechniques(before)
+  const has = learnedTechniques(after)
+  return {
+    skills: [...had].filter((technique) => !has.has(technique)),
+    locked: RECIPES.filter((recipe) => recipeState(recipe, before) !== 'locked' && recipeState(recipe, after) === 'locked'),
+    unmastered: RECIPES.filter(
+      (recipe) => recipeState(recipe, before) === 'mastered' && recipeState(recipe, after) !== 'mastered',
+    ),
+  }
+}
+
 /** The recipe and its written content, or a thrown reason it cannot be cooked or logged right now. */
 export function cookable(id: string, logs: readonly CookLog[]): { recipe: Recipe; content: RecipeContent } {
   const recipe = recipeById(id)

@@ -3,7 +3,9 @@
 
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Link, useParams } from 'react-router'
+import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
+import type { EquipmentId } from '../curriculum/equipment'
 import { formatClock } from '../lib/format'
 import { cookable, type CookLog } from '../lib/progress'
 
@@ -19,7 +21,7 @@ function ring(audio: AudioContext) {
   }
 }
 
-export function CookScreen({ logs }: { logs: readonly CookLog[] }) {
+export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: ReadonlySet<EquipmentId> }) {
   const params = useParams()
   if (params.id === undefined || params.step === undefined) throw new Error('Cook route is missing its id or step')
   const { recipe, content } = cookable(params.id, logs)
@@ -115,11 +117,7 @@ export function CookScreen({ logs }: { logs: readonly CookLog[] }) {
           <h2 className="section-title">Ingredients</h2>
           <IngredientList ingredients={content.ingredients} />
           <h2 className="section-title">Equipment</h2>
-          <ul className="plain-list">
-            {content.equipment.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+          <EquipmentList items={content.equipment} kit={kit} />
         </section>
       ) : (
         <section className="cook-body" aria-live="polite">

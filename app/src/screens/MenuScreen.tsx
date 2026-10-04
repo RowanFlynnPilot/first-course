@@ -5,8 +5,9 @@ import { XpBar } from '../components/XpBar'
 import { RECIPES } from '../curriculum/recipes'
 import type { Recipe, Tier } from '../curriculum/types'
 import type { Chef } from '../lib/chefs'
-import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents } from '../lib/cost'
+import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents, type Prices } from '../lib/cost'
 import { COURSE_NAMES, formatCents, plural, skillList } from '../lib/format'
+import { missingKit } from '../lib/kit'
 import { levelForXp, rankIndexForLevel, RANKS, totalXp } from '../lib/leveling'
 import type { CookNotice } from '../lib/notice'
 import {
@@ -17,6 +18,7 @@ import {
   recipeState,
   type CookLog,
 } from '../lib/progress'
+import type { Shop } from '../lib/shop'
 import { supabase } from '../supabase'
 
 const COURSES: readonly Tier[] = [1, 2, 3, 4]
@@ -24,10 +26,12 @@ const COURSES: readonly Tier[] = [1, 2, 3, 4]
 export function MenuScreen({
   chef,
   logs,
+  shop,
   notice,
 }: {
   chef: Chef
   logs: readonly CookLog[]
+  shop: Shop
   notice: CookNotice | null
 }) {
   const next = nextRecipe(logs)
@@ -42,7 +46,7 @@ export function MenuScreen({
       <header className="masthead">
         <h1 className="wordmark">First Course</h1>
         <p className="kept">
-          <strong>{formatCents(totalKeptCents(logs))}</strong> kept by cooking
+          <strong>{formatCents(totalKeptCents(logs, shop.prices))}</strong> kept by cooking
         </p>
       </header>
 
@@ -65,7 +69,13 @@ export function MenuScreen({
         </ul>
       )}
 
-      <UpNext recipe={next} logs={logs} />
+      <UpNext recipe={next} logs={logs} prices={shop.prices} />
+
+      <nav className="quick-links" aria-label="Shopping and kit">
+        <Link to="/shop">{shop.plan.length === 0 ? 'This week' : `This week (${shop.plan.length})`}</Link>
+        <Link to="/pantry">Pantry</Link>
+        <Link to="/kit">Kit</Link>
+      </nav>
 
       <section className="section">
         <h2 className="section-title">{COURSE_NAMES[5]}</h2>
@@ -92,11 +102,18 @@ export function MenuScreen({
         const recipes = RECIPES.filter((recipe) => recipe.tier === tier)
         const skills = recipes.flatMap((recipe) => recipe.teaches)
         const have = skills.filter((technique) => learned.has(technique)).length
+        const toGet = missingKit(recipes, shop.kit).length
         return (
           <section className="section" key={tier}>
             <h2 className="section-title">{COURSE_NAMES[tier]}</h2>
             <p className="section-note">
               {have} of {skills.length} skills learned
+              {toGet > 0 && (
+                <>
+                  {'. '}
+                  <Link to="/kit">Kit: {plural(toGet, 'thing', 'things')} to get</Link>
+                </>
+              )}
             </p>
             <ul className="rows">
               {recipes.map((recipe) => (
@@ -116,7 +133,7 @@ export function MenuScreen({
   )
 }
 
-function UpNext({ recipe, logs }: { recipe: Recipe | null; logs: readonly CookLog[] }) {
+function UpNext({ recipe, logs, prices }: { recipe: Recipe | null; logs: readonly CookLog[]; prices: Prices }) {
   if (recipe === null || recipe.content === null) {
     return (
       <section className="tray">
@@ -135,7 +152,7 @@ function UpNext({ recipe, logs }: { recipe: Recipe | null; logs: readonly CookLo
         <p className="tray-label">{state === 'ready' ? 'Cook this next' : 'Cook this again'}</p>
         <h2 className="tray-title">{recipe.title}</h2>
         <p className="tray-body">
-          {content.totalMinutes} minutes. {formatCents(cookCostPerServingCents(content))} a serving instead of{' '}
+          {content.totalMinutes} minutes. {formatCents(cookCostPerServingCents(content, prices))} a serving instead of{' '}
           {formatCents(orderCostPerServingCents(content))} delivered.
         </p>
         <div className="actions">

@@ -1,9 +1,11 @@
 import { Link, useParams } from 'react-router'
+import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
 import { Plate } from '../components/Plate'
+import { useWrite } from '../components/useWrite'
 import { recipeById } from '../curriculum/recipes'
 import { TECHNIQUES } from '../curriculum/techniques'
-import type { RecipeContent } from '../curriculum/types'
+import type { Recipe, RecipeContent } from '../curriculum/types'
 import {
   cookCostPerServingCents,
   DELIVERY_FEE_CENTS,
@@ -21,8 +23,17 @@ import {
   recipeState,
   type CookLog,
 } from '../lib/progress'
+import { addToPlan, removeFromPlan, type Shop, type ShopChange } from '../lib/shop'
 
-export function RecipeScreen({ logs }: { logs: readonly CookLog[] }) {
+export function RecipeScreen({
+  logs,
+  shop,
+  onShopChange,
+}: {
+  logs: readonly CookLog[]
+  shop: Shop
+  onShopChange: ShopChange
+}) {
   const { id } = useParams()
   if (id === undefined) throw new Error('Recipe route is missing its id')
   const recipe = recipeById(id)
@@ -60,9 +71,7 @@ export function RecipeScreen({ logs }: { logs: readonly CookLog[] }) {
         </section>
       )}
 
-      {state === 'locked' && (
-        <p className="notice">Locked. You still need {skillList(missing)}.</p>
-      )}
+      {state === 'locked' && <p className="notice">Locked. You still need {skillList(missing)}.</p>}
 
       {recipe.content === null ? (
         <p className="notice">
@@ -71,9 +80,11 @@ export function RecipeScreen({ logs }: { logs: readonly CookLog[] }) {
         </p>
       ) : (
         <Written
-          recipeId={recipe.id}
+          recipe={recipe}
           content={recipe.content}
           locked={state === 'locked'}
+          shop={shop}
+          onShopChange={onShopChange}
         />
       )}
 
@@ -89,11 +100,16 @@ export function RecipeScreen({ logs }: { logs: readonly CookLog[] }) {
           </p>
           <ul className="rows">
             {history.map((log) => (
-              <li className="history" key={log.id}>
-                <span className="row-title">
-                  {RATINGS.find((rating) => rating.value === log.rating)?.label}, {formatCookedOn(log.cookedOn)}
-                </span>
-                {log.notes !== '' && <span className="row-note">{log.notes}</span>}
+              <li key={log.id}>
+                <Link className="history" to={`/cook-log/${log.id}`}>
+                  <span>
+                    <span className="row-title">
+                      {RATINGS.find((rating) => rating.value === log.rating)?.label}, {formatCookedOn(log.cookedOn)}
+                    </span>
+                    {log.notes !== '' && <span className="row-note">{log.notes}</span>}
+                  </span>
+                  <span className="history-change">Change</span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -103,7 +119,19 @@ export function RecipeScreen({ logs }: { logs: readonly CookLog[] }) {
   )
 }
 
-function Written({ recipeId, content, locked }: { recipeId: string; content: RecipeContent; locked: boolean }) {
+function Written({
+  recipe,
+  content,
+  locked,
+  shop,
+  onShopChange,
+}: {
+  recipe: Recipe
+  content: RecipeContent
+  locked: boolean
+  shop: Shop
+  onShopChange: ShopChange
+}) {
   const feesPercent = Math.round((SERVICE_FEE_RATE + TIP_RATE) * 100)
   return (
     <>
@@ -114,9 +142,10 @@ function Written({ recipeId, content, locked }: { recipeId: string; content: Rec
 
       {!locked && (
         <div className="actions">
-          <Link className="button" to={`/cook/${recipeId}/0`}>
+          <Link className="button" to={`/cook/${recipe.id}/0`}>
             Start cooking
           </Link>
+          <PlanButton recipe={recipe} planned={shop.plan.includes(recipe.id)} onShopChange={onShopChange} />
         </div>
       )}
 
@@ -125,7 +154,7 @@ function Written({ recipeId, content, locked }: { recipeId: string; content: Rec
         <dl className="tab">
           <div>
             <dt>Cooking it</dt>
-            <dd>{formatCents(cookCostPerServingCents(content))} a serving</dd>
+            <dd>{formatCents(cookCostPerServingCents(content, shop.prices))} a serving</dd>
           </div>
           <div className="tab-order">
             <dt>
@@ -137,13 +166,14 @@ function Written({ recipeId, content, locked }: { recipeId: string; content: Rec
           <div className="tab-kept">
             <dt>You keep</dt>
             <dd>
-              <mark>{formatCents(keptPerCookCents(content))}</mark> each time
+              <mark>{formatCents(keptPerCookCents(content, shop.prices))}</mark> each time
             </dd>
           </div>
         </dl>
         <p className="section-note">
           Cooking counts only the part of each package you use. Ordering is the menu price plus {feesPercent}% in
-          fees and tip, and one {formatCents(DELIVERY_FEE_CENTS)} delivery fee. Grocery prices are estimates.
+          fees and tip, and one {formatCents(DELIVERY_FEE_CENTS)} delivery fee. Grocery prices are estimates until you
+          correct them on the grocery list.
         </p>
       </section>
 
@@ -154,11 +184,7 @@ function Written({ recipeId, content, locked }: { recipeId: string; content: Rec
 
       <section className="section">
         <h2 className="section-title">Equipment</h2>
-        <ul className="plain-list">
-          {content.equipment.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
+        <EquipmentList items={content.equipment} kit={shop.kit} />
       </section>
 
       <section className="section">
@@ -178,6 +204,49 @@ function Written({ recipeId, content, locked }: { recipeId: string; content: Rec
           ))}
         </ol>
       </section>
+    </>
+  )
+}
+
+/** "Add to this week": one batch per recipe on the plan, no servings scaling. */
+function PlanButton({
+  recipe,
+  planned,
+  onShopChange,
+}: {
+  recipe: Recipe
+  planned: boolean
+  onShopChange: ShopChange
+}) {
+  const { busy, error, run } = useWrite()
+
+  function toggle() {
+    void run(async () => {
+      if (planned) {
+        await removeFromPlan(recipe.id)
+        onShopChange((shop) => ({ ...shop, plan: shop.plan.filter((id) => id !== recipe.id) }))
+      } else {
+        await addToPlan(recipe.id)
+        onShopChange((shop) => ({ ...shop, plan: [...shop.plan, recipe.id] }))
+      }
+    })
+  }
+
+  return (
+    <>
+      <button className="button button-quiet" type="button" disabled={busy} onClick={toggle}>
+        {planned ? 'Take off this week' : 'Add to this week'}
+      </button>
+      {planned && (
+        <p className="plan-note">
+          On <Link to="/shop">this week’s list</Link>.
+        </p>
+      )}
+      {error !== null && (
+        <p className="notice notice-error" role="alert">
+          {error}
+        </p>
+      )}
     </>
   )
 }

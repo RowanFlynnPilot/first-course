@@ -2,7 +2,7 @@
 
 import { RECIPES } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
-import { keptPerCookCents } from './cost'
+import { keptPerCookCents, type Prices } from './cost'
 import { formatCents, listOf, skillList } from './format'
 import { levelForXp, rankIndexForLevel, RANKS, totalXp, XP_COOKS_PER_RECIPE } from './leveling'
 import { learnedTechniques, recipeState, type CookLog } from './progress'
@@ -14,7 +14,13 @@ export interface CookNotice {
   readonly xpBefore: number
 }
 
-export function cookNotice(recipe: Recipe, before: readonly CookLog[], log: CookLog, chefName: string): CookNotice {
+export function cookNotice(
+  recipe: Recipe,
+  before: readonly CookLog[],
+  log: CookLog,
+  chefName: string,
+  prices: Prices,
+): CookNotice {
   if (recipe.content === null) throw new Error(`Logged a cook for unwritten recipe ${recipe.id}`)
   const after = [...before, log]
   const lines: string[] = []
@@ -33,7 +39,7 @@ export function cookNotice(recipe: Recipe, before: readonly CookLog[], log: Cook
     lines.push(`${chefName} is promoted to ${RANKS[rankAfter].name.toLowerCase()}.`)
   }
 
-  lines.push(`Kept ${formatCents(keptPerCookCents(recipe.content))} by not ordering.`)
+  lines.push(`Kept ${formatCents(keptPerCookCents(recipe.content, prices))} by not ordering.`)
 
   const hadLearned = learnedTechniques(before)
   const hasLearned = learnedTechniques(after)

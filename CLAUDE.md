@@ -106,6 +106,7 @@ app/
     curriculum/
       techniques.ts            28 skills, 6 disciplines -> TechniqueId
       ingredients.ts           priced ingredients   -> IngredientId
+      equipment.ts             the kit catalogue    -> EquipmentId
       types.ts                 Recipe, RecipeContent, Step, Pairing
       recipes.ts               31 recipes (18 written), RECIPES, recipeById
       curriculum.test.ts       graph rules the types cannot express
@@ -113,21 +114,28 @@ app/
       progress.ts              the rules: learned, state, mastery, next, cookable
       leveling.ts              the chef: XP, level, rank, discipline stats
       notice.ts                what one cook earned, as lines for the menu
-      cost.ts                  cook cost, order cost, kept
-      cookLogs.ts, chefs.ts    the only Supabase reads/writes; rows -> app data
+      cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
+      grocery.ts               the grocery list: whole packages per store section, checkout total
+      kit.ts                   what equipment a set of recipes needs, and what is missing
+      cookLogs.ts, chefs.ts,   the only Supabase reads/writes; rows -> app data
+        shop.ts                  (shop.ts: plan, pantry, checks, prices, kit, finish_shopping)
       format.ts                money, quantities, dates, lists
     components/
       Plate.tsx                the plate (see Design)
       chefSprites.ts           the six sprites as pixel rows, skin and hair palettes
       ChefSprite.tsx           draws a sprite as crisp SVG pixels
       ChefEditor.tsx           name + skin + hair form, used to create and to change
-      XpBar.tsx, IngredientList.tsx
-    screens/                   Auth, NameChef, Menu, Chef, EditChef, Recipe, Cook, Log
+      CheckRow.tsx             a checkbox row that saves itself (grocery list, pantry, kit)
+      useWrite.ts              busy + error for one write from a button
+      XpBar.tsx, IngredientList.tsx, EquipmentList.tsx, RatingPicker.tsx
+    screens/                   Auth, NameChef, Menu, Chef, EditChef, Recipe, Cook, Log,
+                               EditCook, Shop, Pantry, Kit
 ```
 
 Routes: `/` menu, `/chef` chef sheet, `/chef/edit`, `/recipe/:id`,
 `/cook/:id/:step` (step 0 is "get everything out", steps 1..n are the
-method), `/cook/:id/log`.
+method), `/cook/:id/log`, `/cook-log/:id` (change or delete a cook), `/shop`
+(this week), `/pantry`, `/kit`.
 
 A signed-in account with no chef row sees the create-your-chef screen before
 anything else.
@@ -353,8 +361,19 @@ build; a failed run keeps its traces as an artifact.
   never return to the form and log a cook twice.
 - **New pages open at the top.** `App.tsx` scrolls to top on every push or
   replace navigation; Back and Forward keep the browser's position.
-- **The cook log is append-only.** No edit or delete yet. Fix a mistaken
-  row in the Supabase dashboard.
+- **A cook can be changed or deleted** at `/cook-log/:id`, reached from
+  "Your cooks" on the recipe page. The date, rating and notes change; the
+  recipe never does. Because progress is derived, the screen first says what
+  a change or a delete would take away (`progressLost` in `progress.ts`:
+  skills unlearned, recipes locked again, masteries undone), and the delete
+  asks to confirm.
+- **React Router navigates inside a transition.** A screen that removes the
+  thing it is showing (deleting a cook) must make both changes in one
+  `startTransition`, or React draws the screen once without its data and
+  reports error 520. The e2e suite catches this as a page error.
+- **Shop writes are not optimistic.** A checkbox changes only after Supabase
+  says the write succeeded; a failure shows its message under the row. In a
+  store with weak signal that is slower, and it is never wrong.
 - **The chef can be changed but not deleted.** Name, skin and hair are
   editable at `/chef/edit`. The grant is column-level, so `user_id` and
   `created_at` cannot be updated even by the owner. Supabase refuses an
@@ -375,13 +394,16 @@ build; a failed run keeps its traces as an artifact.
   and Postgres checks that privilege before it knows whether the row exists.
   Tested both ways.
 - **Grocery prices are estimates** for a midwestern supermarket, October
-  2026. They are wrong for anyone else until Phase 2 price overrides.
+  2026, until the cook corrects one on the grocery list. A corrected price
+  replaces the estimate everywhere, past cooks' kept totals included.
 - **Email confirmation** is off for development (see README). Turn it on
   before anyone else signs up.
 
-## Phase 2: the shop
+## Phase 2: the shop and the kit (built)
 
-The grocery list, the pantry, and prices you can correct.
+The grocery list, the pantry, prices you can correct, and the kit. Built
+October 4, 2026; reached from three links on the menu (This week, Pantry,
+Kit).
 
 Migration `00004_shop_kit_and_cook_edits.sql` (applied), all tables keyed by
 `user_id` with the same own-rows RLS and explicit grants as `cook_logs`:
@@ -402,26 +424,33 @@ an insert that ignores duplicates, so adding twice is harmless.
 
 Behavior:
 
-- **Plan.** "Add to this week" on any unlocked, written recipe. One batch per
-  recipe; no servings scaling.
-- **Grocery list.** Sum `qty` per ingredient across the plan. Drop anything
-  in the pantry. Packages to buy = `ceil(qty / package.units)`. Show the
-  package label, count and price, grouped by `section` in store order:
-  produce, meat, dairy, bakery, pantry. Show the checkout total. This is the
-  checkout cost, and it will be much higher than the per-serving cost on a
-  first shop. Say so on the screen.
-- **Checking off.** Tap to check. "Done shopping" clears the checks, clears
-  the plan, and adds every bought `staple: true` ingredient to the pantry.
-- **Pantry.** A screen listing `staple: true` ingredients with a toggle.
-- **Price overrides.** Tap a price on the grocery list to correct it. Route
-  every price read through one function in `cost.ts` that takes the
-  overrides. Kept totals use current prices, not the price on the day.
-- **Install to home screen.** Web manifest and icons so cook mode opens
-  standalone on the phone.
-- **The kit.** Equipment is free text today. Give it typed ids like
-  ingredients, add a `kit_items` table, and show "what you need to own
-  before this course" with the pantry. A true beginner may not have a sheet
-  pan or a 12-inch skillet, and the app should say so before the shop.
+- **Plan.** "Add to this week" (and "Take off this week") on any unlocked,
+  written recipe page. One batch per recipe; no servings scaling.
+- **Grocery list** (`lib/grocery.ts`, `/shop`). Sum `qty` per ingredient
+  across the plan, drop what the pantry has (and say which), packages =
+  `ceil(qty / package.units)`, grouped by `section` in store order: produce,
+  meat, dairy, bakery, pantry, frozen. Each line shows the package, the
+  count when it is more than one, and what the plan uses when that is not
+  whole packages. The checkout total is the register cost, and the screen
+  says it runs far above the per-serving prices on a first shop.
+- **Checking off.** Tap to check. "Done shopping" asks first if anything is
+  unchecked, then `finish_shopping()` puts the checked-off staples in the
+  pantry and clears the checks and the plan, in one transaction.
+- **Pantry** (`/pantry`). Every `staple: true` ingredient, by store section,
+  with a toggle. What a staple is: used a little at a time and keeps for
+  weeks. A can or a pack of meat is used up whole, so it is not one.
+- **Price overrides.** Tap a price on the grocery list to correct the
+  package price, or go back to the estimate. Every price read goes through
+  `packagePriceCents(id, prices)` in `cost.ts`; kept totals use current
+  prices, not the price on the day.
+- **The kit** (`curriculum/equipment.ts`, `lib/kit.ts`, `/kit`). Equipment
+  has typed ids like ingredients. `coveredBy` says when one item does
+  another's job (a stainless or cast-iron 12-inch skillet is also a 12-inch
+  skillet). The kit screen files each item under the first course that
+  needs it; the menu says how many things each course still needs; recipe
+  pages and step 0 of cook mode mark "Not in your kit yet"; the shop screen
+  lists what the week's plan still needs.
+- **Install to home screen.** Web manifest and icons: see Phase 3.
 
 ## Later, unscheduled
 
@@ -431,7 +460,6 @@ Behavior:
 - **Pour from the journal.** Show bottles rated in Pinpoint Noir that fit a
   recipe's pairing. Needs a decision on shared auth between two Supabase
   projects.
-- **Edit and delete cooks.**
 - **More of the sprite.** A walk cycle or a small idle bounce, a back view,
   or a pixel kitchen behind the chef on the sheet. Only if it earns its
   place; one sprite standing still is the whole feature today.

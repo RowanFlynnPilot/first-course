@@ -2,7 +2,7 @@
 // already checked at compile time.
 
 import { describe, expect, it } from 'vitest'
-import { cookCostPerServingCents, orderCostPerServingCents } from '../lib/cost'
+import { cookCostPerServingCents, ESTIMATES, orderCostPerServingCents } from '../lib/cost'
 import { formatAmount } from '../lib/format'
 import { INGREDIENTS, type Ingredient } from './ingredients'
 import { RECIPES } from './recipes'
@@ -129,7 +129,7 @@ describe('written recipes', () => {
       })
       if (temperatures.length === 0) continue
       const text = content.steps.map((step) => step.text).join(' ')
-      expect(content.equipment, id).toContain('Instant-read thermometer')
+      expect(content.equipment, id).toContain('thermometer')
       for (const temperature of temperatures) expect(text, id).toContain(`at least ${temperature}°F`)
       expect(text, id).toMatch(/wash your hands/i)
       expect(text, id).toMatch(/hot, soapy water/)
@@ -138,7 +138,7 @@ describe('written recipes', () => {
 
   it('cost less to cook than to order', () => {
     for (const { id, content } of written) {
-      expect(cookCostPerServingCents(content), id).toBeLessThan(orderCostPerServingCents(content))
+      expect(cookCostPerServingCents(content, ESTIMATES), id).toBeLessThan(orderCostPerServingCents(content))
     }
   })
 })
