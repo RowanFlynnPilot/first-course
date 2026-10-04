@@ -1,33 +1,41 @@
-# First Course — Phase 1 bring-up
+# First Course — bring-up and definition of done
 
 A cooking app that teaches a beginner one skill at a time, toward cooking the
-things they currently order. This package is the Phase 1 foundation: sign-in,
-a pixel-sprite chef who earns XP and climbs the kitchen ladder, the menu (31
-recipes, 28 skills), recipe pages with cook-vs-order cost and a wine pairing,
-cook mode with timers, logging a cook, and the unlock rules. The First course
-(6 recipes) is fully written.
+things they currently order. Built so far:
 
-Read `CLAUDE.md` for the brief, the locked decisions and the Phase 2 spec
+- **Phase 1, the foundation.** Sign-in, a pixel-sprite chef who earns XP and
+  climbs the kitchen ladder, the menu (31 recipes, 28 skills), recipe pages
+  with cook-vs-order cost and a wine pairing, cook mode with timers, logging
+  a cook, and the unlock rules.
+- **Phase 2, the shop and the kit.** This week's plan, a grocery list in
+  whole packages and store order, checking it off, correcting prices, the
+  pantry, the kit of equipment each course needs, and changing or deleting
+  a cook.
+- **Phase 3, cook mode hardened and leveling.** Timers that survive a reload
+  and chime when you come back, installing to the home screen, the
+  promotion moment, the idle chef, the cooking streak, and 15 badges.
+- **Recipes.** The First, Second and Third courses (18 recipes) are written.
+
+Read `CLAUDE.md` for the brief, the locked decisions and how everything works
 before changing anything.
 
 ## Prerequisites
 
 - Node 24 (22 also works)
-- A new Supabase project (free tier). The Supabase CLI runs through `npx supabase`;
+- A Supabase project (free tier). The Supabase CLI runs through `npx supabase`;
   a global npm install of it is not supported.
+- For the e2e suite, Playwright's Chromium, once: `npx playwright install chromium`
+  from `app/`.
 
 ## Bring-up (PowerShell)
 
-**1. Extract and link Supabase**
-
-Extract to `C:\Users\rpfly\Projects\first-course`, then:
+**1. Link Supabase**
 
 ```powershell
-cd C:\Users\rpfly\Projects\first-course; npx supabase init; npx supabase link --project-ref <your-project-ref>
+cd C:\Users\rpfly\Projects\first-course; npx supabase link --project-ref <your-project-ref>
 ```
 
-`npx supabase init` generates `supabase/config.toml` next to the migration that
-is already in this package.
+`supabase/config.toml` is already in the repo.
 
 **2. Database**
 
@@ -35,15 +43,17 @@ is already in this package.
 npx supabase db push
 ```
 
-Applies three migrations: `00001_phase1_foundation.sql` (the `cook_logs`
-table), `00002_chef.sql` (the `chefs` table, one chef per account) and
-`00003_chef_look.sql` (the chef's skin tone and hair color, and permission
-to edit your own chef). Each comes with grants and row-level security so a
-cook touches only their own rows.
+Applies four migrations, each with explicit grants and row-level security so
+a cook touches only their own rows:
 
-If you already pushed earlier migrations from a previous version of this
-package, the same command applies only the new ones. A chef created before
-`00003` gets a default look that you can change on the chef sheet.
+- `00001_phase1_foundation.sql`: the cook log
+- `00002_chef.sql`: one named chef per account
+- `00003_chef_look.sql`: the chef's skin tone and hair color, and editing the chef
+- `00004_shop_kit_and_cook_edits.sql`: the plan, pantry, grocery checks,
+  price corrections and kit; `finish_shopping()`; changing and deleting a cook
+
+If earlier migrations are already pushed, the same command applies only the
+new ones. `npx supabase db push --dry-run` shows which first.
 
 **3. Auth setting (dev convenience)**
 
@@ -71,37 +81,68 @@ On the phone: `npm run dev -- --host` and open the LAN URL. Everything works
 there except keeping the screen awake, which browsers only allow over HTTPS.
 Cook mode says so on screen. It works on the deployed site.
 
-## Definition of done — Phase 1
+**6. Check it**
 
-- [ ] `npm test`, `npm run lint` and `npm run build` are all clean
-- [ ] Create an account and sign in
-- [ ] Create your chef (name, skin, hair): the menu shows the sprite as a
-      level 1 dishwasher in a bandana and rubber gloves
-- [ ] The menu shows "Cook this next: Chopped salad", two ready plates, and
-      everything else locked with the skills it needs
-- [ ] Open a recipe: cost per serving, the ordering price, the pairing
-- [ ] Start cooking: step 0 lists what to get out, then one step per screen
-- [ ] Any step: open "Ingredients and amounts" without leaving cook mode
-- [ ] On the sheet-pan recipe, start the step 3 timer, go to step 4, and see
-      the timer still counting in the strip at the top
-- [ ] With that timer running, "Leave cook mode" asks before stopping it
-- [ ] A timer reaching zero chimes (check on the phone, ring switch on and off)
-- [ ] Finish, rate it "Decent", save: the menu says "+120 XP. Level 2.",
-      what you learned and what unlocked, the XP bar fills, and the yolk
-      lands on that plate
-- [ ] Press Back from the menu: you land on the last step, not the log form
-- [ ] Rate a different recipe "Rough": it shows as cooked but unlocks nothing
-- [ ] Open the chef sheet: level, six disciplines, every skill and which
-      recipe teaches it, the kitchen ladder with all six outfits
-- [ ] "Change name or look" saves and the sprite updates everywhere
-- [ ] The sprite's pixels are square and even on the phone, not blurry
-- [ ] The kept total in the header goes up with every cook
-- [ ] Sign out, sign back in: everything is still there
-- [ ] Actually cook the chopped salad
+```powershell
+npm test; npm run lint; npm run build; npm run e2e
+npm run screens
+```
+
+`npm run screens` saves every screen at 390x844 to `app/screens/` for a look.
+
+## Definition of done
+
+### Every push, automatically
+
+The deploy workflow runs these, and nothing deploys unless all pass:
+
+- [x] `npm test`: 76 unit tests. The curriculum's graph rules, raw-meat
+      safety, burners turned off, step length, XP and levels, costs and
+      corrected prices, the grocery list, the kit, timers, the streak and
+      the badges.
+- [x] `npm run lint`, where a warning fails like an error.
+- [x] `npm run build`.
+- [x] `npm run e2e`: 58 tests that drive the built app at phone size against
+      a fake Supabase that enforces the real grants. They cover:
+  - signing in and up, and creating and changing the chef
+  - cooking and logging, the after-cook notice and what unlocks, and Back
+    after logging
+  - every step of every written recipe
+  - timers across steps, reloads and leaving
+  - the plan, the grocery list, prices, Done shopping, the pantry and the kit
+  - changing and deleting a cook
+  - promotions, the usual's moments, badges, the streak and reduced motion
+  - the manifest and icons, and the error screens
+
+### On a real phone, with the deployed site
+
+These need hardware, a kitchen, or a store:
+
+- [ ] Add to Home Screen (Safari's share sheet, or Chrome's menu). The icon
+      is the plate, and it opens at the menu with no browser bar.
+- [ ] Cook mode keeps the screen awake.
+- [ ] A timer reaching zero chimes with the ring switch on. Note whether it
+      chimes with the switch off; it may be silent.
+- [ ] Start a timer, lock the phone, and unlock after it ends. The chime
+      plays when you look again, and the step says "Time is up".
+- [ ] Start a timer and leave Safari for a while, long enough that it may
+      reload the page. Come back: the timer is still counting. If it asks,
+      tap once so it can chime.
+- [ ] The sprite and the badges are square and crisp, not blurry.
+- [ ] The idle bob, the level-up hop and the promotion moment feel right,
+      not busy. With Reduce Motion on, all of it is still.
+- [ ] In a store: check the list off with one thumb, and correct a price
+      with the number keypad.
+- [ ] Done shopping puts the checked-off staples in the pantry, and next
+      week's list leaves them off.
+- [ ] Sign out and sign back in: everything is still there.
+- [ ] Actually cook: the chopped salad first, and later the seared chicken
+      thighs, your first raw meat, with the thermometer.
 
 ## Publishing to GitHub
 
-The order matters. Pages must exist before the workflow's first run.
+Already done for this repo; kept for a fresh project. The order matters:
+Pages must exist before the workflow's first run.
 
 ```powershell
 cd C:\Users\rpfly\Projects\first-course; git init -b main; git add .; git commit -m "Phase 1 foundation"
@@ -111,10 +152,12 @@ gh variable set VITE_SUPABASE_URL --body "https://<ref>.supabase.co"; gh variabl
 git push -u origin main; gh run watch
 ```
 
-`.github/workflows/deploy.yml` lints, tests and builds `app/` with those repo
+`.github/workflows/deploy.yml` lints, tests, runs the e2e suite (against its
+own build, pointed at the fake Supabase) and builds `app/` with those repo
 variables, then deploys `app/dist`. If a variable is missing the first step
-fails and names it. The publishable key is public by design; row-level
-security is the boundary, which is why plain repo variables are fine.
+fails and names it. A failed e2e run keeps its Playwright traces as an
+artifact. The publishable key is public by design; row-level security is the
+boundary, which is why plain repo variables are fine.
 
 Live at `https://rowanflynnpilot.github.io/first-course/`.
 

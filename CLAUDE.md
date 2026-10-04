@@ -53,8 +53,9 @@ In UI copy say "ordering" or "delivered", never a delivery brand name.
 1. **Recipes live in the repo, not the database.** `app/src/curriculum/*.ts`
    is typed data. Supabase holds only what a cook does.
 2. **Progress is derived, never stored.** Locked, ready, cooked, mastered,
-   learned skills and the kept total are all computed from the cook log in
-   `lib/progress.ts` and `lib/cost.ts`. There is no progress table to drift.
+   learned skills, the kept total, the streak and the badges are all
+   computed from the cook log in `lib/progress.ts`, `lib/cost.ts`,
+   `lib/streak.ts` and `lib/badges.ts`. There is no progress table to drift.
 3. **One recipe teaches each skill.** No alternate routes to a skill.
 4. **A skill is learned on one good cook** of the recipe that teaches it.
    A recipe is **mastered** at three good cooks with at least one "Nailed it".
@@ -97,10 +98,12 @@ supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
-  index.html                   fonts are loaded here
+  scripts/icons.ts             draws the home-screen icons (npm run icons)
+  public/                      icon.svg, manifest.webmanifest, icon-192/512.png, apple-touch-icon.png
+  index.html                   fonts, the manifest and the touch icon are linked here
   src/
     main.tsx                   root + error boundary
-    App.tsx                    auth gate, loads logs + chef, routes, scroll, notice
+    App.tsx                    auth gate, loads logs + chef + shop, routes, scroll, notice
     supabase.ts                client; throws if env is missing
     styles.css                 the whole design system
     curriculum/
@@ -111,9 +114,12 @@ app/
       recipes.ts               31 recipes (18 written), RECIPES, recipeById
       curriculum.test.ts       graph rules the types cannot express
     lib/
-      progress.ts              the rules: learned, state, mastery, next, cookable
-      leveling.ts              the chef: XP, level, rank, discipline stats
-      notice.ts                what one cook earned, as lines for the menu
+      progress.ts              the rules: learned, state, mastery, next, cookable, progressLost
+      leveling.ts              the chef: XP, level, rank (and its costume), discipline stats
+      streak.ts                weeks in a row with a cook, from cooked_on
+      badges.ts                the 15 badges and the rule for each, read off the log
+      notice.ts                what one cook earned: lines, level-up, promotion, badges, the usual
+      timers.ts                cook-mode timers in sessionStorage
       cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
       grocery.ts               the grocery list: whole packages per store section, checkout total
       kit.ts                   what equipment a set of recipes needs, and what is missing
@@ -122,11 +128,16 @@ app/
       format.ts                money, quantities, dates, lists
     components/
       Plate.tsx                the plate (see Design)
-      chefSprites.ts           the six sprites as pixel rows, skin and hair palettes
-      ChefSprite.tsx           draws a sprite as crisp SVG pixels
+      PixelArt.tsx             draws any pixel art (rows of palette keys) as crisp SVG, with frames
+      chefSprites.ts           the six sprites as pixel rows, the idle frames, skin and hair palettes
+      ChefSprite.tsx           the chef, standing or idling
+      badgeSprites.ts          the badge medals and symbols, earned and locked palettes
+      BadgeArt.tsx             one badge
+      Beats.tsx                the full-screen moments: a promotion, a dish of the usual in reach
       ChefEditor.tsx           name + skin + hair form, used to create and to change
       CheckRow.tsx             a checkbox row that saves itself (grocery list, pantry, kit)
       useWrite.ts              busy + error for one write from a button
+      useCookTimers.ts         cook mode's timers: persisted, chimed from one check
       XpBar.tsx, IngredientList.tsx, EquipmentList.tsx, RatingPicker.tsx
     screens/                   Auth, NameChef, Menu, Chef, EditChef, Recipe, Cook, Log,
                                EditCook, Shop, Pantry, Kit
@@ -177,8 +188,14 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - When one ingredient is used in several steps, say which part each step
   uses ("½ teaspoon of the salt", "the remaining 2 tablespoons") and put the
   split in the `prep` note, so the amounts add up to the list.
+- Equipment is a list of `EquipmentId`s from `equipment.ts`, and it lists
+  everything a step uses, down to measuring spoons, oven mitts and paper
+  towels: the kit screen and "Not in your kit yet" are only as honest as
+  this list. `kit.test.ts` fails on a catalogue item no recipe uses.
+- A step's text is at most `STEP_MAX` (360) characters, about ten lines in
+  cook mode on a phone. Longer steps get split.
 - Raw meat carries `safeTempF` in `ingredients.ts` (chicken 165, ground beef
-  160). A recipe using it must list `Instant-read thermometer`, say "at least
+  160). A recipe using it must list `thermometer`, say "at least
   N°F" where the cook checks, say "wash your hands", and clean what the raw
   meat touched in "hot, soapy water"; `curriculum.test.ts` checks all four.
   Cut vegetables before raw meat, never rinse chicken, keep a raw plate and a
@@ -250,6 +267,31 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 delivered meal. A three-serving sheet pan counts as three meals not ordered.
 If that reads as inflated in real use, change `orderCostCents` only.
 
+`lib/streak.ts` (display only, earns nothing, gates nothing):
+
+- A week runs Monday to Sunday, from the cook's local `cooked_on` dates.
+- The streak is the run of weeks with at least one cook ending this week, or
+  ending last week if this week has no cook yet ("Cook this week to keep
+  it"). Two weeks back with nothing and it is gone.
+- The longest run ever is kept for the badge, so a broken streak does not
+  take the badge away.
+
+`lib/badges.ts` (derived, never stored, so editing a cook can take one away):
+
+- First cook, Nailed it (any cook rated 3), Mastered (any recipe mastered),
+  Course cleared (every skill one course teaches), Specialist (every skill
+  of one discipline), $100 kept, $500 kept (at today's prices), Four weeks
+  running (longest streak 4 or more), and one per dish of the usual for a
+  good cook of it.
+- The after-cook notice names the badges that cook earned
+  (`earnedBadges(after)` minus `earnedBadges(before)`), with their art.
+
+The moments after a cook (`notice.ts`, played by `MenuScreen` and
+`Beats.tsx`): a promotion holds the whole screen first, then each dish of
+the usual whose skills are now all learned, each until the cook taps on.
+The usual never appears as a line in the notice. Only then does the menu
+play its own celebration: the level-up hop, the XP bar, the yolk.
+
 ## Design
 
 Enamelware: a cool white plate with a cobalt rim and one egg yolk.
@@ -297,7 +339,10 @@ other.
   shares the page's colors.
 - `ChefSprite` takes `scale`, whole screen pixels per sprite pixel. It must
   be an integer or the pixels render uneven. In use: 2 on the ladder, 3 on
-  the menu, 5 on the chef sheet, 6 in the editor.
+  the menu, 5 on the chef sheet, 6 in the editor, 7 in the promotion moment.
+  Badges are 16 pixels too, at 3 on the chef sheet and in the notice.
+- The idle frame (`spriteFrames`) drops everything above the trousers by
+  one pixel: the chef dips at the knees, feet planted, same height.
 - Sprites are different heights (the hat grows), so align them by the feet.
 
 Other rules:
@@ -423,6 +468,10 @@ build; a failed run keeps its traces as an artifact.
   replaces the estimate everywhere, past cooks' kept totals included.
 - **Email confirmation** is off for development (see README). Turn it on
   before anyone else signs up.
+- **Run `git status` after committing a new folder.** An unanchored
+  `.gitignore` entry (`screens`, meant for the screenshot folder) once hid
+  `src/screens/` and broke the CI build. The Playwright entries in
+  `app/.gitignore` are anchored now (`/screens`).
 
 ## Phase 2: the shop and the kit (built)
 
@@ -477,9 +526,43 @@ Behavior:
   lists what the week's plan still needs.
 - **Install to home screen.** Built: see "Install to the home screen" above.
 
+## Phase 3: cook mode hardened, and leveling (built)
+
+Built October 4, 2026. Timers that survive a reload and chime when the cook
+comes back, installing to the home screen (both under "Things to know"), and
+the leveling layer: the promotion moment and the usual's moments, the
+level-up beat, the idle sprite, the streak and the badges (under "The rules,
+precisely" and "Design").
+
+## Where things stand, and what comes next
+
+As of October 4, 2026: Phases 1 to 3 are built and deployed, the First,
+Second and Third courses are written (18 of 31 recipes), all four migrations
+are on the live project, and every push runs 76 unit tests and 58 e2e tests
+before it deploys.
+
+Decisions that changed on October 4, 2026, all at Rowan's request:
+
+- The Second and Third courses were written together, ahead of the "one
+  course ahead of the cook" pace. The pace applies again from the Fourth.
+- The cook log is no longer append-only: a cook's date, rating and notes
+  can change, and a cook can be deleted (never its recipe).
+- Motion is no longer limited to two pieces, and pixel art is no longer
+  only the sprite (see Design for what is allowed now).
+- Equipment has typed ids, like ingredients.
+
+What comes next, in order:
+
+1. **Cook on a real phone**: the things only a phone can show are listed in
+   the README's definition of done.
+2. **The Fourth course**, when the Third is about half cooked, under the
+   rules in "Writing a recipe", with a beginner read-back before it ships.
+3. **The usual**, which needs no new skills, only writing.
+4. Then the list below.
+
 ## Later, unscheduled
 
-- **Courses 2 to 5.** Content work, continuous, one course ahead of the cook.
+- **The Fourth course and the usual.** Content work, one course ahead of the cook.
 - **Send the list to a store.** Turn the grocery list into a store cart or
   pickup order. Which store APIs allow this needs checking at build time.
 - **Pour from the journal.** Show bottles rated in Pinpoint Noir that fit a
