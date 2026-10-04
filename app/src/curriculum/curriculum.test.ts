@@ -10,6 +10,9 @@ import { TECHNIQUES, type TechniqueId } from './techniques'
 
 const techniqueIds = Object.keys(TECHNIQUES) as TechniqueId[]
 
+/** Characters in one step's text. Roughly ten lines in cook mode at 390px wide. */
+const STEP_MAX = 360
+
 function teacherOf(technique: TechniqueId) {
   const teachers = RECIPES.filter((recipe) => recipe.teaches.includes(technique))
   if (teachers.length !== 1) {
@@ -98,6 +101,23 @@ describe('written recipes', () => {
   it('never say "until done": every doneness cue is something you can see, smell, hear or measure', () => {
     for (const { id, content } of written) {
       for (const step of content.steps) expect(step.text, id).not.toMatch(/until (it is |they are )?done/i)
+    }
+  })
+
+  it('keep every step short enough to read from across the counter', () => {
+    // About ten lines of cook-mode type on a phone. Longer steps get split.
+    for (const { id, content } of written) {
+      content.steps.forEach((step, index) => expect(step.text.length, `${id} step ${index + 1}`).toBeLessThanOrEqual(STEP_MAX))
+    }
+  })
+
+  it('turn off every burner and oven they use', () => {
+    for (const { id, content } of written) {
+      const text = content.steps.map((step) => step.text).join(' ')
+      if (content.equipment.some((item) => /skillet|saucepan|pot\b/i.test(item))) {
+        expect(text, id).toMatch(/turn off (the|that) burner/i)
+      }
+      if (/\boven\b(?! mitt)/i.test(text)) expect(text, id).toMatch(/turn off the oven/i)
     }
   })
 

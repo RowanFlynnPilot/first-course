@@ -2,6 +2,7 @@
 // Run with `npm run screens`; the pictures land in app/screens/.
 
 import type { Page } from '@playwright/test'
+import { RECIPES } from '../src/curriculum/recipes'
 import type { Seed } from './fakeSupabase'
 import { rateAndSave, SALAD_DONE, test } from './kitchen'
 
@@ -63,6 +64,18 @@ test('third course: recipe page and its longest step', async ({ page, kitchen })
   await shoot(page, 'recipe-pan-sauce')
   await page.goto('#/cook/chicken-pan-sauce/4')
   await shoot(page, 'cook-long-step')
+})
+
+test('the three longest steps in the book', async ({ page, kitchen }) => {
+  const steps = RECIPES.flatMap((recipe) =>
+    (recipe.content?.steps ?? []).map((step, index) => ({ recipe: recipe.id, number: index + 1, length: step.text.length })),
+  ).sort((a, b) => b.length - a.length)
+  const everything = RECIPES.filter((recipe) => recipe.content !== null).map((recipe) => ({ recipe: recipe.id, rating: 2 as const }))
+  await kitchen.open('./', { logs: everything })
+  for (const [rank, step] of steps.slice(0, 3).entries()) {
+    await page.goto(`#/cook/${step.recipe}/${step.number}`)
+    await shoot(page, `longest-step-${rank + 1}`)
+  }
 })
 
 test('log', async ({ page, kitchen }) => {

@@ -176,7 +176,27 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   Cut vegetables before raw meat, never rinse chicken, keep a raw plate and a
   cooked plate, wash tongs after they touch raw meat, and never pour fat
   down the sink.
+- Salt and pepper for raw meat are measured into a small bowl before the
+  package opens, so hands that touched raw meat never touch the salt box.
+  Six chicken thighs do not fit a 12-inch skillet with room between them:
+  cook them in two batches of 3, and wash the tongs before they touch cooked
+  chicken.
+- Every thermometer check says where to push the probe, to keep the tip off
+  the pan (which reads high, the dangerous direction), to wait until the
+  number stops climbing, and what to do if it is low.
+- Say "turn off the burner" (and "turn off the oven") where the heat is done;
+  `curriculum.test.ts` checks every recipe that uses a burner or the oven.
+  Name oven mitts wherever a hot pan comes out of the oven, a hot metal
+  handle gets held, or a pot of boiling water gets drained (colander in the
+  sink, tip the pot away from you).
+- A step the cook will sit on for a long time (water coming to a boil, pasta
+  cooking) repeats any reminder that matters, such as stirring a simmering
+  sauce, because the earlier step is no longer on screen.
 - A sauce with a raw egg yolk uses `pasteurized-eggs`, and says why.
+- After writing, have someone read every step as a person who has never
+  cooked. The October 2026 read-back of the Second and Third courses found
+  burners never turned off, raw-meat hands on the salt box, and no plan for
+  a second batch; all three are now rules above.
 - `delivery.menuPriceCents` is the in-app menu price of one serving of the
   nearest thing you would order.
 - `pairing.principle` is a general rule ("Match acid with acid"), so the
