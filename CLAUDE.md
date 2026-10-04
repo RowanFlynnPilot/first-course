@@ -82,17 +82,19 @@ In UI copy say "ordering" or "delivered", never a delivery brand name.
 ## Stack and layout
 
 React 19, Vite 8, TypeScript 6, React Router 8 (imports come from
-`react-router`), Supabase (Postgres, Auth), Vitest, oxlint. Deployed by GitHub
+`react-router`), Supabase (Postgres, Auth), Vitest, Playwright (dev only), oxlint. Deployed by GitHub
 Actions to GitHub Pages at `/first-course/`.
 
 ```
 CLAUDE.md
 README.md                      bring-up, definition of done, publishing
-.github/workflows/deploy.yml   lint, test, build, deploy
+.github/workflows/deploy.yml   lint, test, e2e, build, deploy
 supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                00002_chef.sql (chefs: one named chef per account)
                                00003_chef_look.sql (skin, hair, and editing the chef)
 app/
+  playwright.config.ts         e2e: phone viewport, its own build against the fake
+  e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
   index.html                   fonts are loaded here
   src/
     main.tsx                   root + error boundary
@@ -279,10 +281,24 @@ Other rules:
 ```powershell
 cd C:\Users\rpfly\Projects\first-course\app; npm install
 npm run dev
-npm test; npm run lint; npm run build
+npm test; npm run lint; npm run build; npm run e2e
+npm run screens                # every screen at 390x844, into app/screens/ (gitignored)
+npx playwright install chromium   # once, before the first e2e run
 ```
 
 Phone testing: `npm run dev -- --host`, then open the LAN URL.
+
+**The e2e suite** (`app/e2e/`, Playwright, Chromium at 390x844 in Central
+time) drives a production build pointed at `https://e2e.supabase.test`.
+`fakeSupabase.ts` answers every request to that host from in-memory tables
+that mirror the migrations: each table's columns, primary key, check
+constraints, which columns a cook may update, whether rows can be deleted,
+and own-rows RLS. An unknown column, a write the grants forbid, or a request
+the fake does not understand fails the test, as do uncaught page errors and
+console errors. When a migration changes a table, change `TABLES` in the fake
+to match. `kitchen.ts` is the fixture (`kitchen.open(route, seed)`), the
+seeds and the shared steps. The deploy workflow runs the suite before the
+build; a failed run keeps its traces as an artifact.
 
 ## Things to know before changing them
 

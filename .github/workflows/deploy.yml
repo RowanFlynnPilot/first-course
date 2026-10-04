@@ -47,6 +47,20 @@ jobs:
 
       - run: npm test
 
+      # The e2e suite builds its own copy pointed at a fake Supabase, so the
+      # deploy build below still gets the real URL from the repo variables.
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run e2e
+
+      - name: Keep the Playwright traces of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: app/test-results
+          retention-days: 7
+
       - run: npm run build
 
       - uses: actions/configure-pages@v6
