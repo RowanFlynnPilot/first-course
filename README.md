@@ -13,7 +13,8 @@ before changing anything.
 ## Prerequisites
 
 - Node 24 (22 also works)
-- A new Supabase project (free tier) and the Supabase CLI (`npm i -g supabase`)
+- A new Supabase project (free tier). The Supabase CLI runs through `npx supabase`;
+  a global npm install of it is not supported.
 
 ## Bring-up (PowerShell)
 
@@ -22,16 +23,16 @@ before changing anything.
 Extract to `C:\Users\rpfly\Projects\first-course`, then:
 
 ```powershell
-cd C:\Users\rpfly\Projects\first-course; supabase init; supabase link --project-ref <your-project-ref>
+cd C:\Users\rpfly\Projects\first-course; npx supabase init; npx supabase link --project-ref <your-project-ref>
 ```
 
-`supabase init` generates `supabase/config.toml` next to the migration that
+`npx supabase init` generates `supabase/config.toml` next to the migration that
 is already in this package.
 
 **2. Database**
 
 ```powershell
-supabase db push
+npx supabase db push
 ```
 
 Applies three migrations: `00001_phase1_foundation.sql` (the `cook_logs`
