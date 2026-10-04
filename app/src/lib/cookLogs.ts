@@ -1,0 +1,54 @@
+import { recipeById } from '../curriculum/recipes'
+import { supabase } from '../supabase'
+import { localDateString } from './format'
+import type { CookLog, Rating } from './progress'
+
+const COLUMNS = 'id, recipe_id, cooked_on, rating, notes'
+
+interface CookLogRow {
+  id: string
+  recipe_id: string
+  cooked_on: string
+  rating: number
+  notes: string
+}
+
+// The one place database rows become app data.
+function toCookLog(row: CookLogRow): CookLog {
+  recipeById(row.recipe_id) // throws on an id the menu no longer has
+  if (row.rating !== 1 && row.rating !== 2 && row.rating !== 3) {
+    throw new Error(`Cook log ${row.id} has rating ${row.rating}`)
+  }
+  return {
+    id: row.id,
+    recipeId: row.recipe_id,
+    cookedOn: row.cooked_on,
+    rating: row.rating,
+    notes: row.notes,
+  }
+}
+
+export async function fetchCookLogs(): Promise<CookLog[]> {
+  const { data, error } = await supabase.from('cook_logs').select(COLUMNS).order('created_at')
+  if (error) throw new Error(`Could not load your cook log: ${error.message}`)
+  return (data as CookLogRow[]).map(toCookLog)
+}
+
+export async function insertCookLog(input: {
+  recipeId: string
+  rating: Rating
+  notes: string
+}): Promise<CookLog> {
+  const { data, error } = await supabase
+    .from('cook_logs')
+    .insert({
+      recipe_id: input.recipeId,
+      cooked_on: localDateString(new Date()),
+      rating: input.rating,
+      notes: input.notes,
+    })
+    .select(COLUMNS)
+    .single()
+  if (error) throw new Error(`Could not save this cook: ${error.message}`)
+  return toCookLog(data as CookLogRow)
+}

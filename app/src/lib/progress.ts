@@ -1,0 +1,76 @@
+// The rules of the game. Progress is never stored; it is always derived from
+// the cook log, so there is one source of truth.
+
+import { RECIPES, recipeById } from '../curriculum/recipes'
+import type { TechniqueId } from '../curriculum/techniques'
+import type { Recipe, RecipeContent } from '../curriculum/types'
+
+export type Rating = 1 | 2 | 3
+
+export const RATINGS: readonly { value: Rating; label: string; hint: string }[] = [
+  { value: 1, label: 'Rough', hint: 'Edible, maybe. I want another go.' },
+  { value: 2, label: 'Decent', hint: 'It worked. I get the idea.' },
+  { value: 3, label: 'Nailed it', hint: 'I would serve this to someone.' },
+]
+
+export interface CookLog {
+  readonly id: string
+  readonly recipeId: string
+  /** Local calendar date, YYYY-MM-DD. */
+  readonly cookedOn: string
+  readonly rating: Rating
+  readonly notes: string
+}
+
+/** A cook at this rating or better teaches the recipe's skills. */
+export const LEARNED_RATING: Rating = 2
+/** Good cooks needed to master a recipe. One of them must be "Nailed it". */
+export const MASTERED_COOKS = 3
+
+export type RecipeState = 'locked' | 'ready' | 'cooked' | 'mastered'
+
+export function learnedTechniques(logs: readonly CookLog[]): ReadonlySet<TechniqueId> {
+  const learned = new Set<TechniqueId>()
+  for (const recipe of RECIPES) {
+    if (goodCooks(recipe, logs) > 0) {
+      for (const technique of recipe.teaches) learned.add(technique)
+    }
+  }
+  return learned
+}
+
+export function missingTechniques(recipe: Recipe, logs: readonly CookLog[]): TechniqueId[] {
+  const learned = learnedTechniques(logs)
+  return recipe.requires.filter((technique) => !learned.has(technique))
+}
+
+export function goodCooks(recipe: Recipe, logs: readonly CookLog[]): number {
+  return logs.filter((log) => log.recipeId === recipe.id && log.rating >= LEARNED_RATING).length
+}
+
+export function recipeState(recipe: Recipe, logs: readonly CookLog[]): RecipeState {
+  if (missingTechniques(recipe, logs).length > 0) return 'locked'
+  const own = logs.filter((log) => log.recipeId === recipe.id)
+  if (own.length === 0) return 'ready'
+  const nailedOnce = own.some((log) => log.rating === 3)
+  if (goodCooks(recipe, logs) >= MASTERED_COOKS && nailedOnce) return 'mastered'
+  return 'cooked'
+}
+
+/** The first unlocked, written recipe without a good cook; failing that, the first not yet mastered. */
+export function nextRecipe(logs: readonly CookLog[]): Recipe | null {
+  const open = RECIPES.filter((recipe) => recipe.content !== null && recipeState(recipe, logs) !== 'locked')
+  return (
+    open.find((recipe) => goodCooks(recipe, logs) === 0) ??
+    open.find((recipe) => recipeState(recipe, logs) !== 'mastered') ??
+    null
+  )
+}
+
+/** The recipe and its written content, or a thrown reason it cannot be cooked or logged right now. */
+export function cookable(id: string, logs: readonly CookLog[]): { recipe: Recipe; content: RecipeContent } {
+  const recipe = recipeById(id)
+  if (recipe.content === null) throw new Error(`${recipe.title} is not written yet`)
+  if (recipeState(recipe, logs) === 'locked') throw new Error(`${recipe.title} is still locked`)
+  return { recipe, content: recipe.content }
+}
