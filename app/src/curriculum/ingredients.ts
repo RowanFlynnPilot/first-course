@@ -127,6 +127,20 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '5 lb bag', priceCents: 449, units: 5 },
   },
+  lime: {
+    name: 'Lime',
+    section: 'produce',
+    unit: 'each',
+    staple: false,
+    package: { label: '1 lime', priceCents: 50, units: 1 },
+  },
+  basil: {
+    name: 'Fresh basil',
+    section: 'produce',
+    unit: 'bunch',
+    staple: false,
+    package: { label: '1 bunch', priceCents: 249, units: 1 },
+  },
 
   // Meat
   kielbasa: {
@@ -151,6 +165,32 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '1 lb pack', priceCents: 649, units: 1 },
     safeTempF: 160,
+  },
+  'chicken-breasts': {
+    name: 'Boneless, skinless chicken breasts',
+    section: 'meat',
+    unit: 'lb',
+    staple: false,
+    package: { label: '1.5 lb pack (about 2 large)', priceCents: 749, units: 1.5 },
+    safeTempF: 165,
+  },
+  'flank-steak': {
+    // A whole cut, not ground: safe at 145°F, where ground beef needs 160°F.
+    name: 'Flank steak',
+    section: 'meat',
+    unit: 'lb',
+    staple: false,
+    package: { label: '1 steak, about 1¼ lb', priceCents: 1249, units: 1.25 },
+    safeTempF: 145,
+  },
+  bacon: {
+    // Cured, and cooked until crisp, so crisp is the cue rather than a
+    // thermometer. Still raw pork in the package: wash hands and the board.
+    name: 'Thick-cut bacon',
+    section: 'meat',
+    unit: 'oz',
+    staple: false,
+    package: { label: '12 oz pack', priceCents: 599, units: 12 },
   },
 
   // Dairy
@@ -203,6 +243,20 @@ export const INGREDIENTS = {
     unit: 'each',
     staple: false,
     package: { label: '1 dozen, pasteurized in the shell', priceCents: 549, units: 12 },
+  },
+  mozzarella: {
+    name: 'Low-moisture mozzarella',
+    section: 'dairy',
+    unit: 'oz',
+    staple: false,
+    package: { label: '8 oz block', priceCents: 349, units: 8 },
+  },
+  yogurt: {
+    name: 'Plain whole-milk yogurt',
+    section: 'dairy',
+    unit: 'cup',
+    staple: false,
+    package: { label: '16 oz tub (2 cups)', priceCents: 279, units: 2 },
   },
 
   // Bakery
@@ -389,6 +443,55 @@ export const INGREDIENTS = {
     unit: 'tsp',
     staple: true,
     package: { label: '8 oz jar', priceCents: 299, units: 45 },
+  },
+  'all-purpose-flour': {
+    name: 'All-purpose flour',
+    section: 'pantry',
+    unit: 'cup',
+    staple: true,
+    package: { label: '5 lb bag (about 18 cups)', priceCents: 349, units: 18 },
+  },
+  'instant-yeast': {
+    name: 'Instant yeast, ¼ oz packet',
+    section: 'pantry',
+    unit: 'each',
+    staple: true,
+    package: { label: 'Strip of 3 packets', priceCents: 199, units: 3 },
+  },
+  panko: {
+    name: 'Panko breadcrumbs',
+    section: 'pantry',
+    unit: 'cup',
+    staple: true,
+    package: { label: '8 oz box (about 4 cups)', priceCents: 299, units: 4 },
+  },
+  paprika: {
+    name: 'Paprika',
+    section: 'pantry',
+    unit: 'tsp',
+    staple: true,
+    package: { label: '2.1 oz jar', priceCents: 299, units: 26 },
+  },
+  'coconut-milk': {
+    name: 'Coconut milk, full-fat, 13.5 oz can',
+    section: 'pantry',
+    unit: 'each',
+    staple: false,
+    package: { label: '13.5 oz can', priceCents: 249, units: 1 },
+  },
+  'green-curry-paste': {
+    name: 'Thai green curry paste',
+    section: 'pantry',
+    unit: 'tbsp',
+    staple: true,
+    package: { label: '4 oz jar (about 7 tbsp)', priceCents: 349, units: 7 },
+  },
+  'fish-sauce': {
+    name: 'Fish sauce',
+    section: 'pantry',
+    unit: 'tbsp',
+    staple: true,
+    package: { label: '6.76 fl oz bottle', priceCents: 349, units: 13 },
   },
 
   // Frozen

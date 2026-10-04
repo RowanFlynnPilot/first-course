@@ -14,7 +14,8 @@ things they currently order. Built so far:
 - **Phase 3, cook mode hardened and leveling.** Timers that survive a reload
   and chime when you come back, installing to the home screen, the
   promotion moment, the idle chef, the cooking streak, and 15 badges.
-- **Recipes.** The First, Second and Third courses (18 recipes) are written.
+- **Recipes.** All four courses (24 recipes) are written. The usual's seven
+  dishes are on the menu, waiting to be written.
 
 Read `CLAUDE.md` for the brief, the locked decisions and how everything works
 before changing anything.
@@ -104,18 +105,18 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 76 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 77 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 59 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 82 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, and creating and changing the chef
   - cooking and logging, the after-cook notice and what unlocks, and Back
     after logging
-  - every step of every written recipe
+  - every step of every written recipe, one test per recipe
   - timers across steps, reloads and leaving
   - the plan, the grocery list, prices, Done shopping, the pantry and the kit
   - changing and deleting a cook

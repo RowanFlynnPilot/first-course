@@ -75,6 +75,19 @@ test('third course: recipe page and its longest step', async ({ page, kitchen })
   await shoot(page, 'cook-long-step')
 })
 
+test('fourth course: a recipe page and a frying step', async ({ page, kitchen }) => {
+  await kitchen.open('#/recipe/pan-pizza', {
+    logs: [
+      { recipe: 'marinara-pasta', rating: 2 },
+      { recipe: 'sheet-pan-sausage', rating: 2 },
+      { recipe: 'seared-chicken-thighs', rating: 2 },
+    ],
+  })
+  await shoot(page, 'recipe-pan-pizza')
+  await page.goto('#/cook/chicken-cutlets/7')
+  await shoot(page, 'cook-frying')
+})
+
 test('the three longest steps in the book', async ({ page, kitchen }) => {
   const steps = RECIPES.flatMap((recipe) =>
     (recipe.content?.steps ?? []).map((step, index) => ({ recipe: recipe.id, number: index + 1, length: step.text.length })),

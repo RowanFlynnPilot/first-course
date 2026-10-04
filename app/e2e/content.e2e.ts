@@ -9,12 +9,9 @@ const written = RECIPES.flatMap((recipe) => (recipe.content === null ? [] : [{ r
 // One good cook of every written recipe, so everything written is unlocked.
 const EVERYTHING: readonly SeedLog[] = written.map(({ recipe }) => ({ recipe: recipe.id, rating: 2 }))
 
-test('every written recipe opens, and cook mode shows each step', async ({ page, kitchen }) => {
-  await kitchen.open('./', { logs: EVERYTHING })
-  await expect(page.getByText('Cook this again')).toBeVisible()
-
-  for (const { recipe, steps } of written) {
-    await page.goto(`#/recipe/${recipe.id}`)
+for (const { recipe, steps } of written) {
+  test(`${recipe.title} opens, and cook mode shows each step`, async ({ page, kitchen }) => {
+    await kitchen.open(`#/recipe/${recipe.id}`, { logs: EVERYTHING })
     await expect(page.getByRole('heading', { level: 1, name: recipe.title })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Start cooking' })).toBeVisible()
 
@@ -25,5 +22,5 @@ test('every written recipe opens, and cook mode shows each step', async ({ page,
       await expect(page.getByText(`Step ${step} of ${steps}`)).toBeVisible()
     }
     await expect(page.getByRole('link', { name: 'Finish and log it' })).toBeVisible()
-  }
-})
+  })
+}

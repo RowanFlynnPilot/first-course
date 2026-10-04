@@ -39,6 +39,7 @@ test.describe('the kit', () => {
       'To start',
       'New for the second course',
       'New for the third course',
+      'New for the fourth course',
     ])
     await page.getByRole('checkbox', { name: /Chef’s knife/ }).click()
     await expect(page.getByRole('checkbox', { name: /Chef’s knife/ })).toBeChecked()

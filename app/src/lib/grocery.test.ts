@@ -42,7 +42,7 @@ describe('the grocery list', () => {
   })
 
   it('refuses a plan with an unwritten recipe', () => {
-    expect(() => groceryList(['carbonara'], NOTHING, ESTIMATES)).toThrow('not written yet')
+    expect(() => groceryList(['margherita-pizza'], NOTHING, ESTIMATES)).toThrow('not written yet')
   })
 
   it('is empty for an empty plan', () => {

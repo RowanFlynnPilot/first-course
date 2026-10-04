@@ -206,7 +206,7 @@ function UpNext({ recipe, logs, prices }: { recipe: Recipe | null; logs: readonl
     return (
       <section className="tray">
         <p className="tray-body">
-          You have mastered every recipe written so far. The next course needs writing before you can cook it.
+          You have mastered every recipe written so far. The rest of the usual needs writing before you can cook it.
         </p>
       </section>
     )
@@ -259,6 +259,5 @@ function rowNote(recipe: Recipe, logs: readonly CookLog[]): string {
     const times = logs.filter((log) => log.recipeId === recipe.id).length
     return `Cooked ${plural(times, 'time', 'times')}`
   }
-  if (recipe.content === null) return 'Unlocked. Not written yet.'
   return `Teaches ${skillList(recipe.teaches)}`
 }

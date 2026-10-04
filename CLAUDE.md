@@ -111,7 +111,7 @@ app/
       ingredients.ts           priced ingredients   -> IngredientId
       equipment.ts             the kit catalogue    -> EquipmentId
       types.ts                 Recipe, RecipeContent, Step, Pairing
-      recipes.ts               31 recipes (18 written), RECIPES, recipeById
+      recipes.ts               31 recipes (24 written), RECIPES, recipeById
       curriculum.test.ts       graph rules the types cannot express
     lib/
       progress.ts              the rules: learned, state, mastery, next, cookable, progressLost
@@ -159,14 +159,18 @@ orders. Tier 5 has seven dishes: double smash burger, crispy chicken sandwich,
 margherita pizza, ragù bolognese, pad thai, General Tso's chicken, chicken
 tikka masala.
 
-**Written so far: the First, Second and Third courses (18 recipes).** The
-Fourth course and the usual are on the menu with titles, blurbs, skills and
-prerequisites, and `content: null`. The UI shows them as locked rows; a
-recipe page with `content: null` says it is not written yet.
+**Written so far: every course, First through Fourth (24 recipes).** The
+usual's seven dishes are on the menu with titles, blurbs and prerequisites,
+and `content: null`. The menu shows them as "In reach. Not written yet." once
+their skills are learned; a recipe page with `content: null` says it is not
+written yet. `curriculum.test.ts` requires every course recipe to be
+written, and the after-cook notice relies on it: an unlocked course recipe
+is always ready to cook.
 
-The Second and Third courses were written together on October 4, 2026, ahead
-of the usual pace, at Rowan's request. Write the Fourth course when the Third
-is about half cooked: how these go should shape how the next six are written.
+The Second, Third and Fourth courses were all written on October 4, 2026,
+ahead of the usual pace, at Rowan's request. Write the usual when the Fourth
+course is about half cooked: how these go should shape how the last seven
+are written.
 
 ### Writing a recipe
 
@@ -195,7 +199,10 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - A step's text is at most `STEP_MAX` (360) characters, about ten lines in
   cook mode on a phone. Longer steps get split.
 - Raw meat carries `safeTempF` in `ingredients.ts` (chicken 165, ground beef
-  160). A recipe using it must list `thermometer`, say "at least
+  160, a whole cut of beef such as flank steak 145). Bacon has none: it is
+  cured and cooked until crisp, so crisp is the cue, but it is still raw pork
+  in the package, so it gets cut last and its board, knife and hands get
+  washed. A recipe using it must list `thermometer`, say "at least
   N°F" where the cook checks, say "wash your hands", and clean what the raw
   meat touched in "hot, soapy water"; `curriculum.test.ts` checks all four.
   Cut vegetables before raw meat, never rinse chicken, keep a raw plate and a
@@ -205,10 +212,25 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   package opens, so hands that touched raw meat never touch the salt box.
   Six chicken thighs do not fit a 12-inch skillet with room between them:
   cook them in two batches of 3, and wash the tongs before they touch cooked
-  chicken.
+  chicken, or lift the cooked food with a utensil that never touched raw meat.
+- Hands that touched raw meat get washed before they touch plastic wrap, a
+  bottle, or the fridge door. Tear off plastic wrap before the package
+  opens, and put leftover raw meat back in the fridge before your hands
+  touch it (lift what you need out with a fork).
+- Whatever was cut before the raw meat moves off the board, onto a plate or
+  into a bowl, before the meat lands on it.
+- Check that the food fits: a 12-inch skillet has a flat bottom about 10
+  inches across. Pounded cutlets of 4 ounces fit two at a time; bigger ones
+  do not.
 - Every thermometer check says where to push the probe, to keep the tip off
   the pan (which reads high, the dangerous direction), to wait until the
-  number stops climbing, and what to do if it is low.
+  number stops climbing, and what to do if it is low. In thin food (a cutlet
+  in oil, a strip of chicken on a spoon) the tip must sit in the middle of
+  the meat: a tip that pokes out reads the oil or the spoon.
+- Measure in spoons a standard set has: "1½ teaspoons", never "½
+  tablespoon".
+- A step that starts a long timer the cook should not wait on (a dough's
+  rise while the oven heats) says to go straight on to the next step.
 - Say "turn off the burner" (and "turn off the oven") where the heat is done;
   `curriculum.test.ts` checks every recipe that uses a burner or the oven.
   Name oven mitts wherever a hot pan comes out of the oven, a hot metal
@@ -221,7 +243,13 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - After writing, have someone read every step as a person who has never
   cooked. The October 2026 read-back of the Second and Third courses found
   burners never turned off, raw-meat hands on the salt box, and no plan for
-  a second batch; all three are now rules above.
+  a second batch; all three are now rules above. The read-back of the Fourth
+  course found vegetables still on the board when raw meat landed on it (in
+  the shipped chicken stir-fry too), plastic wrap and the fridge door touched
+  with raw hands, cutlets too big for the pan, a thermometer tip reading the
+  oil, and an electric burner still hot under the carbonara; the first four
+  are rules above, and the last is why a pan comes off the burner before
+  eggs go in.
 - `delivery.menuPriceCents` is the in-app menu price of one serving of the
   nearest thing you would order.
 - `pairing.principle` is a general rule ("Match acid with acid"), so the
@@ -546,15 +574,16 @@ precisely" and "Design").
 
 ## Where things stand, and what comes next
 
-As of October 4, 2026: Phases 1 to 3 are built and deployed, the First,
-Second and Third courses are written (18 of 31 recipes), all four migrations
-are on the live project, and every push runs 76 unit tests and 59 e2e tests
-before it deploys.
+As of October 4, 2026: Phases 1 to 3 are built and deployed, all four
+courses are written (24 of 31 recipes; only the usual is left), all four
+migrations are on the live project, and every push runs 77 unit tests and
+82 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 
-- The Second and Third courses were written together, ahead of the "one
-  course ahead of the cook" pace. The pace applies again from the Fourth.
+- The Second, Third and Fourth courses were written the same day, ahead of
+  the "one course ahead of the cook" pace. The pace applies again to the
+  usual.
 - The cook log is no longer append-only: a cook's date, rating and notes
   can change, and a cook can be deleted (never its recipe).
 - Motion is no longer limited to two pieces, and pixel art is no longer
@@ -565,14 +594,13 @@ What comes next, in order:
 
 1. **Cook on a real phone**: the things only a phone can show are listed in
    the README's definition of done.
-2. **The Fourth course**, when the Third is about half cooked, under the
-   rules in "Writing a recipe", with a beginner read-back before it ships.
-3. **The usual**, which needs no new skills, only writing.
-4. Then the list below.
+2. **The usual**, when the Fourth course is about half cooked. It needs no
+   new skills, only writing, under the rules in "Writing a recipe", with a
+   beginner read-back before it ships.
+3. Then the list below.
 
 ## Later, unscheduled
 
-- **The Fourth course and the usual.** Content work, one course ahead of the cook.
 - **Send the list to a store.** Turn the grocery list into a store cart or
   pickup order. Which store APIs allow this needs checking at build time.
 - **Pour from the journal.** Show bottles rated in Pinpoint Noir that fit a

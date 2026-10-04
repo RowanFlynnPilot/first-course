@@ -69,11 +69,9 @@ export function cookNotice(
     (other) => recipeState(other, before) === 'locked' && recipeState(other, after) !== 'locked',
   )
   const usualUnlocked = unlocked.filter((other) => other.tier === 5)
-  const courses = unlocked.filter((other) => other.tier !== 5)
-  const written = courses.filter((other) => other.content !== null).map((other) => other.title)
-  const unwritten = courses.filter((other) => other.content === null).map((other) => other.title)
-  if (written.length > 0) lines.push(`Now ready to cook: ${listOf(written)}.`)
-  if (unwritten.length > 0) lines.push(`Unlocked, but not written yet: ${listOf(unwritten)}.`)
+  // Every course recipe is written (curriculum.test.ts), so an unlocked one is ready to cook.
+  const courses = unlocked.filter((other) => other.tier !== 5).map((other) => other.title)
+  if (courses.length > 0) lines.push(`Now ready to cook: ${listOf(courses)}.`)
 
   const hadBadges = new Set(earnedBadges(before, prices))
   const badges = earnedBadges(after, prices).filter((id) => !hadBadges.has(id))

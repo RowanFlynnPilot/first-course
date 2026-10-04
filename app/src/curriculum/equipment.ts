@@ -17,7 +17,11 @@ export const EQUIPMENT = {
   'chefs-knife': { name: 'Chef’s knife', note: 'About 8 inches long. It does almost every job.', coveredBy: [] },
   'cutting-board': { name: 'Cutting board', note: 'At least 12 by 18 inches, so food stays on it.', coveredBy: [] },
   'butter-knife': { name: 'Butter knife', note: null, coveredBy: [] },
-  grater: { name: 'Grater', note: 'A box grater with a fine side, or a rasp, for zest, cheese and ginger.', coveredBy: [] },
+  grater: {
+    name: 'Grater',
+    note: 'A box grater: the fine side for zest, parmesan and ginger, the big holes for cheese that melts.',
+    coveredBy: [],
+  },
   'can-opener': { name: 'Can opener', note: null, coveredBy: [] },
 
   // Pans and pots
@@ -25,11 +29,16 @@ export const EQUIPMENT = {
   'large-skillet': {
     name: 'Large skillet, 12 inch',
     note: 'Any kind. A stainless steel or cast-iron one counts.',
-    coveredBy: ['steel-skillet'],
+    coveredBy: ['steel-skillet', 'cast-iron-skillet'],
   },
   'steel-skillet': {
     name: 'Large skillet, 12 inch, stainless steel or cast iron',
     note: 'Not nonstick: pan sauces and smash burgers need a pan that browns and takes high heat.',
+    coveredBy: ['cast-iron-skillet'],
+  },
+  'cast-iron-skillet': {
+    name: 'Cast-iron skillet, 12 inch',
+    note: 'Pre-seasoned is fine. It goes from the stove into a 500°F oven and holds heat for a crisp crust.',
     coveredBy: [],
   },
   'skillet-lid': { name: 'Lid or plate that covers the skillet', note: 'A large plate or a sheet pan works.', coveredBy: [] },
@@ -39,6 +48,11 @@ export const EQUIPMENT = {
   'sheet-pan': {
     name: 'Rimmed sheet pan',
     note: 'A half sheet, about 13 by 18 inches, with a lip all the way around.',
+    coveredBy: [],
+  },
+  'wire-rack': {
+    name: 'Wire rack that fits in the sheet pan',
+    note: 'Oven-safe metal. Air under the food keeps a crust crisp.',
     coveredBy: [],
   },
 
@@ -69,12 +83,15 @@ export const EQUIPMENT = {
   'small-bowl': { name: 'Small bowls', note: 'Two or three, for things measured out ahead.', coveredBy: [] },
   'heatproof-bowl': { name: 'Heatproof bowl', note: 'Glass or metal, for hot fat.', coveredBy: [] },
   plates: { name: 'Two large plates', note: null, coveredBy: [] },
+  'shallow-dishes': { name: 'Three shallow dishes', note: 'Pie plates or wide, shallow bowls, for breading.', coveredBy: [] },
   mug: { name: 'Mug', note: null, coveredBy: [] },
   fork: { name: 'Fork', note: null, coveredBy: [] },
   spoon: { name: 'Spoon', note: null, coveredBy: [] },
   'kitchen-towels': { name: 'Kitchen towels', note: null, coveredBy: [] },
   'paper-towels': { name: 'Paper towels', note: null, coveredBy: [] },
   parchment: { name: 'Parchment paper', note: null, coveredBy: [] },
+  foil: { name: 'Aluminum foil', note: null, coveredBy: [] },
+  'plastic-wrap': { name: 'Plastic wrap', note: null, coveredBy: [] },
 } as const satisfies Record<string, Equipment>
 
 export type EquipmentId = keyof typeof EQUIPMENT

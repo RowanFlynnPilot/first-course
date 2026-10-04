@@ -45,11 +45,11 @@ describe('the after-cook notice', () => {
     expect(notice.lines).toContain('Now ready to cook: Pasta with quick marinara and Pasta al limone.')
   })
 
-  it('does not call an unwritten recipe ready to cook', () => {
+  it('opens a Fourth-course recipe as soon as its skills are learned', () => {
+    // Carbonara needs mise en place (aglio e olio) and the pasta-water sauce (pasta al limone).
     const before = [log('chopped-salad', 2), log('soft-scrambled-eggs', 2), log('aglio-e-olio', 2)]
     const notice = cookNotice(recipeById('pasta-al-limone'), before, log('pasta-al-limone', 2), 'Remy', ESTIMATES)
-    expect(notice.lines).toContain('Unlocked, but not written yet: Spaghetti carbonara.')
-    expect(notice.lines.some((line) => line.startsWith('Now ready to cook'))).toBe(false)
+    expect(notice.lines).toContain('Now ready to cook: Spaghetti carbonara.')
   })
 
   it('announces mastery and the end of XP for a recipe', () => {

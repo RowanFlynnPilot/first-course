@@ -20,15 +20,15 @@ test.describe('error paths', () => {
 
   test('an unwritten recipe cannot be cooked or logged, but its page says why', async ({ page, kitchen }) => {
     kitchen.expectErrorScreen()
-    await kitchen.open('#/recipe/carbonara', FRESH)
+    await kitchen.open('#/recipe/margherita-pizza', FRESH)
     await expect(page.getByText('This recipe is on the menu but not written yet.')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Start cooking' })).toHaveCount(0)
 
-    await page.goto('#/cook/carbonara/0')
-    await expect(page.getByRole('alert')).toHaveText('Spaghetti carbonara is not written yet')
-    await page.goto('#/cook/carbonara/log')
+    await page.goto('#/cook/margherita-pizza/0')
+    await expect(page.getByRole('alert')).toHaveText('Margherita pizza is not written yet')
+    await page.goto('#/cook/margherita-pizza/log')
     await page.reload()
-    await expect(page.getByRole('alert')).toHaveText('Spaghetti carbonara is not written yet')
+    await expect(page.getByRole('alert')).toHaveText('Margherita pizza is not written yet')
   })
 
   test('an unknown route is not on the menu, and the way back works', async ({ page, kitchen }) => {

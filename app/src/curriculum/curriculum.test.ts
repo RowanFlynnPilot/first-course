@@ -65,6 +65,12 @@ describe('the menu', () => {
     expect(RECIPES.filter((recipe) => !cooked.has(recipe.id)).map((recipe) => recipe.id)).toEqual([])
   })
 
+  it('writes every course before the usual', () => {
+    // The after-cook notice and the menu rows rely on this: an unlocked course recipe is ready to cook.
+    const unwritten = RECIPES.filter((recipe) => recipe.tier !== 5 && recipe.content === null).map((recipe) => recipe.id)
+    expect(unwritten).toEqual([])
+  })
+
   it('only writes recipes whose prerequisites are also written', () => {
     for (const recipe of RECIPES) {
       if (recipe.content === null) continue
