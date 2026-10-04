@@ -3,11 +3,9 @@ import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { RECIPES, recipeById } from '../curriculum/recipes'
 import { hasKit, kitByCourse, kitFor, missingKit } from './kit'
 
-const written = RECIPES.filter((recipe) => recipe.content !== null)
-
 describe('the kit', () => {
-  it('lists only equipment some written recipe uses', () => {
-    const used = new Set(kitFor(written))
+  it('lists only equipment some recipe uses', () => {
+    const used = new Set(kitFor(RECIPES))
     const unused = (Object.keys(EQUIPMENT) as EquipmentId[]).filter((id) => !used.has(id))
     expect(unused).toEqual([])
   })

@@ -57,9 +57,9 @@ export function recipeState(recipe: Recipe, logs: readonly CookLog[]): RecipeSta
   return 'cooked'
 }
 
-/** The first unlocked, written recipe without a good cook; failing that, the first not yet mastered. */
+/** The first unlocked recipe without a good cook; failing that, the first not yet mastered. */
 export function nextRecipe(logs: readonly CookLog[]): Recipe | null {
-  const open = RECIPES.filter((recipe) => recipe.content !== null && recipeState(recipe, logs) !== 'locked')
+  const open = RECIPES.filter((recipe) => recipeState(recipe, logs) !== 'locked')
   return (
     open.find((recipe) => goodCooks(recipe, logs) === 0) ??
     open.find((recipe) => recipeState(recipe, logs) !== 'mastered') ??
@@ -87,10 +87,9 @@ export function progressLost(
   }
 }
 
-/** The recipe and its written content, or a thrown reason it cannot be cooked or logged right now. */
+/** The recipe and its content, or a thrown reason it cannot be cooked or logged right now. */
 export function cookable(id: string, logs: readonly CookLog[]): { recipe: Recipe; content: RecipeContent } {
   const recipe = recipeById(id)
-  if (recipe.content === null) throw new Error(`${recipe.title} is not written yet`)
   if (recipeState(recipe, logs) === 'locked') throw new Error(`${recipe.title} is still locked`)
   return { recipe, content: recipe.content }
 }

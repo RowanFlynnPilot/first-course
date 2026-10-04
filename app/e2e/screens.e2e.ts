@@ -88,11 +88,20 @@ test('fourth course: a recipe page and a frying step', async ({ page, kitchen })
   await shoot(page, 'cook-frying')
 })
 
+test('the usual: a recipe page and the ragù’s long simmer', async ({ page, kitchen }) => {
+  const everything = RECIPES.filter((recipe) => recipe.tier < 5).map((recipe) => ({ recipe: recipe.id, rating: 2 as const }))
+  await kitchen.open('#/recipe/double-smash-burger', { logs: everything })
+  await shoot(page, 'recipe-usual')
+  await page.goto('#/cook/ragu-bolognese/12')
+  await page.getByRole('button', { name: /Start .* timer/ }).click()
+  await shoot(page, 'cook-long-timer')
+})
+
 test('the three longest steps in the book', async ({ page, kitchen }) => {
   const steps = RECIPES.flatMap((recipe) =>
-    (recipe.content?.steps ?? []).map((step, index) => ({ recipe: recipe.id, number: index + 1, length: step.text.length })),
+    recipe.content.steps.map((step, index) => ({ recipe: recipe.id, number: index + 1, length: step.text.length })),
   ).sort((a, b) => b.length - a.length)
-  const everything = RECIPES.filter((recipe) => recipe.content !== null).map((recipe) => ({ recipe: recipe.id, rating: 2 as const }))
+  const everything = RECIPES.map((recipe) => ({ recipe: recipe.id, rating: 2 as const }))
   await kitchen.open('./', { logs: everything })
   for (const [rank, step] of steps.slice(0, 3).entries()) {
     await page.goto(`#/cook/${step.recipe}/${step.number}`)

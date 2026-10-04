@@ -111,7 +111,7 @@ app/
       ingredients.ts           priced ingredients   -> IngredientId
       equipment.ts             the kit catalogue    -> EquipmentId
       types.ts                 Recipe, RecipeContent, Step, Pairing
-      recipes.ts               31 recipes (24 written), RECIPES, recipeById
+      recipes.ts               all 31 recipes, RECIPES, recipeById
       curriculum.test.ts       graph rules the types cannot express
     lib/
       progress.ts              the rules: learned, state, mastery, next, cookable, progressLost
@@ -159,18 +159,15 @@ orders. Tier 5 has seven dishes: double smash burger, crispy chicken sandwich,
 margherita pizza, ragù bolognese, pad thai, General Tso's chicken, chicken
 tikka masala.
 
-**Written so far: every course, First through Fourth (24 recipes).** The
-usual's seven dishes are on the menu with titles, blurbs and prerequisites,
-and `content: null`. The menu shows them as "In reach. Not written yet." once
-their skills are learned; a recipe page with `content: null` says it is not
-written yet. `curriculum.test.ts` requires every course recipe to be
-written, and the after-cook notice relies on it: an unlocked course recipe
-is always ready to cook.
+**Every recipe is written, the usual included (31 recipes).** `content` is
+required on `Recipe`, so the type system rules out an unwritten recipe, and
+nothing in the app handles one. Once a dish of the usual is in reach, the
+menu says "In reach. Cook it any time."
 
-The Second, Third and Fourth courses were all written on October 4, 2026,
-ahead of the usual pace, at Rowan's request. Write the usual when the Fourth
-course is about half cooked: how these go should shape how the last seven
-are written.
+The Second, Third and Fourth courses and the usual were all written on
+October 4, 2026, ahead of the "one course ahead of the cook" pace, at
+Rowan's request. From here, real cooks should shape the recipes: when a
+step reads wrong at the stove, change it under the rules below.
 
 ### Writing a recipe
 
@@ -219,6 +216,13 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   touch it (lift what you need out with a fork).
 - Whatever was cut before the raw meat moves off the board, onto a plate or
   into a bowl, before the meat lands on it.
+- Raw meat comes out of the fridge in the step that uses it, and sliced raw
+  meat waiting for its turn goes back in, covered. Cook mode's step 0 says
+  "Leave the meat in the fridge until the step that uses it" for any recipe
+  with a meat ingredient. Salt bowls touched by raw-meat hands get washed.
+- A skillet that has been on the heat is moved, tipped or tilted only with an
+  oven mitt on the handle. Push the food aside before tilting a pan to spoon
+  off fat: one hand tilts, the other spoons.
 - Check that the food fits: a 12-inch skillet has a flat bottom about 10
   inches across. Pounded cutlets of 4 ounces fit two at a time; bigger ones
   do not.
@@ -230,7 +234,12 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - Measure in spoons a standard set has: "1½ teaspoons", never "½
   tablespoon".
 - A step that starts a long timer the cook should not wait on (a dough's
-  rise while the oven heats) says to go straight on to the next step.
+  rise while the oven heats) says to go straight on to the next step. An
+  instruction due partway through a long timer ("with 30 minutes left")
+  goes on the timer's own step, because the cook stays there.
+- When two very different products share a name, the ingredient says which
+  one (pourable Thai tamarind concentrate, not the thick black paste), and a
+  why says what to do with the other.
 - Say "turn off the burner" (and "turn off the oven") where the heat is done;
   `curriculum.test.ts` checks every recipe that uses a burner or the oven.
   Name oven mitts wherever a hot pan comes out of the oven, a hot metal
@@ -249,14 +258,17 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   with raw hands, cutlets too big for the pan, a thermometer tip reading the
   oil, and an electric burner still hot under the carbonara; the first four
   are rules above, and the last is why a pan comes off the burner before
-  eggs go in.
+  eggs go in. The read-back of the usual found the meat out of the fridge for
+  most of an hour, hot skillet handles held bare, a "30 minutes left" cue on
+  the wrong step, a cutting board rested on a 500°F pan, and the wrong kind
+  of tamarind; those are rules above too.
 - `delivery.menuPriceCents` is the in-app menu price of one serving of the
   nearest thing you would order.
 - `pairing.principle` is a general rule ("Match acid with acid"), so the
   cook learns how pairing works, not just what to buy.
 - Prefer ingredients that later recipes reuse.
 - `npm test` must pass. It checks the graph rules listed at the top of
-  `recipes.ts` and that every written recipe costs less than ordering.
+  `recipes.ts` and that every recipe costs less than ordering.
 
 ## The rules, precisely
 
@@ -266,7 +278,7 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - `recipeState(recipe, logs)`: `locked` if any required skill is unlearned;
   else `ready` with no cooks; else `mastered` at 3 good cooks including a
   "Nailed it"; else `cooked`.
-- `nextRecipe(logs)`: in menu order, the first unlocked, written recipe
+- `nextRecipe(logs)`: in menu order, the first unlocked recipe
   without a good cook (so a Rough cook is suggested again before anything
   new), else the first not yet mastered.
 
@@ -536,8 +548,8 @@ an insert that ignores duplicates, so adding twice is harmless.
 
 Behavior:
 
-- **Plan.** "Add to this week" (and "Take off this week") on any unlocked,
-  written recipe page. One batch per recipe; no servings scaling.
+- **Plan.** "Add to this week" (and "Take off this week") on any unlocked
+  recipe page. One batch per recipe; no servings scaling.
 - **Grocery list** (`lib/grocery.ts`, `/shop`). Sum `qty` per ingredient
   across the plan, drop what the pantry has (and say which), packages =
   `ceil(qty / package.units)`, grouped by `section` in store order: produce,
@@ -574,16 +586,15 @@ precisely" and "Design").
 
 ## Where things stand, and what comes next
 
-As of October 4, 2026: Phases 1 to 3 are built and deployed, all four
-courses are written (24 of 31 recipes; only the usual is left), all four
-migrations are on the live project, and every push runs 77 unit tests and
-82 e2e tests before it deploys.
+As of October 4, 2026: Phases 1 to 3 are built and deployed, all 31
+recipes are written (four courses and the usual), all four migrations are on
+the live project, and every push runs 74 unit tests and 88 e2e tests before
+it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 
-- The Second, Third and Fourth courses were written the same day, ahead of
-  the "one course ahead of the cook" pace. The pace applies again to the
-  usual.
+- The Second, Third and Fourth courses and the usual were written the same
+  day, ahead of the "one course ahead of the cook" pace.
 - The cook log is no longer append-only: a cook's date, rating and notes
   can change, and a cook can be deleted (never its recipe).
 - Motion is no longer limited to two pieces, and pixel art is no longer
@@ -594,9 +605,9 @@ What comes next, in order:
 
 1. **Cook on a real phone**: the things only a phone can show are listed in
    the README's definition of done.
-2. **The usual**, when the Fourth course is about half cooked. It needs no
-   new skills, only writing, under the rules in "Writing a recipe", with a
-   beginner read-back before it ships.
+2. **Revise from real cooks.** Every recipe has been read back by a
+   beginner reviewer but none has been cooked from the app yet. Note what
+   reads wrong at the stove and fix it under "Writing a recipe".
 3. Then the list below.
 
 ## Later, unscheduled

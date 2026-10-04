@@ -141,6 +141,20 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '1 bunch', priceCents: 249, units: 1 },
   },
+  carrot: {
+    name: 'Carrot',
+    section: 'produce',
+    unit: 'each',
+    staple: false,
+    package: { label: '1 lb bag (about 6)', priceCents: 129, units: 6 },
+  },
+  'bean-sprouts': {
+    name: 'Bean sprouts',
+    section: 'produce',
+    unit: 'cup',
+    staple: false,
+    package: { label: '8 oz bag (about 4 cups)', priceCents: 199, units: 4 },
+  },
 
   // Meat
   kielbasa: {
@@ -257,6 +271,20 @@ export const INGREDIENTS = {
     unit: 'cup',
     staple: false,
     package: { label: '16 oz tub (2 cups)', priceCents: 279, units: 2 },
+  },
+  'fresh-mozzarella': {
+    name: 'Fresh mozzarella',
+    section: 'dairy',
+    unit: 'oz',
+    staple: false,
+    package: { label: '8 oz ball', priceCents: 499, units: 8 },
+  },
+  'heavy-cream': {
+    name: 'Heavy cream',
+    section: 'dairy',
+    unit: 'cup',
+    staple: false,
+    package: { label: '1 pint (2 cups)', priceCents: 379, units: 2 },
   },
 
   // Bakery
@@ -492,6 +520,49 @@ export const INGREDIENTS = {
     unit: 'tbsp',
     staple: true,
     package: { label: '6.76 fl oz bottle', priceCents: 349, units: 13 },
+  },
+  'rice-vinegar': {
+    name: 'Rice vinegar, unseasoned',
+    section: 'pantry',
+    unit: 'tbsp',
+    staple: true,
+    package: { label: '12 fl oz bottle', priceCents: 279, units: 24 },
+  },
+  sriracha: {
+    name: 'Sriracha',
+    section: 'pantry',
+    unit: 'tbsp',
+    staple: true,
+    package: { label: '17 oz bottle', priceCents: 449, units: 30 },
+  },
+  tamarind: {
+    // The pourable Thai kind. The thick black Indian paste is several times stronger.
+    name: 'Thai tamarind concentrate, pourable',
+    section: 'pantry',
+    unit: 'tbsp',
+    staple: true,
+    package: { label: '8 oz jar (about 14 tbsp)', priceCents: 349, units: 14 },
+  },
+  'rice-noodles': {
+    name: 'Flat rice noodles, about ¼ inch wide',
+    section: 'pantry',
+    unit: 'oz',
+    staple: true,
+    package: { label: '14 oz box', priceCents: 299, units: 14 },
+  },
+  tagliatelle: {
+    name: 'Dried egg tagliatelle',
+    section: 'pantry',
+    unit: 'oz',
+    staple: false,
+    package: { label: '1 lb bag of nests', priceCents: 449, units: 16 },
+  },
+  'roasted-peanuts': {
+    name: 'Roasted peanuts, unsalted',
+    section: 'pantry',
+    unit: 'cup',
+    staple: true,
+    package: { label: '16 oz jar (about 3 cups)', priceCents: 329, units: 3 },
   },
 
   // Frozen

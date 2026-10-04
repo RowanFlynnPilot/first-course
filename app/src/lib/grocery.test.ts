@@ -41,10 +41,6 @@ describe('the grocery list', () => {
     expect(list.lines.find((line) => line.ingredientId === 'cheddar')).toMatchObject({ packagePriceCents: 500, totalCents: 500 })
   })
 
-  it('refuses a plan with an unwritten recipe', () => {
-    expect(() => groceryList(['margherita-pizza'], NOTHING, ESTIMATES)).toThrow('not written yet')
-  })
-
   it('is empty for an empty plan', () => {
     expect(groceryList([], NOTHING, ESTIMATES)).toEqual({ sections: [], lines: [], totalCents: 0, inPantry: [] })
   })

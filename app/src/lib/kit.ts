@@ -14,7 +14,7 @@ export function hasKit(id: EquipmentId, kit: ReadonlySet<EquipmentId>): boolean 
 
 /** Everything these recipes use, in the kit screen's order. */
 export function kitFor(recipes: readonly Recipe[]): EquipmentId[] {
-  const used = new Set(recipes.flatMap((recipe) => recipe.content?.equipment ?? []))
+  const used = new Set(recipes.flatMap((recipe) => recipe.content.equipment))
   return ORDER.filter((id) => used.has(id))
 }
 

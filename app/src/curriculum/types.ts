@@ -48,6 +48,5 @@ export interface Recipe {
   readonly blurb: string
   readonly teaches: readonly TechniqueId[]
   readonly requires: readonly TechniqueId[]
-  /** null = on the menu but not written yet. */
-  readonly content: RecipeContent | null
+  readonly content: RecipeContent
 }

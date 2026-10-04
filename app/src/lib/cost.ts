@@ -55,8 +55,6 @@ export function keptPerCookCents(content: RecipeContent, prices: Prices): number
 
 export function totalKeptCents(logs: readonly CookLog[], prices: Prices): number {
   return logs.reduce((sum, log) => {
-    const { content } = recipeById(log.recipeId)
-    if (content === null) throw new Error(`Cook log ${log.id} points at unwritten recipe ${log.recipeId}`)
-    return sum + keptPerCookCents(content, prices)
+    return sum + keptPerCookCents(recipeById(log.recipeId).content, prices)
   }, 0)
 }

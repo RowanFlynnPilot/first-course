@@ -104,12 +104,7 @@ export function UsualBeat({ recipe, onDone }: { recipe: Recipe; onDone: () => vo
       }
     >
       <p>You have learned every skill it needs. It is one of the dishes you order.</p>
-      <p>
-        {recipe.content === null
-          ? 'It is next in line to be written, and then it is yours to cook.'
-          : 'Cook it any time.'}{' '}
-        Cooking it earns the {badgeById(badge).name} badge.
-      </p>
+      <p>Cook it any time. Cooking it earns the {badgeById(badge).name} badge.</p>
     </Beat>
   )
 }

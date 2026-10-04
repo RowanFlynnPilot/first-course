@@ -32,7 +32,6 @@ export function cookNotice(
   chefName: string,
   prices: Prices,
 ): CookNotice {
-  if (recipe.content === null) throw new Error(`Logged a cook for unwritten recipe ${recipe.id}`)
   const after = [...before, log]
   const lines: string[] = []
 
@@ -69,7 +68,6 @@ export function cookNotice(
     (other) => recipeState(other, before) === 'locked' && recipeState(other, after) !== 'locked',
   )
   const usualUnlocked = unlocked.filter((other) => other.tier === 5)
-  // Every course recipe is written (curriculum.test.ts), so an unlocked one is ready to cook.
   const courses = unlocked.filter((other) => other.tier !== 5).map((other) => other.title)
   if (courses.length > 0) lines.push(`Now ready to cook: ${listOf(courses)}.`)
 

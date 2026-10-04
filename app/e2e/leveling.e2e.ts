@@ -55,10 +55,10 @@ test.describe('leveling up', () => {
 
     const beat = page.getByRole('dialog', { name: 'Double smash burger with oven fries is in reach' })
     await expect(beat).toBeVisible()
-    await expect(beat).toContainText('It is next in line to be written')
+    await expect(beat).toContainText('Cook it any time.')
     await expect(noticeLines(page)).not.toContainText(['Double smash burger with oven fries'])
     await beat.getByRole('button', { name: 'Back to the menu' }).click()
-    await expect(page.getByRole('link', { name: /Double smash burger/ })).toContainText('In reach. Not written yet.')
+    await expect(page.getByRole('link', { name: /Double smash burger/ })).toContainText('In reach. Cook it any time.')
   })
 })
 

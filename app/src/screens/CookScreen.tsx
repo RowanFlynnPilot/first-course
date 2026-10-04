@@ -7,6 +7,7 @@ import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
 import { useCookTimers } from '../components/useCookTimers'
 import type { EquipmentId } from '../curriculum/equipment'
+import { INGREDIENTS } from '../curriculum/ingredients'
 import { formatClock } from '../lib/format'
 import { cookable, type CookLog } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
@@ -76,6 +77,9 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
       {current === null ? (
         <section className="cook-body">
           <h1 className="cook-text">Get everything out before you turn anything on.</h1>
+          {content.ingredients.some(({ ingredientId }) => INGREDIENTS[ingredientId].section === 'meat') && (
+            <p className="section-note">Leave the meat in the fridge until the step that uses it.</p>
+          )}
           <h2 className="section-title">Ingredients</h2>
           <IngredientList ingredients={content.ingredients} />
           <h2 className="section-title">Equipment</h2>

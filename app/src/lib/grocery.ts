@@ -36,9 +36,7 @@ export interface GroceryList {
 export function groceryList(plan: readonly string[], pantry: ReadonlySet<IngredientId>, prices: Prices): GroceryList {
   const needed = new Map<IngredientId, number>()
   for (const recipeId of plan) {
-    const { title, content } = recipeById(recipeId)
-    if (content === null) throw new Error(`${title} is on this week’s plan but is not written yet`)
-    for (const { ingredientId, qty } of content.ingredients) {
+    for (const { ingredientId, qty } of recipeById(recipeId).content.ingredients) {
       needed.set(ingredientId, (needed.get(ingredientId) ?? 0) + qty)
     }
   }

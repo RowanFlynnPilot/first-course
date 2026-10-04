@@ -73,20 +73,13 @@ export function RecipeScreen({
 
       {state === 'locked' && <p className="notice">Locked. You still need {skillList(missing)}.</p>}
 
-      {recipe.content === null ? (
-        <p className="notice">
-          This recipe is on the menu but not written yet. Recipes get written one course ahead of where you are
-          cooking.
-        </p>
-      ) : (
-        <Written
-          recipe={recipe}
-          content={recipe.content}
-          locked={state === 'locked'}
-          shop={shop}
-          onShopChange={onShopChange}
-        />
-      )}
+      <Written
+        recipe={recipe}
+        content={recipe.content}
+        locked={state === 'locked'}
+        shop={shop}
+        onShopChange={onShopChange}
+      />
 
       {history.length > 0 && (
         <section className="section">

@@ -133,11 +133,11 @@ export function MenuScreen({
                     <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={56} />
                     <span className="usual-title">{recipe.title}</span>
                     <span className="row-note">
-                      {state !== 'locked'
-                        ? recipe.content === null
-                          ? 'In reach. Not written yet.'
-                          : rowNote(recipe, logs)
-                        : `${have} of ${plural(recipe.requires.length, 'skill', 'skills')}`}
+                      {state === 'locked'
+                        ? `${have} of ${plural(recipe.requires.length, 'skill', 'skills')}`
+                        : state === 'ready'
+                          ? 'In reach. Cook it any time.'
+                          : rowNote(recipe, logs)}
                     </span>
                   </Link>
                 </li>
@@ -202,11 +202,11 @@ function StreakLine({ streak }: { streak: Streak }) {
 }
 
 function UpNext({ recipe, logs, prices }: { recipe: Recipe | null; logs: readonly CookLog[]; prices: Prices }) {
-  if (recipe === null || recipe.content === null) {
+  if (recipe === null) {
     return (
       <section className="tray">
         <p className="tray-body">
-          You have mastered every recipe written so far. The rest of the usual needs writing before you can cook it.
+          You have mastered every recipe on the menu, the usual included. Nothing you order is out of reach.
         </p>
       </section>
     )
