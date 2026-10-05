@@ -56,7 +56,7 @@ export function MenuScreen({
   notice: CookNotice | null
 }) {
   usePageTitle(null)
-  const next = nextRecipe(logs)
+  const next = nextRecipe(logs, shop.plan)
   const usual = RECIPES.filter((recipe) => recipe.tier === 5)
   const learned = learnedTechniques(logs)
   const xp = totalXp(logs)
@@ -118,7 +118,7 @@ export function MenuScreen({
           </div>
         )}
 
-        <UpNext recipe={next} logs={logs} prices={shop.prices} />
+        <UpNext recipe={next} planned={next !== null && shop.plan.includes(next.id)} logs={logs} prices={shop.prices} />
 
         <nav className="quick-links" aria-label="Shopping, kit and spices">
           <Link to="/shop">{shop.plan.length === 0 ? 'This week' : `This week (${shop.plan.length})`}</Link>
@@ -215,7 +215,18 @@ function StreakLine({ streak }: { streak: Streak }) {
   )
 }
 
-function UpNext({ recipe, logs, prices }: { recipe: Recipe | null; logs: readonly CookLog[]; prices: Prices }) {
+function UpNext({
+  recipe,
+  planned,
+  logs,
+  prices,
+}: {
+  recipe: Recipe | null
+  /** The suggestion is on this week's plan. */
+  planned: boolean
+  logs: readonly CookLog[]
+  prices: Prices
+}) {
   if (recipe === null) {
     return (
       <section className="tray">
@@ -231,7 +242,9 @@ function UpNext({ recipe, logs, prices }: { recipe: Recipe | null; logs: readonl
     <section className="tray">
       <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={88} />
       <div>
-        <p className="tray-label">{state === 'ready' ? 'Cook this next' : 'Cook this again'}</p>
+        <p className="tray-label">
+          {planned ? 'On this week’s plan' : state === 'ready' ? 'Cook this next' : 'Cook this again'}
+        </p>
         <h2 className="tray-title">{recipe.title}</h2>
         <p className="tray-body">
           {content.totalMinutes} minutes. {formatCents(cookCostPerServingCents(content, prices))} a serving instead of{' '}

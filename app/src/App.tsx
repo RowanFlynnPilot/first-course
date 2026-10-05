@@ -5,7 +5,7 @@ import { fetchChef, type Chef } from './lib/chefs'
 import { fetchCookLogs } from './lib/cookLogs'
 import type { CookNotice } from './lib/notice'
 import type { CookLog } from './lib/progress'
-import { fetchShop, type Shop, type ShopChange } from './lib/shop'
+import { fetchShop, withoutPlanned, type Shop, type ShopChange } from './lib/shop'
 import { AuthScreen } from './screens/AuthScreen'
 import { ChefScreen } from './screens/ChefScreen'
 import { CookScreen } from './screens/CookScreen'
@@ -100,7 +100,11 @@ function Kitchen({ userId }: { userId: string }) {
         chef={chef}
         logs={logs}
         shop={shop}
-        onLogged={(log) => setLogs([...logs, log])}
+        onLogged={(log) => {
+          setLogs([...logs, log])
+          // Saving the cook took its recipe off the plan in the database (00006).
+          changeShop((previous) => withoutPlanned(previous, log.recipeId))
+        }}
         onLogUpdated={(log) => setLogs(logs.map((other) => (other.id === log.id ? log : other)))}
         onLogDeleted={(id) => setLogs(logs.filter((other) => other.id !== id))}
         onChefSaved={setChef}

@@ -70,14 +70,14 @@ const TABLES: Record<string, TableSpec> = {
       return null
     },
   },
-  // 00004
+  // 00004, with shopped from 00006
   plan_items: {
-    columns: ['user_id', 'recipe_id', 'added_at'],
+    columns: ['user_id', 'recipe_id', 'added_at', 'shopped'],
     key: ['user_id', 'recipe_id'],
-    defaults: (now) => ({ added_at: now }),
-    updatable: [],
+    defaults: (now) => ({ added_at: now, shopped: false }),
+    updatable: ['shopped'],
     deletable: true,
-    check: PASSES,
+    check: (row) => (typeof row.shopped === 'boolean' ? null : 'shopped must be true or false'),
   },
   pantry_items: {
     columns: ['user_id', 'ingredient_id'],
@@ -142,6 +142,8 @@ export interface Seed {
   readonly logs?: readonly SeedLog[]
   /** Recipe ids added to this week. */
   readonly plan?: readonly string[]
+  /** Which of the plan's recipes are already shopped for ("Done shopping"). */
+  readonly shopped?: readonly string[]
   /** Ingredient ids. */
   readonly pantry?: readonly string[]
   /** Ingredient ids already in the cart. */
@@ -208,7 +210,9 @@ export class FakeSupabase {
         notes: log.notes ?? '',
       })
     }
-    for (const recipe_id of seed.plan ?? []) this.insertRow('plan_items', { user_id, recipe_id })
+    for (const recipe_id of seed.plan ?? []) {
+      this.insertRow('plan_items', { user_id, recipe_id, shopped: seed.shopped?.includes(recipe_id) ?? false })
+    }
     for (const ingredient_id of seed.pantry ?? []) this.insertRow('pantry_items', { user_id, ingredient_id })
     for (const ingredient_id of seed.checks ?? []) this.insertRow('grocery_checks', { user_id, ingredient_id })
     for (const [ingredient_id, price_cents] of Object.entries(seed.prices ?? {})) {
@@ -439,6 +443,7 @@ export class FakeSupabase {
         if (problem !== null) return json(route, request, 400, { code: '23514', message: problem })
         table.push(candidate)
         written.push(candidate)
+        this.afterInsert(name, candidate)
       }
       if (!prefer.includes('return=representation')) return route.fulfill({ status: 201, headers: corsHeaders(request) })
       return respond(written, 201)
@@ -474,6 +479,17 @@ export class FakeSupabase {
     return this.reject(route, `${method} ${url.pathname}`)
   }
 
+  // ── Triggers, as written in the migrations ──
+
+  private afterInsert(name: string, row: Row) {
+    // 00006: saving a cook takes its recipe off the cook's plan.
+    if (name === 'cook_logs') {
+      this.rows.plan_items = this.table('plan_items').filter(
+        (planned) => !(planned.user_id === row.user_id && planned.recipe_id === row.recipe_id),
+      )
+    }
+  }
+
   // ── Functions (rpc/<name>), as written in the migrations ──
 
   private rpc(route: Route, request: Request, fn: string, userId: string) {
@@ -488,13 +504,13 @@ export class FakeSupabase {
           message: `Could not find the function public.finish_shopping(${Object.keys(args).join(', ')})`,
         })
       }
-      // 00004: stock the pantry with the bought staples, then clear the checks and the plan.
+      // 00006: stock the pantry with the bought staples, clear the checks, and mark the plan shopped.
       for (const ingredient_id of new Set(staples)) {
         const stocked = this.table('pantry_items').some((row) => row.user_id === userId && row.ingredient_id === ingredient_id)
         if (!stocked) this.insertRow('pantry_items', { user_id: userId, ingredient_id })
       }
       this.rows.grocery_checks = this.table('grocery_checks').filter((row) => row.user_id !== userId)
-      this.rows.plan_items = this.table('plan_items').filter((row) => row.user_id !== userId)
+      for (const row of this.table('plan_items')) if (row.user_id === userId) row.shopped = true
       // A function returning void answers 204.
       return route.fulfill({ status: 204, headers: corsHeaders(request) })
     }

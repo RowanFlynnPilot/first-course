@@ -110,13 +110,13 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 94 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 95 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 103 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 105 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired email link, creating
     and changing the chef, the character
@@ -152,7 +152,8 @@ These need hardware, a kitchen, or a store:
       not busy. With Reduce Motion on, all of it is still.
 - [ ] In a store: check the list off with one thumb, and correct a price
       with the number keypad.
-- [ ] Done shopping puts the checked-off staples in the pantry, and next
+- [ ] Done shopping keeps the plan, marked "Groceries bought", until each
+      recipe is cooked. It puts the checked-off staples in the pantry, and next
       week's list leaves them off.
 - [ ] Sign out and sign back in: everything is still there.
 - [ ] "Share the list" opens the share sheet, and the list lands in Notes.

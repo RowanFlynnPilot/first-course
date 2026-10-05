@@ -9,8 +9,10 @@ import { supabase } from '../supabase'
 import type { Prices } from './cost'
 
 export interface Shop {
-  /** Recipe ids on this week's plan, in the order they were added. */
+  /** Recipe ids on this week's plan, in the order they were added. A recipe leaves it when it is cooked. */
   readonly plan: readonly string[]
+  /** Planned recipes whose groceries are bought ("Done shopping"), so they are off the grocery list. */
+  readonly shopped: ReadonlySet<string>
   readonly pantry: ReadonlySet<IngredientId>
   /** Ingredients already in the cart. */
   readonly checks: ReadonlySet<IngredientId>
@@ -20,6 +22,13 @@ export interface Shop {
 
 /** How a screen changes the shop after a write succeeds. */
 export type ShopChange = (change: (shop: Shop) => Shop) => void
+
+/** The shop with a recipe off the plan: taken off, or cooked (the database does that itself, 00006). */
+export function withoutPlanned(shop: Shop, recipeId: string): Shop {
+  const shopped = new Set(shop.shopped)
+  shopped.delete(recipeId)
+  return { ...shop, plan: shop.plan.filter((id) => id !== recipeId), shopped }
+}
 
 function toIngredientId(value: string, where: string): IngredientId {
   if (!Object.hasOwn(INGREDIENTS, value)) throw new Error(`${where} has an ingredient the menu no longer has: ${value}`)
@@ -40,7 +49,7 @@ async function load<Row>(table: string, columns: string, what: string, orderBy?:
 
 export async function fetchShop(): Promise<Shop> {
   const [plan, pantry, checks, prices, kit] = await Promise.all([
-    load<{ recipe_id: string }>('plan_items', 'recipe_id', 'this week’s plan', 'added_at'),
+    load<{ recipe_id: string; shopped: boolean }>('plan_items', 'recipe_id, shopped', 'this week’s plan', 'added_at'),
     load<{ ingredient_id: string }>('pantry_items', 'ingredient_id', 'your pantry'),
     load<{ ingredient_id: string }>('grocery_checks', 'ingredient_id', 'your grocery list'),
     load<{ ingredient_id: string; price_cents: number }>('price_overrides', 'ingredient_id, price_cents', 'your prices'),
@@ -48,6 +57,7 @@ export async function fetchShop(): Promise<Shop> {
   ])
   return {
     plan: plan.map((row) => recipeById(row.recipe_id).id),
+    shopped: new Set(plan.filter((row) => row.shopped).map((row) => row.recipe_id)),
     pantry: new Set(pantry.map((row) => toIngredientId(row.ingredient_id, 'Your pantry'))),
     checks: new Set(checks.map((row) => toIngredientId(row.ingredient_id, 'Your grocery list'))),
     prices: new Map(prices.map((row) => [toIngredientId(row.ingredient_id, 'Your prices'), row.price_cents])),
@@ -99,7 +109,11 @@ export async function setPrice(id: IngredientId, priceCents: number) {
 export const resetPrice = (id: IngredientId) =>
   remove('price_overrides', 'ingredient_id', id, 'go back to the estimate')
 
-/** "Done shopping": bought staples go into the pantry, then the checks and the plan are cleared. One transaction. */
+/**
+ * "Done shopping": bought staples go into the pantry, the checks are cleared,
+ * and the plan is marked shopped. One transaction. The plan itself stays until
+ * each recipe is cooked.
+ */
 export async function finishShopping(boughtStaples: readonly IngredientId[]) {
   const { error } = await supabase.rpc('finish_shopping', { bought_staples: boughtStaples })
   if (error) throw new Error(`Could not finish shopping: ${error.message}`)

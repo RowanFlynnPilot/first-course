@@ -1,4 +1,4 @@
-import { expect, SALAD_DONE, test } from './kitchen'
+import { expect, FRESH, rateAndSave, SALAD_DONE, test } from './kitchen'
 
 // The sheet pan's grocery list at the estimates in ingredients.ts, one whole
 // package each: sausage 4.49, potatoes 3.99, broccoli 1.99, pepper 1.29, red
@@ -51,10 +51,20 @@ test.describe('this week: the plan and the grocery list', () => {
       'Done shopping. Extra-virgin olive oil and Kosher salt went into your pantry.',
     )
     expect(asked).toEqual(['5 things are not checked off. Finish shopping anyway?'])
-    expect(kitchen.backend.table('plan_items')).toEqual([])
+    // The plan stays, shopped for; the list and the checks are cleared.
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'sheet-pan-sausage', shopped: true }])
     expect(kitchen.backend.table('grocery_checks')).toEqual([])
     expect(kitchen.backend.table('pantry_items').map((row) => row.ingredient_id).sort()).toEqual(['kosher-salt', 'olive-oil'])
-    await expect(page.getByText('Nothing planned yet.')).toBeVisible()
+    await expect(page.getByText('Groceries bought')).toBeVisible()
+    await expect(page.getByText(/^Everything on the plan is bought\./)).toBeVisible()
+    await expect(page.getByRole('checkbox')).toHaveCount(0)
+
+    // Cooking it takes it off the plan.
+    await page.getByRole('link', { name: 'Sheet-pan sausage and vegetables' }).click()
+    await page.getByRole('link', { name: 'Log a cook' }).click()
+    await rateAndSave(page, 'Decent')
+    await expect(page.getByRole('link', { name: 'This week', exact: true })).toBeVisible()
+    expect(kitchen.backend.table('plan_items')).toEqual([])
 
     // Next week, the staples stay off the list.
     await page.goto('#/recipe/sheet-pan-sausage')
@@ -62,6 +72,24 @@ test.describe('this week: the plan and the grocery list', () => {
     await page.getByRole('link', { name: 'this week’s list' }).click()
     await expect(page.getByText('Left off because your pantry has them: extra-virgin olive oil and kosher salt.')).toBeVisible()
     await expect(page.getByRole('checkbox', { name: /Kosher salt/ })).toHaveCount(0)
+  })
+
+  test('a recipe added after shopping gets a list of only what it needs', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', {
+      logs: [{ recipe: 'soft-scrambled-eggs', rating: 2 }],
+      plan: ['chopped-salad', 'grilled-cheese'],
+      shopped: ['chopped-salad'],
+    })
+    await expect(page.getByText('Groceries bought')).toHaveCount(1)
+    await expect(page.getByRole('checkbox', { name: /Sharp cheddar/ })).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: /Lemon/ })).toHaveCount(0)
+  })
+
+  test('the menu suggests what is on this week’s plan first', async ({ page, kitchen }) => {
+    await kitchen.open('./', { ...FRESH, plan: ['soft-scrambled-eggs'] })
+    const tray = page.locator('.tray')
+    await expect(tray.getByText('On this week’s plan')).toBeVisible()
+    await expect(tray.getByRole('heading', { name: 'Soft scrambled eggs on toast' })).toBeVisible()
   })
 
   test('the pantry keeps a staple off the list until it is unticked', async ({ page, kitchen }) => {

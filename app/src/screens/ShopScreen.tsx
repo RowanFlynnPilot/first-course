@@ -20,6 +20,7 @@ import {
   resetPrice,
   setPrice,
   uncheck,
+  withoutPlanned,
   type Shop,
   type ShopChange,
 } from '../lib/shop'
@@ -27,7 +28,9 @@ import {
 export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
   usePageTitle('This week')
   const planned = shop.plan.map(recipeById)
-  const list = groceryList(shop.plan, shop.pantry, shop.prices)
+  // Only what is not yet bought goes on the list.
+  const toShop = shop.plan.filter((id) => !shop.shopped.has(id))
+  const list = groceryList(toShop, shop.pantry, shop.prices)
   const needKit = missingKit(planned, shop.kit)
   const inCart = list.lines.filter((line) => shop.checks.has(line.ingredientId))
   const toBuy = list.lines.length - inCart.length
@@ -43,13 +46,13 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
       await finishShopping(staples)
       onShopChange((previous) => ({
         ...previous,
-        plan: [],
+        shopped: new Set(previous.plan),
         checks: new Set(),
         pantry: new Set([...previous.pantry, ...staples]),
       }))
       setFinished(
         staples.length === 0
-          ? 'Done shopping. The plan and the list are cleared.'
+          ? 'Done shopping. The list is cleared.'
           : `Done shopping. ${listOf(staples.map((id) => INGREDIENTS[id].name))} went into your pantry.`,
       )
     })
@@ -74,11 +77,19 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
             Nothing planned yet. Open a recipe you can cook and choose “Add to this week”.
           </p>
         ) : (
-          <ul className="rows">
-            {planned.map((recipe) => (
-              <PlanRow key={recipe.id} recipe={recipe} onShopChange={onShopChange} />
-            ))}
-          </ul>
+          <>
+            <p className="section-note">Each recipe leaves the plan when you log a cook of it.</p>
+            <ul className="rows">
+              {planned.map((recipe) => (
+                <PlanRow
+                  key={recipe.id}
+                  recipe={recipe}
+                  shopped={shop.shopped.has(recipe.id)}
+                  onShopChange={onShopChange}
+                />
+              ))}
+            </ul>
+          </>
         )}
         {needKit.length > 0 && (
           <p className="notice">
@@ -88,7 +99,16 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
         )}
       </section>
 
-      {planned.length > 0 && (
+      {planned.length > 0 && toShop.length === 0 && (
+        <section className="section">
+          <h2 className="section-title">Grocery list</h2>
+          <p className="section-note">
+            Everything on the plan is bought. Add a recipe and its groceries go on a new list.
+          </p>
+        </section>
+      )}
+
+      {toShop.length > 0 && (
         <section className="section">
           <h2 className="section-title">Grocery list</h2>
           <p className="section-note">
@@ -101,7 +121,7 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
               {listOf(list.inPantry.map((id) => inSentence(INGREDIENTS[id].name)))}.
             </p>
           )}
-          {toBuy > 0 && <ShareButton text={groceryText(shop.plan, list, shop.checks)} />}
+          {toBuy > 0 && <ShareButton text={groceryText(toShop, list, shop.checks)} />}
           {list.sections.map((section) => (
             <div className="aisle" key={section.id}>
               <h3 className="aisle-title">{section.name}</h3>
@@ -132,7 +152,7 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
             </button>
           </div>
           <p className="section-note">
-            Clears the plan and the list, and puts the staples you checked off into your pantry.
+            Clears the list and puts the staples you checked off into your pantry. The plan stays until you cook.
           </p>
         </section>
       )}
@@ -172,14 +192,17 @@ function ShareButton({ text }: { text: string }) {
   )
 }
 
-function PlanRow({ recipe, onShopChange }: { recipe: Recipe; onShopChange: ShopChange }) {
+function PlanRow({ recipe, shopped, onShopChange }: { recipe: Recipe; shopped: boolean; onShopChange: ShopChange }) {
   const { busy, error, run } = useWrite()
   return (
     <li>
       <div className="plan-row">
-        <Link className="row-title" to={`/recipe/${recipe.id}`}>
-          {recipe.title}
-        </Link>
+        <span>
+          <Link className="row-title" to={`/recipe/${recipe.id}`}>
+            {recipe.title}
+          </Link>
+          {shopped && <span className="row-note">Groceries bought</span>}
+        </span>
         <button
           className="link-button"
           type="button"
@@ -187,7 +210,7 @@ function PlanRow({ recipe, onShopChange }: { recipe: Recipe; onShopChange: ShopC
           onClick={() =>
             void run(async () => {
               await removeFromPlan(recipe.id)
-              onShopChange((shop) => ({ ...shop, plan: shop.plan.filter((id) => id !== recipe.id) }))
+              onShopChange((shop) => withoutPlanned(shop, recipe.id))
             })
           }
         >

@@ -57,8 +57,15 @@ export function recipeState(recipe: Recipe, logs: readonly CookLog[]): RecipeSta
   return 'cooked'
 }
 
-/** The first unlocked recipe without a good cook; failing that, the first not yet mastered. */
-export function nextRecipe(logs: readonly CookLog[]): Recipe | null {
+/**
+ * What the menu suggests cooking next: the first recipe on this week's plan
+ * that is unlocked; else, in menu order, the first unlocked recipe without a
+ * good cook; failing that, the first not yet mastered.
+ */
+export function nextRecipe(logs: readonly CookLog[], plan: readonly string[]): Recipe | null {
+  // This week's plan first, in the order it was added: those groceries are bought or on the list.
+  const planned = plan.map(recipeById).find((recipe) => recipeState(recipe, logs) !== 'locked')
+  if (planned !== undefined) return planned
   const open = RECIPES.filter((recipe) => recipeState(recipe, logs) !== 'locked')
   return (
     open.find((recipe) => goodCooks(recipe, logs) === 0) ??

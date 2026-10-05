@@ -100,6 +100,8 @@ supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                  prices, kit, finish_shopping(), editing the cook log)
                                00005_chef_creator.sql (hairstyle, facial hair, glasses,
                                  more colors, chosen extras)
+                               00006_keep_the_plan.sql (Done shopping marks the plan
+                                 shopped; saving a cook takes its recipe off)
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
@@ -301,9 +303,10 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - `recipeState(recipe, logs)`: `locked` if any required skill is unlearned;
   else `ready` with no cooks; else `mastered` at 3 good cooks including a
   "Nailed it"; else `cooked`.
-- `nextRecipe(logs)`: in menu order, the first unlocked recipe
-  without a good cook (so a Rough cook is suggested again before anything
-  new), else the first not yet mastered.
+- `nextRecipe(logs, plan)`: the first recipe on this week's plan that is
+  unlocked (the menu labels it "On this week's plan"); else, in menu order,
+  the first unlocked recipe without a good cook (so a Rough cook is
+  suggested again before anything new), else the first not yet mastered.
 
 `lib/leveling.ts`:
 
@@ -568,11 +571,17 @@ build; a failed run keeps its traces as an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **All five migrations are applied to the live project** (October 4,
-  2026). Rowan pushed `00005_chef_creator.sql` before the app code that
-  needs it deployed: a migration always goes first. `00005` was checked the same way as `00004` (18 checks: defaults
-  for old chefs, every new column, the range checks, `user_id` and
-  `created_at` refused, own rows only, anon refused). Set
+- **Migrations 00001 to 00005 are applied to the live project** (October 4,
+  2026). `00006_keep_the_plan.sql` is written and checked, and waits for
+  Rowan to run `npx supabase db push` before the app code that needs it
+  deploys: a migration always goes first. `00006` was checked the same way
+  (30 checks: Done shopping keeps the plan and marks only the caller's rows
+  shopped, a recipe added afterwards is not shopped, saving a cook takes
+  only that cook's recipe off only their plan, a cook of an unplanned
+  recipe still saves, `shopped` is the only column that updates, the
+  trigger function is not callable, anon refused). `00005` had 18 checks
+  (defaults for old chefs, every new column, the range checks, `user_id`
+  and `created_at` refused, own rows only, anon refused). Set
   `auto_expose_new_tables = false` under `[api]` in the scratch config:
   without it the local stack grants everything to `anon` and
   `authenticated`, and the grant checks fail for the wrong reason.
@@ -633,12 +642,27 @@ Migration `00004_shop_kit_and_cook_edits.sql` (applied), all tables keyed by
 Plan, pantry, checks and kit grant select, insert and delete only; adding is
 an insert that ignores duplicates, so adding twice is harmless.
 
+Migration `00006_keep_the_plan.sql` (October 5, 2026) changes two things,
+because clearing the plan at "Done shopping" emptied This week right when
+the food was in the fridge:
+
+- `plan_items` gains `shopped boolean` (default false; update granted on
+  that column only). `finish_shopping()` now marks the plan shopped instead
+  of deleting it; the grocery list counts only recipes not yet shopped for.
+- An `after insert` trigger on `cook_logs` (security invoker, execute
+  revoked from everyone) deletes the cook's plan row for that recipe, in
+  the same transaction as the cook. Any rating counts: the groceries are
+  used either way. The app drops it from its own state when the save
+  returns (`withoutPlanned` in `shop.ts`).
+
 Behavior:
 
 - **Plan.** "Add to this week" (and "Take off this week") on any unlocked
-  recipe page. One batch per recipe; no servings scaling.
+  recipe page. One batch per recipe; no servings scaling. A recipe stays on
+  the plan until a cook of it is saved, marked "Groceries bought" once
+  shopped for, and the menu suggests it first.
 - **Grocery list** (`lib/grocery.ts`, `/shop`). Sum `qty` per ingredient
-  across the plan, drop what the pantry has (and say which), packages =
+  across the plan's recipes not yet shopped for, drop what the pantry has (and say which), packages =
   `ceil(qty / package.units)`, grouped by `section` in store order: produce,
   meat, dairy, bakery, pantry, frozen. Each line shows the package, the
   count when it is more than one, and what the plan uses when that is not
@@ -649,7 +673,7 @@ Behavior:
   signal or to whoever is shopping; closing the sheet is not an error.
 - **Checking off.** Tap to check. "Done shopping" asks first if anything is
   unchecked, then `finish_shopping()` puts the checked-off staples in the
-  pantry and clears the checks and the plan, in one transaction.
+  pantry, clears the checks and marks the plan shopped, in one transaction.
 - **Pantry** (`/pantry`). Every `staple: true` ingredient, by store section,
   with a toggle. What a staple is: used a little at a time and keeps for
   weeks. A can or a pack of meat is used up whole, so it is not one.
@@ -661,9 +685,10 @@ Behavior:
   has typed ids like ingredients. `coveredBy` says when one item does
   another's job (a stainless or cast-iron 12-inch skillet is also a 12-inch
   skillet). The kit screen files each item under the first course that
-  needs it, with "I have all of these" on each course (one request); the menu says how many things each course still needs; recipe
-  pages and step 0 of cook mode mark "Not in your kit yet"; the shop screen
-  lists what the week's plan still needs.
+  needs it, with "I have all of these" on each course (one request); the
+  menu says how many things each course still needs; recipe pages and step
+  0 of cook mode mark "Not in your kit yet"; the shop screen lists what the
+  week's plan still needs.
 - **Install to home screen.** Built: see "Install to the home screen" above.
 - **The spice guide** (`curriculum/spices.ts`, `lib/spices.ts`, `/spices`).
   The eight spices the recipes use, each filed under the first course that
@@ -692,9 +717,9 @@ precisely" and "Design").
 ## Where things stand, and what comes next
 
 As of October 4, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), all five migrations are
-on the live project, and every push runs 94 unit tests and 103 e2e tests
-before it deploys.
+recipes are written (four courses and the usual), migrations 00001 to
+00005 are on the live project (00006, keeping the plan, is ready to push),
+and every push runs 95 unit tests and 105 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

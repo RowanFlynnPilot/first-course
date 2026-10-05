@@ -135,6 +135,17 @@ test('this week', async ({ page, kitchen }) => {
   await shoot(page, 'shop-price')
 })
 
+test('this week, after shopping, with one recipe added since', async ({ page, kitchen }) => {
+  await kitchen.open('#/shop', {
+    logs: [{ recipe: 'chopped-salad', rating: 2 }, { recipe: 'soft-scrambled-eggs', rating: 2 }],
+    plan: ['chopped-salad', 'sheet-pan-sausage', 'grilled-cheese'],
+    shopped: ['chopped-salad', 'sheet-pan-sausage'],
+    pantry: ['kosher-salt'],
+    kit: ['chefs-knife', 'cutting-board'],
+  })
+  await shoot(page, 'shop-shopped')
+})
+
 test('pantry and kit', async ({ page, kitchen }) => {
   await kitchen.open('#/pantry', { pantry: ['kosher-salt', 'black-pepper', 'olive-oil'] })
   await shoot(page, 'pantry')

@@ -26,7 +26,7 @@ import {
   recipeState,
   type CookLog,
 } from '../lib/progress'
-import { addToPlan, removeFromPlan, type Shop, type ShopChange } from '../lib/shop'
+import { addToPlan, removeFromPlan, withoutPlanned, type Shop, type ShopChange } from '../lib/shop'
 
 export function RecipeScreen({
   logs,
@@ -234,7 +234,7 @@ function PlanButton({
     void run(async () => {
       if (planned) {
         await removeFromPlan(recipe.id)
-        onShopChange((shop) => ({ ...shop, plan: shop.plan.filter((id) => id !== recipe.id) }))
+        onShopChange((shop) => withoutPlanned(shop, recipe.id))
       } else {
         await addToPlan(recipe.id)
         onShopChange((shop) => ({ ...shop, plan: [...shop.plan, recipe.id] }))
