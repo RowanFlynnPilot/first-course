@@ -25,13 +25,14 @@ const FIRST_COURSE_KIT = [
   'small-bowl',
   'mug',
   'fork',
+  'paper-towels',
 ]
 
 test.describe('the kit', () => {
   test('ticking what you own saves it and clears it from the recipes', async ({ page, kitchen }) => {
     await kitchen.open('#/recipe/chopped-salad', FRESH)
     const equipment = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Equipment' }) })
-    await expect(equipment.getByText('Not in your kit yet')).toHaveCount(5)
+    await expect(equipment.getByText('Not in your kit yet')).toHaveCount(7)
 
     await page.getByRole('link', { name: 'Your kit' }).click()
     await expect(page.getByRole('heading', { name: 'Your kit' })).toBeVisible()
@@ -46,14 +47,16 @@ test.describe('the kit', () => {
     expect(kitchen.backend.table('kit_items')).toMatchObject([{ equipment_id: 'chefs-knife' }])
 
     await page.goBack()
-    await expect(equipment.getByText('Not in your kit yet')).toHaveCount(4)
+    await expect(equipment.getByText('Not in your kit yet')).toHaveCount(6)
   })
 
   test('the menu says how much kit each course still needs', async ({ page, kitchen }) => {
     await kitchen.open('./', { kit: FIRST_COURSE_KIT })
     const course = (name: string) => page.locator('section').filter({ has: page.getByRole('heading', { name }) })
     await expect(course('First course').getByRole('link', { name: /Kit:/ })).toHaveCount(0)
-    await expect(course('Second course').getByRole('link', { name: /Kit:/ })).toHaveText(/Kit: \d+ things? to get/)
+    await expect(course('Second course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 7 new things to get')
+    // The same count the kit screen gives under “New for the fourth course”.
+    await expect(course('Fourth course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 5 new things to get')
   })
 
   test('a stainless or cast-iron skillet counts as a 12-inch skillet', async ({ page, kitchen }) => {
@@ -66,6 +69,6 @@ test.describe('the kit', () => {
   test('cook mode lists the equipment and marks what is missing', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/chopped-salad/0', { kit: ['chefs-knife', 'cutting-board', 'large-bowl', 'fork'] })
     await expect(page.getByText('Measuring spoons')).toBeVisible()
-    await expect(page.getByText('Not in your kit yet')).toHaveCount(1)
+    await expect(page.getByText('Not in your kit yet')).toHaveCount(3)
   })
 })

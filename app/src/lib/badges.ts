@@ -36,12 +36,13 @@ export function usualBadge(recipe: Recipe): BadgeId {
   return id
 }
 
-const usual = (id: string, name: string): Omit<Badge, 'id'> => {
+/** `dish` is how the dish reads in "Cook ___ at “Decent” or better." */
+const usual = (id: string, name: string, dish: string): Omit<Badge, 'id'> => {
   const recipe = RECIPES.find((candidate) => candidate.id === id && candidate.tier === 5)
   if (recipe === undefined) throw new Error(`Badge for ${id}, which is not a dish of the usual`)
   return {
     name,
-    how: `Cook ${recipe.title.toLowerCase()} at “Decent” or better.`,
+    how: `Cook ${dish} at “Decent” or better.`,
     earned: (logs) => goodCooks(recipe, logs) > 0,
   }
 }
@@ -92,13 +93,13 @@ const DEFINITIONS = {
     how: 'Cook at least once a week, four weeks in a row.',
     earned: (logs) => longestStreak(logs) >= 4,
   },
-  'usual-burger': usual('double-smash-burger', 'Double smash'),
-  'usual-chicken-sandwich': usual('crispy-chicken-sandwich', 'Crispy chicken'),
-  'usual-pizza': usual('margherita-pizza', 'Margherita'),
-  'usual-ragu': usual('ragu-bolognese', 'Ragù'),
-  'usual-pad-thai': usual('pad-thai', 'Pad thai'),
-  'usual-general-tso': usual('general-tsos-chicken', 'General Tso’s'),
-  'usual-tikka-masala': usual('chicken-tikka-masala', 'Tikka masala'),
+  'usual-burger': usual('double-smash-burger', 'Double smash', 'the double smash burger'),
+  'usual-chicken-sandwich': usual('crispy-chicken-sandwich', 'Crispy chicken', 'the crispy chicken sandwich'),
+  'usual-pizza': usual('margherita-pizza', 'Margherita', 'a margherita pizza'),
+  'usual-ragu': usual('ragu-bolognese', 'Ragù', 'the ragù bolognese'),
+  'usual-pad-thai': usual('pad-thai', 'Pad thai', 'pad thai'),
+  'usual-general-tso': usual('general-tsos-chicken', 'General Tso’s', 'General Tso’s chicken'),
+  'usual-tikka-masala': usual('chicken-tikka-masala', 'Tikka masala', 'chicken tikka masala'),
 } as const satisfies Record<string, Omit<Badge, 'id'>>
 
 export type BadgeId = keyof typeof DEFINITIONS

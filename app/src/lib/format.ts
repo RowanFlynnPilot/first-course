@@ -38,10 +38,35 @@ export function formatAmount(qty: number, unit: Unit): string {
   return label === '' ? formatQty(qty) : `${formatQty(qty)} ${label}`
 }
 
+/** 9:05, or 1:00:00 and up for an hour or more. */
 export function formatClock(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = String(totalSeconds % 60).padStart(2, '0')
+  return hours === 0 ? `${minutes}:${seconds}` : `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
+}
+
+/**
+ * How many packages to buy, in words: "2 red onions" from "1 red onion".
+ * A label that is not a plain "1 <thing>" keeps a count in front: "2 × 1 lb pack".
+ */
+export function packagesOf(count: number, label: string): string {
+  if (count === 1) return label
+  const single = /^1 ([a-z][a-z ]*[a-z])$/.exec(label)?.[1]
+  if (single === undefined) return `${count} × ${label}`
+  const words = single.split(' ')
+  const last = words.at(-1) ?? ''
+  const many = /(o|ch|sh|s|x)$/.test(last) ? `${last}es` : /[^aeiou]y$/.test(last) ? `${last.slice(0, -1)}ies` : `${last}s`
+  return `${count} ${[...words.slice(0, -1), last === 'dozen' ? last : many].join(' ')}`
+}
+
+// Words that keep their capital in the middle of a sentence.
+const PROPER = new Set(['American', 'Dijon', 'Thai'])
+
+/** A name as it reads mid-sentence: "kosher salt", but "Thai green curry paste". */
+export function inSentence(name: string): string {
+  const first = name.split(' ')[0] ?? ''
+  return PROPER.has(first) ? name : name.charAt(0).toLowerCase() + name.slice(1)
 }
 
 /** Today's date where the cook is standing, not in UTC. */

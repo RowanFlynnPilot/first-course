@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { recipeById } from '../curriculum/recipes'
-import { cookable, learnedTechniques, nextRecipe, recipeState, type CookLog, type Rating } from './progress'
+import { cookable, lastNote, learnedTechniques, nextRecipe, recipeState, type CookLog, type Rating } from './progress'
 
 let counter = 0
 function log(recipeId: string, rating: Rating): CookLog {
@@ -50,5 +50,13 @@ describe('progress', () => {
     expect(recipeState(eggs, [log(eggs.id, 2), log(eggs.id, 3)])).toBe('cooked')
     expect(recipeState(eggs, [log(eggs.id, 1), log(eggs.id, 2), log(eggs.id, 3)])).toBe('cooked')
     expect(recipeState(eggs, [log(eggs.id, 2), log(eggs.id, 2), log(eggs.id, 3)])).toBe('mastered')
+  })
+
+  it('finds the last note left on a recipe: the latest day, then the latest saved', () => {
+    const noted = (cookedOn: string, notes: string): CookLog => ({ ...log(eggs.id, 2), cookedOn, notes })
+    expect(lastNote(eggs.id, [])).toBeNull()
+    expect(lastNote(eggs.id, [noted('2026-10-01', ''), log('chopped-salad', 2)])).toBeNull()
+    const logs = [noted('2026-10-02', 'Lower heat.'), noted('2026-09-01', 'Older.'), noted('2026-10-02', 'More butter.'), noted('2026-10-03', '')]
+    expect(lastNote(eggs.id, logs)).toBe('More butter.')
   })
 })

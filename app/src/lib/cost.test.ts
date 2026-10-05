@@ -21,7 +21,7 @@ const content: RecipeContent = {
     { ingredientId: 'eggs', qty: 4, prep: null },
     { ingredientId: 'butter', qty: 2, prep: null },
   ],
-  steps: [{ text: 'Cook.', why: null, timerSeconds: null }],
+  steps: [{ text: 'Cook.', why: null, timer: null }],
   delivery: { label: 'Eggs', menuPriceCents: 1000 },
   pairing: { wine: 'Cava', principle: 'Bubbles cut richness', why: '' },
 }

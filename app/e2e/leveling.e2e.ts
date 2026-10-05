@@ -69,7 +69,8 @@ test.describe('badges', () => {
     const notice = page.getByRole('status')
     await expect(notice.getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(notice.getByRole('img', { name: 'Nailed it badge' })).toBeVisible()
-    await expect(noticeLines(page)).toContainText(['Badge: First cook.', 'Badge: Nailed it.'])
+    // The art carries each badge's name, so the lines do not repeat it.
+    await expect(noticeLines(page)).not.toContainText(['First cook'])
   })
 
   test('the chef sheet shows every badge, earned or not', async ({ page, kitchen }) => {

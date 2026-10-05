@@ -12,7 +12,7 @@ import type { Chef } from '../lib/chefs'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents, type Prices } from '../lib/cost'
 import { wornExtras } from '../lib/extras'
 import { COURSE_NAMES, formatCents, localDateString, plural, skillList } from '../lib/format'
-import { missingKit } from '../lib/kit'
+import { hasKit, kitByCourse } from '../lib/kit'
 import { levelForXp, rankIndexForLevel, RANKS, totalXp, type RankIndex } from '../lib/leveling'
 import type { CookNotice } from '../lib/notice'
 import {
@@ -28,6 +28,9 @@ import { currentStreak, type Streak } from '../lib/streak'
 import { supabase } from '../supabase'
 
 const COURSES: readonly Tier[] = [1, 2, 3, 4]
+
+// Each course counts only the kit it adds, as the kit screen files it, so the numbers agree.
+const NEW_KIT = kitByCourse()
 
 type Moment = { kind: 'promotion'; rank: RankIndex } | { kind: 'usual'; recipe: Recipe }
 
@@ -152,7 +155,7 @@ export function MenuScreen({
           const recipes = RECIPES.filter((recipe) => recipe.tier === tier)
           const skills = recipes.flatMap((recipe) => recipe.teaches)
           const have = skills.filter((technique) => learned.has(technique)).length
-          const toGet = missingKit(recipes, shop.kit).length
+          const toGet = (NEW_KIT.find((course) => course.tier === tier)?.items ?? []).filter((id) => !hasKit(id, shop.kit)).length
           return (
             <section className="section" key={tier}>
               <h2 className="section-title">{COURSE_NAMES[tier]}</h2>
@@ -161,7 +164,9 @@ export function MenuScreen({
                 {toGet > 0 && (
                   <>
                     {'. '}
-                    <Link to="/kit">Kit: {plural(toGet, 'thing', 'things')} to get</Link>
+                    <Link to="/kit">
+                      Kit: {tier === 1 ? plural(toGet, 'thing', 'things') : plural(toGet, 'new thing', 'new things')} to get
+                    </Link>
                   </>
                 )}
               </p>

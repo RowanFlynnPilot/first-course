@@ -116,7 +116,15 @@ p {
 }
 
 .back {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+/* The ways back are the only exits once the app is installed, so they get full-size tap targets. */
+.back a,
+.cook-head > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
 }
 
 .footer {
@@ -1030,6 +1038,9 @@ p {
 }
 
 .link-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
   padding: 0.5rem 0;
   border: 0;
   background: none;
@@ -1309,7 +1320,7 @@ mark {
 }
 
 .amounts summary {
-  padding: 0.5rem 0;
+  padding: 0.875rem 0;
   color: var(--rim);
   font-weight: 700;
   cursor: pointer;
@@ -1341,8 +1352,10 @@ mark {
 }
 
 .timer-chip {
-  display: inline-block;
-  padding: 0.375rem 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0 1rem;
   background: var(--plate);
   border: 2px solid var(--rim);
   border-radius: 999px;

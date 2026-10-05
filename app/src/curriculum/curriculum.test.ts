@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { cookCostPerServingCents, ESTIMATES, orderCostPerServingCents } from '../lib/cost'
 import { formatAmount } from '../lib/format'
+import type { EquipmentId } from './equipment'
 import { INGREDIENTS, type Ingredient } from './ingredients'
 import { RECIPES } from './recipes'
 import { TECHNIQUES, type TechniqueId } from './techniques'
@@ -85,7 +86,11 @@ describe('written recipes', () => {
         formatAmount(line.qty, INGREDIENTS[line.ingredientId].unit) // throws on an unprintable fraction
       }
       for (const step of content.steps) {
-        if (step.timerSeconds !== null) expect(step.timerSeconds, id).toBeGreaterThan(0)
+        if (step.timer === null) continue
+        expect(step.timer.seconds, id).toBeGreaterThan(0)
+        // Short enough for a chip at the top of cook mode, beside its clock.
+        expect(step.timer.label.length, `${id}: ${step.timer.label}`).toBeGreaterThan(0)
+        expect(step.timer.label.length, `${id}: ${step.timer.label}`).toBeLessThanOrEqual(16)
       }
     }
   })
@@ -125,6 +130,60 @@ describe('written recipes', () => {
       for (const temperature of temperatures) expect(text, id).toContain(`at least ${temperature}°F`)
       expect(text, id).toMatch(/wash your hands/i)
       expect(text, id).toMatch(/hot, soapy water/)
+    }
+  })
+
+  it('list every tool a step names, so the kit is honest', () => {
+    // Nouns only: "whisk" and "board" are left out because they are also verbs or too vague.
+    const tools: readonly [RegExp, readonly EquipmentId[]][] = [
+      [/paper towel/i, ['paper-towels']],
+      [/\bfork\b/i, ['fork']],
+      [/\btongs\b/i, ['tongs']],
+      [/\bcolander\b/i, ['colander']],
+      [/\bstrainer\b/i, ['strainer']],
+      [/\bthermometer\b/i, ['thermometer']],
+      [/oven mitt/i, ['oven-mitts']],
+      [/plastic wrap/i, ['plastic-wrap']],
+      [/\bparchment\b/i, ['parchment']],
+      [/\bfoil\b/i, ['foil']],
+      [/\bladle\b/i, ['ladle']],
+      [/\bgrater\b/i, ['grater']],
+      [/\bmug\b/i, ['mug']],
+      [/wooden spoon/i, ['wooden-spoon']],
+      [/\bspatula\b/i, ['spatula', 'metal-spatula', 'silicone-spatula']],
+      [/wire rack/i, ['wire-rack']],
+      [/measuring spoon/i, ['measuring-spoons']],
+      [/kitchen towel|folded towel/i, ['kitchen-towels']],
+      [/\bsheet pan\b/i, ['sheet-pan']],
+      [/\bsaucepan\b/i, ['small-saucepan', 'medium-saucepan']],
+    ]
+    for (const { id, content } of written) {
+      for (const [index, step] of content.steps.entries()) {
+        for (const [pattern, ids] of tools) {
+          if (!pattern.test(step.text)) continue
+          expect(ids.some((tool) => content.equipment.includes(tool)), `${id} step ${index + 1} names ${pattern}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('say how an ingredient is split when a step uses part of it', () => {
+    // "of the salt", "the remaining oil", "half the butter", "the rest of the lemon": the
+    // list's prep note has to say how the amount divides, so the parts add up.
+    for (const { id, content } of written) {
+      const text = content.steps.map((step) => step.text).join(' ')
+      for (const line of content.ingredients) {
+        // The last word of the name before any comma or parentheses: "Neutral oil (canola or vegetable)" is "oil".
+        const words = (INGREDIENTS[line.ingredientId].name.replace(/\s*\(.*?\)/g, '').split(',')[0] ?? '')
+          .toLowerCase()
+          .split(' ')
+        const noun = words.at(-1)
+        if (noun === undefined) throw new Error(`${line.ingredientId} has no name`)
+        // A word before the noun has to be part of this ingredient's name: "half the sesame oil" is not the olive oil.
+        const part = new RegExp(String.raw`\b(?:of the|remaining|half the|rest of the) (?:(\w+) )?${noun}\b`, 'gi')
+        const used = [...text.matchAll(part)].some((match) => match[1] === undefined || words.includes(match[1].toLowerCase()))
+        if (used) expect(line.prep, `${id}: ${line.ingredientId} is used in parts`).not.toBeNull()
+      }
     }
   })
 

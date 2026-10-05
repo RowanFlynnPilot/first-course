@@ -187,8 +187,11 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - Each step is one screen in cook mode. One action or one tight group.
 - `why` is where the teaching happens. Give the reason, briefly. Not every
   step needs one.
-- `timerSeconds` only where a clock is the right judge (oven, rice, resting).
-  Where the cook should judge by eye, leave it `null` and describe the cue.
+- `timer` only where a clock is the right judge (oven, rice, resting):
+  `{ seconds, label }`, where the label is a word or two ("Potatoes",
+  "First rise", at most 16 characters) that names it on the chips cook mode
+  shows while it runs on another step. Where the cook should judge by eye,
+  leave it `null` and describe the cue.
 - A step that says "while that cooks" is fine: timers keep running across
   steps in cook mode.
 - New ingredients go in `ingredients.ts` with a section, one unit, a package
@@ -198,10 +201,15 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - When one ingredient is used in several steps, say which part each step
   uses ("½ teaspoon of the salt", "the remaining 2 tablespoons") and put the
   split in the `prep` note, so the amounts add up to the list.
+  `curriculum.test.ts` fails when a step says "of the X", "the remaining X",
+  "half the X" or "the rest of the X" and X's line has no prep note. When a
+  recipe has two of something (two oils), name which one: "the neutral oil".
 - Equipment is a list of `EquipmentId`s from `equipment.ts`, and it lists
   everything a step uses, down to measuring spoons, oven mitts and paper
   towels: the kit screen and "Not in your kit yet" are only as honest as
-  this list. `kit.test.ts` fails on a catalogue item no recipe uses.
+  this list. `kit.test.ts` fails on a catalogue item no recipe uses, and
+  `curriculum.test.ts` fails when a step names a tool (a fork, paper towels,
+  tongs, a saucepan…) its recipe does not list.
 - A step's text is at most `STEP_MAX` (360) characters, about ten lines in
   cook mode on a phone. Longer steps get split.
 - Raw meat carries `safeTempF` in `ingredients.ts` (chicken 165, ground beef
@@ -332,8 +340,9 @@ If that reads as inflated in real use, change `orderCostCents` only.
   of one discipline), $100 kept, $500 kept (at today's prices), Four weeks
   running (longest streak 4 or more), and one per dish of the usual for a
   good cook of it.
-- The after-cook notice names the badges that cook earned
-  (`earnedBadges(after)` minus `earnedBadges(before)`), with their art.
+- The after-cook notice shows the badges that cook earned
+  (`earnedBadges(after)` minus `earnedBadges(before)`) as their art, whose
+  label names them; the notice's lines do not repeat them.
 
 The moments after a cook (`notice.ts`, played by `MenuScreen` and
 `Beats.tsx`): a promotion holds the whole screen first, then each dish of
@@ -427,7 +436,9 @@ Other rules:
   frames (`.pixels-idle`) on the menu, the chef sheet and the promotion.
   The ladder and the editor stay still. Keep the rest of the interface
   still.
-- Mobile first. The page column is 36rem. Tap targets are at least 3rem.
+- Mobile first. The page column is 36rem. Tap targets are at least 3rem,
+  links included: the "Menu" back links and "Leave cook mode" are the only
+  exits once the app is installed, so they get the full 3rem too.
 - Copy is plain and direct. A button says what it does and keeps that name:
   "Save this cook" produces "Saved."
 
@@ -488,6 +499,14 @@ build; a failed run keeps its traces as an artifact.
   menu once and cleared when you leave the menu. It is not in the URL or
   history. The log form navigates with `replace`, so Back from the menu can
   never return to the form and log a cook twice.
+- **A cook can be logged without cook mode**: "Log a cook" on the recipe
+  page opens the same form (`/cook/:id/log`, behind the same `cookable()`).
+  The form has a "Cooked on" date, today in the cook's time zone by default
+  and never later, for a cook made away from the app.
+- **The last note comes back.** The most recent note on a recipe's cooks
+  (`lastNote` in `progress.ts`: latest `cooked_on`, then latest saved) shows
+  under the recipe page's buttons and on step 0 of cook mode, as "Last time
+  you wrote: …".
 - **New pages open at the top.** `App.tsx` scrolls to top on every push or
   replace navigation; Back and Forward keep the browser's position.
 - **A cook can be changed or deleted** at `/cook-log/:id`, reached from
@@ -515,10 +534,9 @@ build; a failed run keeps its traces as an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **Migrations 00001 to 00004 are applied to the live project** (October 4,
-  2026); `00005_chef_creator.sql` is written and checked, and waits for
-  Rowan to run `npx supabase db push` before the app code that needs it
-  deploys. `00005` was checked the same way as `00004` (18 checks: defaults
+- **All five migrations are applied to the live project** (October 4,
+  2026). Rowan pushed `00005_chef_creator.sql` before the app code that
+  needs it deployed: a migration always goes first. `00005` was checked the same way as `00004` (18 checks: defaults
   for old chefs, every new column, the range checks, `user_id` and
   `created_at` refused, own rows only, anon refused). Set
   `auto_expose_new_tables = false` under `[api]` in the scratch config:
@@ -637,10 +655,9 @@ precisely" and "Design").
 ## Where things stand, and what comes next
 
 As of October 4, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), migrations 00001 to 00004
-are on the live project (00005, the character creator, is ready to push),
-and every push runs 85 unit tests and 93 e2e tests before
-it deploys.
+recipes are written (four courses and the usual), all five migrations are
+on the live project, and every push runs 91 unit tests and 95 e2e tests
+before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

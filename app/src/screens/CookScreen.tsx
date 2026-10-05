@@ -9,7 +9,7 @@ import { useCookTimers } from '../components/useCookTimers'
 import type { EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import { formatClock } from '../lib/format'
-import { cookable, type CookLog } from '../lib/progress'
+import { cookable, lastNote, type CookLog } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
 
 export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: ReadonlySet<EquipmentId> }) {
@@ -39,7 +39,15 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
 
   const current = step === 0 ? null : content.steps[step - 1]
   if (current === undefined) throw new Error(`${recipe.title} has no step ${step}`)
-  const timerSeconds = current === null ? null : current.timerSeconds
+  const timer = current === null ? null : current.timer
+  const note = lastNote(recipe.id, logs)
+
+  // A running timer always belongs to a step that has one.
+  function timerLabel(other: number): string {
+    const label = content.steps[other - 1]?.timer?.label
+    if (label === undefined) throw new Error(`${recipe.title} has no timer on step ${other}`)
+    return label
+  }
   const left = timers.secondsLeft(step)
 
   return (
@@ -67,7 +75,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
             return (
               <li key={other}>
                 <Link className={remaining === 0 ? 'timer-chip timer-chip-done' : 'timer-chip'} to={`/cook/${recipe.id}/${other}`}>
-                  Step {other}: {remaining === 0 ? 'time is up' : formatClock(remaining ?? 0)}
+                  {timerLabel(other)}: {remaining === 0 ? 'time is up' : formatClock(remaining ?? 0)}
                 </Link>
               </li>
             )
@@ -77,6 +85,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
       {current === null ? (
         <section className="cook-body">
           <h1 className="cook-text">Get everything out before you turn anything on.</h1>
+          {note !== null && <p className="notice">Last time you wrote: “{note}”</p>}
           {content.ingredients.some(({ ingredientId }) => INGREDIENTS[ingredientId].section === 'meat') && (
             <p className="section-note">Leave the meat in the fridge until the step that uses it.</p>
           )}
@@ -88,16 +97,11 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
       ) : (
         <section className="cook-body" aria-live="polite">
           <h1 className="cook-text">{current.text}</h1>
-          {current.why !== null && (
-            <p className="why">
-              <strong>Why.</strong> {current.why}
-            </p>
-          )}
-          {timerSeconds !== null && (
+          {timer !== null && (
             <div className="timer" role="timer" aria-live="off">
               {left === null ? (
-                <button className="button button-quiet" type="button" onClick={() => timers.start(step, timerSeconds)}>
-                  Start {formatClock(timerSeconds)} timer
+                <button className="button button-quiet" type="button" onClick={() => timers.start(step, timer.seconds)}>
+                  Start {formatClock(timer.seconds)} timer
                 </button>
               ) : (
                 <>
@@ -110,6 +114,11 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
                 </>
               )}
             </div>
+          )}
+          {current.why !== null && (
+            <p className="why">
+              <strong>Why.</strong> {current.why}
+            </p>
           )}
           <details className="amounts">
             <summary>Ingredients and amounts</summary>

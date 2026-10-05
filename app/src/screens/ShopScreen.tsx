@@ -9,7 +9,7 @@ import { EQUIPMENT } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
-import { formatAmount, formatCents, listOf, plural } from '../lib/format'
+import { formatAmount, formatCents, inSentence, listOf, packagesOf, plural } from '../lib/format'
 import { groceryList, type GroceryLine } from '../lib/grocery'
 import { missingKit } from '../lib/kit'
 import {
@@ -80,7 +80,7 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
         )}
         {needKit.length > 0 && (
           <p className="notice">
-            To cook these you also need: {listOf(needKit.map((id) => EQUIPMENT[id].name.toLowerCase()))}.{' '}
+            To cook these you also need: {listOf(needKit.map((id) => inSentence(EQUIPMENT[id].name)))}.{' '}
             <Link to="/kit">Your kit</Link>
           </p>
         )}
@@ -96,7 +96,7 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
           {list.inPantry.length > 0 && (
             <p className="section-note">
               Left off because your <Link to="/pantry">pantry</Link> has them:{' '}
-              {listOf(list.inPantry.map((id) => INGREDIENTS[id].name.toLowerCase()))}.
+              {listOf(list.inPantry.map((id) => inSentence(INGREDIENTS[id].name)))}.
             </p>
           )}
           {list.sections.map((section) => (
@@ -186,8 +186,7 @@ function GroceryRow({ line, shop, onShopChange }: { line: GroceryLine; shop: Sho
     )
   }
 
-  // "2 × 1 red onion. The plan uses 1¼." Say what the plan uses only when it is not whole packages.
-  const count = line.packages === 1 ? '' : `${line.packages} × `
+  // "2 red onions. The plan uses 1¼." Say what the plan uses only when it is not whole packages.
   const uses =
     line.qty === line.packages * ingredient.package.units ? '' : `. The plan uses ${formatAmount(line.qty, ingredient.unit)}.`
 
@@ -195,7 +194,7 @@ function GroceryRow({ line, shop, onShopChange }: { line: GroceryLine; shop: Sho
     <CheckRow
       checked={checked}
       label={ingredient.name}
-      note={`${count}${ingredient.package.label}${uses}`}
+      note={`${packagesOf(line.packages, ingredient.package.label)}${uses}`}
       onChange={async (next) => {
         await (next ? checkOff(line.ingredientId) : uncheck(line.ingredientId))
         onShopChange((previous) => {

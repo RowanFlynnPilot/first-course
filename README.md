@@ -110,13 +110,13 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 85 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 91 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 93 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 95 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, creating and changing the chef, the character
     creator, and earning and wearing extras

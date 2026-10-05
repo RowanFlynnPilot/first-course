@@ -4,6 +4,7 @@ import { RatingPicker } from '../components/RatingPicker'
 import type { Chef } from '../lib/chefs'
 import { insertCookLog } from '../lib/cookLogs'
 import type { Prices } from '../lib/cost'
+import { localDateString } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
 import { cookable, type CookLog, type Rating } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
@@ -26,6 +27,9 @@ export function LogScreen({
   const navigate = useNavigate()
   const [rating, setRating] = useState<Rating | null>(null)
   const [notes, setNotes] = useState('')
+  // Today where the cook is, unless they are logging one from another day. Read the clock once.
+  const [today] = useState(() => localDateString(new Date()))
+  const [cookedOn, setCookedOn] = useState(today)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,7 +38,8 @@ export function LogScreen({
     if (rating === null) return
     setBusy(true)
     try {
-      const log = await insertCookLog({ recipeId: recipe.id, rating, notes: notes.trim() })
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(cookedOn)) throw new Error('Choose the date you cooked it.')
+      const log = await insertCookLog({ recipeId: recipe.id, cookedOn, rating, notes: notes.trim() })
       // The cook is over: its timers are done.
       clearTimers(sessionStorage, recipe.id)
       onLogged(log, cookNotice(recipe, logs, log, chef.name, prices))
@@ -61,6 +66,16 @@ export function LogScreen({
             value={notes}
             placeholder="Pan was too hot. Use less lemon."
             onChange={(event) => setNotes(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          Cooked on
+          <input
+            type="date"
+            required
+            max={today}
+            value={cookedOn}
+            onChange={(event) => setCookedOn(event.target.value)}
           />
         </label>
         {error !== null && (

@@ -87,6 +87,16 @@ export function progressLost(
   }
 }
 
+/**
+ * The most recent note left on a recipe's cooks, for the next time it is
+ * cooked: the latest cooked_on wins, and on the same day the cook saved last.
+ */
+export function lastNote(recipeId: string, logs: readonly CookLog[]): string | null {
+  const noted = logs.filter((log) => log.recipeId === recipeId && log.notes !== '')
+  const latest = noted.reduce<CookLog | null>((best, log) => (best === null || log.cookedOn >= best.cookedOn ? log : best), null)
+  return latest === null ? null : latest.notes
+}
+
 /** The recipe and its content, or a thrown reason it cannot be cooked or logged right now. */
 export function cookable(id: string, logs: readonly CookLog[]): { recipe: Recipe; content: RecipeContent } {
   const recipe = recipeById(id)

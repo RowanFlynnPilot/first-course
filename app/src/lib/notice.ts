@@ -4,7 +4,7 @@
 
 import { RECIPES } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
-import { badgeById, earnedBadges, type BadgeId } from './badges'
+import { earnedBadges, type BadgeId } from './badges'
 import { extraById, unlockedExtras } from './extras'
 import { keptPerCookCents, type Prices } from './cost'
 import { formatCents, listOf, skillList } from './format'
@@ -74,7 +74,6 @@ export function cookNotice(
 
   const hadBadges = new Set(earnedBadges(before, prices))
   const badges = earnedBadges(after, prices).filter((id) => !hadBadges.has(id))
-  for (const id of badges) lines.push(`Badge: ${badgeById(id).name}.`)
 
   const hadExtras = new Set(unlockedExtras(before))
   for (const id of unlockedExtras(after).filter((other) => !hadExtras.has(other))) {

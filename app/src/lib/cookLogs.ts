@@ -1,6 +1,5 @@
 import { recipeById } from '../curriculum/recipes'
 import { supabase } from '../supabase'
-import { localDateString } from './format'
 import type { CookLog, Rating } from './progress'
 
 const COLUMNS = 'id, recipe_id, cooked_on, rating, notes'
@@ -34,8 +33,10 @@ export async function fetchCookLogs(): Promise<CookLog[]> {
   return (data as CookLogRow[]).map(toCookLog)
 }
 
+/** `cookedOn` is the cook's local date (YYYY-MM-DD), never the server's. */
 export async function insertCookLog(input: {
   recipeId: string
+  cookedOn: string
   rating: Rating
   notes: string
 }): Promise<CookLog> {
@@ -43,7 +44,7 @@ export async function insertCookLog(input: {
     .from('cook_logs')
     .insert({
       recipe_id: input.recipeId,
-      cooked_on: localDateString(new Date()),
+      cooked_on: input.cookedOn,
       rating: input.rating,
       notes: input.notes,
     })

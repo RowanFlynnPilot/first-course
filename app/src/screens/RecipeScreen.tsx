@@ -17,6 +17,7 @@ import {
 import { COURSE_NAMES, formatCents, formatCookedOn, plural, skillList } from '../lib/format'
 import {
   goodCooks,
+  lastNote,
   MASTERED_COOKS,
   missingTechniques,
   RATINGS,
@@ -77,6 +78,7 @@ export function RecipeScreen({
         recipe={recipe}
         content={recipe.content}
         locked={state === 'locked'}
+        note={lastNote(recipe.id, logs)}
         shop={shop}
         onShopChange={onShopChange}
       />
@@ -116,12 +118,15 @@ function Written({
   recipe,
   content,
   locked,
+  note,
   shop,
   onShopChange,
 }: {
   recipe: Recipe
   content: RecipeContent
   locked: boolean
+  /** The last note left on this recipe's cooks. */
+  note: string | null
   shop: Shop
   onShopChange: ShopChange
 }) {
@@ -139,8 +144,12 @@ function Written({
             Start cooking
           </Link>
           <PlanButton recipe={recipe} planned={shop.plan.includes(recipe.id)} onShopChange={onShopChange} />
+          <Link className="button button-quiet" to={`/cook/${recipe.id}/log`}>
+            Log a cook
+          </Link>
         </div>
       )}
+      {!locked && note !== null && <p className="notice">Last time you wrote: “{note}”</p>}
 
       <section className="section">
         <h2 className="section-title">Cook it or order it</h2>

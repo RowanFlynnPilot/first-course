@@ -17,7 +17,11 @@ export interface Step {
   readonly text: string
   /** The reason behind the step. This is where the teaching happens. */
   readonly why: string | null
-  readonly timerSeconds: number | null
+  /**
+   * A timer where a clock is the right judge. The label names it on the
+   * chips cook mode shows for timers running on other steps: "Rice 12:40".
+   */
+  readonly timer: { readonly seconds: number; readonly label: string } | null
 }
 
 export interface Pairing {

@@ -19,7 +19,6 @@ describe('the after-cook notice', () => {
       'Kept $22.75 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
-      'Badge: First cook.',
     ])
     expect(notice).toMatchObject({ levelUp: 2, promotion: null, badges: ['first-cook'], usualUnlocked: [] })
   })
@@ -78,7 +77,7 @@ describe('the after-cook notice', () => {
     const before = [log('chopped-salad', 2)]
     const notice = cookNotice(recipeById('chopped-salad'), before, log('chopped-salad', 3), 'Remy', ESTIMATES)
     expect(notice.badges).toEqual(['nailed-it'])
-    expect(notice.lines).toContain('Badge: Nailed it.')
+    expect(notice.lines.some((line) => line.includes('Nailed it'))).toBe(false)
     expect(notice.levelUp).toBeNull()
   })
 })

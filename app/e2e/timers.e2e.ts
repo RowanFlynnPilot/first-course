@@ -23,11 +23,11 @@ test.describe('timers in cook mode', () => {
 
     await page.getByRole('link', { name: 'Next step' }).click()
     await expect(page.getByText('Step 4 of 7')).toBeVisible()
-    const chip = page.getByRole('link', { name: /^Step 3:/ })
-    await expect(chip).toHaveText(/^Step 3: 1[45]:\d\d$/)
+    const chip = page.getByRole('link', { name: /^Potatoes:/ })
+    await expect(chip).toHaveText(/^Potatoes: 1[45]:\d\d$/)
 
     await page.clock.fastForward('15:00')
-    await expect(chip).toHaveText('Step 3: time is up')
+    await expect(chip).toHaveText('Potatoes: time is up')
     await expect(chip).toHaveClass(/timer-chip-done/)
     await expect.poll(() => page.evaluate(() => (window as unknown as { beeps: number }).beeps)).toBe(3)
 
@@ -96,7 +96,7 @@ test.describe('timers in cook mode', () => {
     })
     await kitchen.open('#/cook/sheet-pan-sausage/4', SALAD_DONE)
     await expect(page.getByText('Step 4 of 7')).toBeVisible()
-    await expect(page.getByRole('link', { name: /^Step 3:/ })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: /^Potatoes:/ })).toHaveCount(0)
   })
 
   test('leaving cook mode and logging the cook both stop its timers', async ({ page, kitchen }) => {

@@ -44,7 +44,6 @@ test.describe('cooking and logging', () => {
       'Kept $22.75 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
-      'Badge: First cook.',
     ])
     await expect(page.getByRole('status').getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
@@ -88,10 +87,32 @@ test.describe('cooking and logging', () => {
       '+10 XP.',
       'Kept $17.15 by not ordering.',
       'Cook it again at “Decent” or better to learn heat control.',
-      'Badge: First cook.',
     ])
     await expect(page.getByRole('link', { name: /Soft scrambled eggs/ })).toContainText('Cooked 1 time')
     await expect(page.getByRole('link', { name: /Grilled cheese/ })).toContainText('Needs heat control')
+  })
+
+  test('a cook can be logged from the recipe page, for another day', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/chopped-salad')
+    await page.getByRole('link', { name: 'Log a cook' }).click()
+    await expect(page.getByRole('heading', { name: 'How did it go?' })).toBeVisible()
+    await page.getByLabel('Cooked on').fill('2026-01-15')
+    await rateAndSave(page, 'Decent')
+    await expect(page.getByText('Cook this next')).toBeVisible()
+    expect(kitchen.backend.table('cook_logs')).toMatchObject([{ recipe_id: 'chopped-salad', cooked_on: '2026-01-15', rating: 2 }])
+  })
+
+  test('the last note comes back on the recipe page and before cooking', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/chopped-salad', {
+      logs: [
+        { recipe: 'chopped-salad', rating: 1, notes: 'Too much onion.', cookedOn: '2026-09-20' },
+        { recipe: 'chopped-salad', rating: 2, notes: 'Slice the onion thinner.', cookedOn: '2026-09-27' },
+      ],
+    })
+    await expect(page.getByText('Last time you wrote: “Slice the onion thinner.”')).toBeVisible()
+    await page.getByRole('link', { name: 'Start cooking' }).click()
+    await expect(page.getByText('Before you start')).toBeVisible()
+    await expect(page.getByText('Last time you wrote: “Slice the onion thinner.”')).toBeVisible()
   })
 
   test('a failed save says why and lets the cook try again', async ({ page, kitchen }) => {

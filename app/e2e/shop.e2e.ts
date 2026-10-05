@@ -78,7 +78,7 @@ test.describe('this week: the plan and the grocery list', () => {
 
   test('says what kit the plan still needs', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'], kit: ['chefs-knife', 'cutting-board', 'large-bowl'] })
-    await expect(page.getByText('To cook these you also need: measuring spoons and fork.')).toBeVisible()
+    await expect(page.getByText('To cook these you also need: measuring spoons, small bowls, fork, and paper towels.')).toBeVisible()
   })
 
   test('a check that fails to save says why and stays unchecked', async ({ page, kitchen }) => {
