@@ -571,10 +571,10 @@ build; a failed run keeps its traces as an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **Migrations 00001 to 00005 are applied to the live project** (October 4,
-  2026). `00006_keep_the_plan.sql` is written and checked, and waits for
-  Rowan to run `npx supabase db push` before the app code that needs it
-  deploys: a migration always goes first. `00006` was checked the same way
+- **All six migrations are applied to the live project** (00001 to 00005
+  on October 4, 2026, 00006 on October 5). Rowan pushed each one before the
+  app code that needs it deployed: a migration always goes first. `00006`
+  was checked on a throwaway stack first
   (30 checks: Done shopping keeps the plan and marks only the caller's rows
   shopped, a recipe added afterwards is not shopped, saving a cook takes
   only that cook's recipe off only their plan, a cook of an unplanned
@@ -716,10 +716,9 @@ precisely" and "Design").
 
 ## Where things stand, and what comes next
 
-As of October 4, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), migrations 00001 to
-00005 are on the live project (00006, keeping the plan, is ready to push),
-and every push runs 95 unit tests and 105 e2e tests before it deploys.
+As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
+recipes are written (four courses and the usual), all six migrations are
+on the live project, and every push runs 95 unit tests and 105 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 
