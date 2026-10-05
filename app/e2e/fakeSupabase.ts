@@ -167,6 +167,8 @@ const EXPIRES_AT = 4102444800
 
 export class FakeSupabase {
   readonly unhandled: string[] = []
+  /** Emails a password reset link was asked for, in order. */
+  readonly resetRequests: string[] = []
   private readonly accounts: Account[] = [{ id: crypto.randomUUID(), email: EMAIL, password: PASSWORD }]
   private readonly tokens = new Map<string, string>()
   private readonly rows: Record<string, Row[]> = Object.fromEntries(Object.keys(TABLES).map((name) => [name, []]))
@@ -302,7 +304,42 @@ export class FakeSupabase {
       this.userFrom(request)
       return route.fulfill({ status: 204, headers: corsHeaders(request) })
     }
+    if (method === 'POST' && path === '/recover') {
+      // Supabase answers the same whether or not the email has an account, so it never says which emails exist.
+      const { email } = request.postDataJSON() as { email: string }
+      this.resetRequests.push(email)
+      return json(route, request, 200, {})
+    }
+    if (path === '/user' && (method === 'GET' || method === 'PUT')) {
+      const userId = this.userFrom(request)
+      if (userId === null) return json(route, request, 401, { error_code: 'bad_jwt', msg: 'invalid JWT' })
+      if (method === 'PUT') {
+        const { password } = request.postDataJSON() as { password: string }
+        const index = this.accounts.findIndex((candidate) => candidate.id === userId)
+        const account = this.accounts[index]
+        if (account === undefined) throw new Error(`No account ${userId}`)
+        this.accounts[index] = { ...account, password }
+      }
+      return json(route, request, 200, this.session(userId).user)
+    }
     return this.reject(route, `${method} ${url.pathname}${url.search}`)
+  }
+
+  /**
+   * Where a password reset link sends the cook: the app's address with a
+   * signed-in session in the hash, as Supabase's implicit flow does.
+   */
+  recoveryHash(): string {
+    const session = this.session(this.userId)
+    const params = new URLSearchParams({
+      access_token: session.access_token,
+      expires_at: String(Math.floor(Date.now() / 1000) + 3600),
+      expires_in: '3600',
+      refresh_token: session.refresh_token,
+      token_type: 'bearer',
+      type: 'recovery',
+    })
+    return `#${params.toString()}`
   }
 
   private userFrom(request: Request): string | null {
@@ -491,7 +528,7 @@ export class FakeSupabase {
 function corsHeaders(request: Request): Record<string, string> {
   return {
     'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'access-control-allow-headers': request.headers()['access-control-request-headers'] ?? '*',
     'access-control-expose-headers': 'content-range, x-supabase-api-version',
   }

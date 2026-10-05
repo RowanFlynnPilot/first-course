@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { ESTIMATES } from './cost'
-import { groceryList } from './grocery'
+import { groceryList, groceryText } from './grocery'
 
 const NOTHING = new Set<IngredientId>()
 
@@ -39,6 +39,20 @@ describe('the grocery list', () => {
   it('charges the price the cook corrected', () => {
     const list = groceryList(['grilled-cheese'], NOTHING, new Map<IngredientId, number>([['cheddar', 500]]))
     expect(list.lines.find((line) => line.ingredientId === 'cheddar')).toMatchObject({ packagePriceCents: 500, totalCents: 500 })
+  })
+
+  it('shares what is still to buy as plain text, aisle by aisle', () => {
+    const list = groceryList(['grilled-cheese'], NOTHING, ESTIMATES)
+    const { butter, cheddar } = INGREDIENTS
+    expect(groceryText(['grilled-cheese'], list, new Set<IngredientId>(['sandwich-bread']))).toBe(
+      [
+        'Grocery list for Grilled cheese',
+        `Dairy and eggs\n- ${butter.name}: ${butter.package.label}\n- ${cheddar.name}: ${cheddar.package.label}`,
+      ].join('\n\n'),
+    )
+    expect(() => groceryText(['grilled-cheese'], list, new Set(list.lines.map((line) => line.ingredientId)))).toThrow(
+      'nothing to share',
+    )
   })
 
   it('is empty for an empty plan', () => {

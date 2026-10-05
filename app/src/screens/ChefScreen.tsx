@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { BadgeArt } from '../components/BadgeArt'
 import { ChefSprite } from '../components/ChefSprite'
+import { usePageTitle } from '../components/usePageTitle'
 import { XpBar } from '../components/XpBar'
 import { RECIPES } from '../curriculum/recipes'
 import { DISCIPLINES, TECHNIQUES, type TechniqueId } from '../curriculum/techniques'
@@ -33,6 +34,7 @@ function teacherOf(technique: TechniqueId) {
 }
 
 export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly CookLog[]; prices: Prices }) {
+  usePageTitle('Chef sheet')
   const xp = totalXp(logs)
   const level = levelForXp(xp)
   const rank = rankIndexForLevel(level)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatClock, inSentence, packagesOf } from './format'
+import { formatClock, formatDuration, inSentence, packagesOf } from './format'
 
 describe('format', () => {
   it('reads a clock under an hour as m:ss and an hour or more as h:mm:ss', () => {
@@ -8,6 +8,14 @@ describe('format', () => {
     expect(formatClock(3599)).toBe('59:59')
     expect(formatClock(3600)).toBe('1:00:00')
     expect(formatClock(9000)).toBe('2:30:00')
+  })
+
+  it('says how long a timer runs in words, and refuses part of a minute', () => {
+    expect(formatDuration(60)).toBe('1 minute')
+    expect(formatDuration(900)).toBe('15 minutes')
+    expect(formatDuration(3600)).toBe('1 hour')
+    expect(formatDuration(9000)).toBe('2 hours 30 minutes')
+    expect(() => formatDuration(90)).toThrow('whole minutes')
   })
 
   it('says how many packages to buy in words when it can', () => {

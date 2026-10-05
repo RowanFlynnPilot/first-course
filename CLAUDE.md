@@ -104,12 +104,13 @@ app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
   scripts/icons.ts             draws the home-screen icons (npm run icons)
-  public/                      icon.svg, manifest.webmanifest, icon-192/512.png, apple-touch-icon.png
-  index.html                   fonts, the manifest and the touch icon are linked here
+  public/                      icon.svg, manifest.webmanifest, icon-192/512.png, apple-touch-icon.png,
+                               fonts/ (the two typefaces, self-hosted, and their licenses)
+  index.html                   font preloads, the manifest and the touch icon are linked here
   src/
     main.tsx                   root + error boundary
     App.tsx                    auth gate, loads logs + chef + shop, routes, scroll, notice
-    supabase.ts                client; throws if env is missing
+    supabase.ts                client; throws if env is missing; reads an email link's result first
     styles.css                 the whole design system
     curriculum/
       techniques.ts            28 skills, 6 disciplines -> TechniqueId
@@ -146,9 +147,10 @@ app/
       ChefEditor.tsx           name, look and extras form, used to create and to change
       CheckRow.tsx             a checkbox row that saves itself (grocery list, pantry, kit)
       useWrite.ts              busy + error for one write from a button
+      usePageTitle.ts          each screen's title: "This week · First Course"
       useCookTimers.ts         cook mode's timers: persisted, chimed from one check
       XpBar.tsx, IngredientList.tsx, EquipmentList.tsx, RatingPicker.tsx
-    screens/                   Auth, NameChef, Menu, Chef, EditChef, Recipe, Cook, Log,
+    screens/                   Auth, SetPassword, NameChef, Menu, Chef, EditChef, Recipe, Cook, Log,
                                EditCook, Shop, Pantry, Kit, Spices
 ```
 
@@ -158,7 +160,8 @@ method), `/cook/:id/log`, `/cook-log/:id` (change or delete a cook), `/shop`
 (this week), `/pantry`, `/kit`, `/spices`.
 
 A signed-in account with no chef row sees the create-your-chef screen before
-anything else.
+anything else, and a cook who arrives from a password reset link sees "Set a
+new password" first.
 
 ## The curriculum
 
@@ -191,7 +194,8 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   `{ seconds, label }`, where the label is a word or two ("Potatoes",
   "First rise", at most 16 characters) that names it on the chips cook mode
   shows while it runs on another step. Where the cook should judge by eye,
-  leave it `null` and describe the cue.
+  leave it `null` and describe the cue. The recipe page prints each timer
+  under its step ("Timer: 15 minutes"), so a timer runs in whole minutes.
 - A step that says "while that cooks" is fine: timers keep running across
   steps in cook mode.
 - New ingredients go in `ingredients.ts` with a section, one unit, a package
@@ -280,7 +284,9 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   the wrong step, a cutting board rested on a 500°F pan, and the wrong kind
   of tamarind; those are rules above too.
 - `delivery.menuPriceCents` is the in-app menu price of one serving of the
-  nearest thing you would order.
+  nearest thing you would order. A pizza's serving is a share of the one you
+  would order, not a whole pizza: the margherita is $10 a serving, half of a
+  large one.
 - `pairing.principle` is a general rule ("Match acid with acid"), so the
   cook learns how pairing works, not just what to buy.
 - Prefer ingredients that later recipes reuse.
@@ -315,14 +321,19 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 `lib/cost.ts`:
 
 - Cook cost = sum of `qty * package.priceCents / package.units`.
-- Order cost = `menuPrice * servings * (1 + 0.15 fees + 0.18 tip)` plus one
-  `$3.99` delivery fee. The three constants are at the top of the file.
-- Kept per cook = order cost minus cook cost. Total kept sums it over every
-  cook, including Rough ones (you still did not order).
+- Counted servings = the servings a recipe makes, up to two
+  (`COUNTED_SERVINGS`). A cook is dinner for one or two; leftovers count for
+  nothing, neither as meals kept nor as cost.
+- Order cost = `menuPrice * counted servings * (1 + 0.15 fees + 0.18 tip)`
+  plus one `$3.99` delivery fee. The constants are at the top of the file.
+- Kept per cook = order cost minus the counted servings' share of the cook
+  cost. Total kept sums it over every cook, including Rough ones (you still
+  did not order).
 
-**Known generosity:** kept assumes every serving a recipe makes replaces a
-delivered meal. A three-serving sheet pan counts as three meals not ordered.
-If that reads as inflated in real use, change `orderCostCents` only.
+Until October 5, 2026 every serving counted, so one six-serving ragù kept
+$150 and the "$100 kept" badge came almost free. Rowan approved the cap of
+two. The recipe page says so under "Cook it or order it" on any recipe that
+makes more than two servings.
 
 `lib/streak.ts` (display only, earns nothing, gates nothing):
 
@@ -368,7 +379,12 @@ Enamelware: a cool white plate with a cobalt rim and one egg yolk.
 Type: **Bricolage Grotesque** (600 to 800) for the wordmark, titles and the
 timer clock. **Atkinson Hyperlegible Next** for everything else, chosen
 because cook mode is read from across a counter. Sentence case everywhere. No
-all-caps labels, no monospace.
+all-caps labels, no monospace. Both are self-hosted: variable woff2 files in
+`public/fonts` (latin and latin-ext, from Google Fonts, under the SIL Open
+Font License whose text sits beside them), declared in `styles.css`, with the
+latin files preloaded in `index.html`. Nothing from another site blocks the
+first paint, and the e2e suite fails on any request to a site other than the
+app's own and Supabase's.
 
 **The plate is the signature.** `components/Plate.tsx` draws a white plate
 with a cobalt rim. Locked is a dashed steel outline. Each good cook grows the
@@ -464,8 +480,8 @@ constraints, which columns a cook may update, whether rows can be deleted,
 and own-rows RLS. An unknown column, a write the grants forbid, or a request
 the fake does not understand fails the test, as do uncaught page errors and
 console errors. When a migration changes a table, change `TABLES` in the fake
-to match. `kitchen.ts` is the fixture (`kitchen.open(route, seed)`), the
-seeds and the shared steps. The deploy workflow runs the suite before the
+to match. A request to any other site fails the test too. `kitchen.ts` is the fixture
+(`kitchen.open(route, seed)`), the seeds and the shared steps. The deploy workflow runs the suite before the
 build; a failed run keeps its traces as an artifact.
 
 ## Things to know before changing them
@@ -507,8 +523,26 @@ build; a failed run keeps its traces as an artifact.
   (`lastNote` in `progress.ts`: latest `cooked_on`, then latest saved) shows
   under the recipe page's buttons and on step 0 of cook mode, as "Last time
   you wrote: …".
-- **New pages open at the top.** `App.tsx` scrolls to top on every push or
-  replace navigation; Back and Forward keep the browser's position.
+- **New pages open at the top, with focus on the heading.** `App.tsx`
+  scrolls to top on every push or replace navigation and focuses the page's
+  `h1`, so a screen reader starts there; Back and Forward keep the browser's
+  position. Focus stays put when the screen already placed it: the tapped
+  link is still there (Next step in cook mode keeps focus for the next tap),
+  or a full-screen moment took it. Every screen names itself with
+  `usePageTitle` ("This week · First Course"; cook mode says the step).
+- **A failed load offers "Try again".** If any of the opening reads fails,
+  the message stays on screen with a button that loads everything again,
+  for a phone with weak signal.
+- **Email links come back in the hash**, where the hash router would take
+  them for a page. `supabase.ts` reads the hash before supabase-js does. A
+  password reset link (`type=recovery`) signs the cook in (supabase-js
+  clears the tokens from the address), and `App.tsx` shows "Set a new
+  password" before anything else. A failed link (`error_description`, most
+  often "Email link is invalid or has expired") is left in the address by
+  supabase-js, so `supabase.ts` clears it and the sign-in screen shows the
+  message. The reset email goes to the Supabase project's Site URL, the
+  Pages URL, so a reset asked for on localhost lands on the live site.
+  Supabase's built-in email sender allows only a few emails an hour.
 - **A cook can be changed or deleted** at `/cook-log/:id`, reached from
   "Your cooks" on the recipe page. The date, rating and notes change; the
   recipe never does. Because progress is derived, the screen first says what
@@ -609,7 +643,10 @@ Behavior:
   meat, dairy, bakery, pantry, frozen. Each line shows the package, the
   count when it is more than one, and what the plan uses when that is not
   whole packages. The checkout total is the register cost, and the screen
-  says it runs far above the per-serving prices on a first shop.
+  says it runs far above the per-serving prices on a first shop. "Share the
+  list" sends what is not yet in the cart as plain text through the phone's
+  share sheet (`navigator.share`, HTTPS only), to Notes for a store with no
+  signal or to whoever is shopping; closing the sheet is not an error.
 - **Checking off.** Tap to check. "Done shopping" asks first if anything is
   unchecked, then `finish_shopping()` puts the checked-off staples in the
   pantry and clears the checks and the plan, in one transaction.
@@ -624,7 +661,7 @@ Behavior:
   has typed ids like ingredients. `coveredBy` says when one item does
   another's job (a stainless or cast-iron 12-inch skillet is also a 12-inch
   skillet). The kit screen files each item under the first course that
-  needs it; the menu says how many things each course still needs; recipe
+  needs it, with "I have all of these" on each course (one request); the menu says how many things each course still needs; recipe
   pages and step 0 of cook mode mark "Not in your kit yet"; the shop screen
   lists what the week's plan still needs.
 - **Install to home screen.** Built: see "Install to the home screen" above.
@@ -656,7 +693,7 @@ precisely" and "Design").
 
 As of October 4, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all five migrations are
-on the live project, and every push runs 91 unit tests and 95 e2e tests
+on the live project, and every push runs 94 unit tests and 103 e2e tests
 before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
@@ -694,5 +731,6 @@ What comes next, in order:
   after the curriculum exists, and storing the link plus your own notes, not
   the source's text.
 - **Going public.** Pick your own "usual" at signup, a placement step for
-  people who are not starting from zero, regional prices, an age gate or an
-  off switch for wine pairings, and email confirmation on.
+  people who are not starting from zero, regional prices, and an age gate or
+  an off switch for wine pairings. Email confirmation and password reset are
+  done.

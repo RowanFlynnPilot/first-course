@@ -110,22 +110,25 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 91 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 94 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 95 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 103 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
-  - signing in and up, creating and changing the chef, the character
+  - signing in and up, a password reset, an expired email link, creating
+    and changing the chef, the character
     creator, and earning and wearing extras
   - cooking and logging, the after-cook notice and what unlocks, and Back
     after logging
   - every step of every recipe, one test per recipe
   - timers across steps, reloads and leaving
-  - the plan, the grocery list, prices, Done shopping, the pantry, the kit
-    and the spice guide
+  - the plan, the grocery list, sharing it, prices, Done shopping, the
+    pantry, the kit and the spice guide
+  - each screen's title and where focus lands, and that nothing loads from
+    another site
   - changing and deleting a cook
   - promotions, the usual's moments, badges, the streak and reduced motion
   - the manifest and icons, and the error screens
@@ -152,6 +155,9 @@ These need hardware, a kitchen, or a store:
 - [ ] Done shopping puts the checked-off staples in the pantry, and next
       week's list leaves them off.
 - [ ] Sign out and sign back in: everything is still there.
+- [ ] "Share the list" opens the share sheet, and the list lands in Notes.
+- [ ] "Forgot your password?" sends an email whose link opens the app at
+      "Set a new password", and the new password signs in.
 - [ ] Actually cook: the chopped salad first, and later the seared chicken
       thighs, your first raw meat, with the thermometer.
 

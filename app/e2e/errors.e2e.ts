@@ -38,9 +38,11 @@ test.describe('error paths', () => {
     await expect(page.getByRole('alert')).toHaveText('Chopped salad with lemon vinaigrette has no step 99')
   })
 
-  test('a cook log that cannot load says so', async ({ page, kitchen }) => {
+  test('a cook log that cannot load says so, and trying again loads it', async ({ page, kitchen }) => {
     kitchen.backend.failNext('cook_logs', 'GET', 'connection reset')
     await kitchen.open('./', FRESH)
     await expect(page.getByRole('alert')).toHaveText('Could not load your cook log: connection reset')
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await expect(page.getByText('Cook this next')).toBeVisible()
   })
 })

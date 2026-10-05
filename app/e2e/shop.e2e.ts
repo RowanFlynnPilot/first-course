@@ -89,6 +89,38 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(page.getByRole('checkbox', { name: /Lemon/ })).not.toBeChecked()
   })
 
+  test('shares what is still to buy as text', async ({ page, kitchen }) => {
+    // The share sheet is the phone's; here it records what it was handed.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'share', {
+        value: (data: ShareData) => {
+          sessionStorage.setItem('shared', JSON.stringify(data))
+          return Promise.resolve()
+        },
+      })
+    })
+    await kitchen.open('#/shop', { plan: ['grilled-cheese'], checks: ['sandwich-bread'] })
+    await page.getByRole('button', { name: 'Share the list' }).click()
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('shared'))).not.toBeNull()
+    const shared = JSON.parse((await page.evaluate(() => sessionStorage.getItem('shared'))) ?? '{}') as ShareData
+    expect(shared.title).toBe('Grocery list')
+    expect(shared.text).toContain('Grocery list for Grilled cheese\n\nDairy and eggs\n- ')
+    // Already in the cart, so not on the shared list.
+    expect(shared.text).not.toContain('bread')
+  })
+
+  test('closing the share sheet is not an error', async ({ page, kitchen }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'share', {
+        value: () => Promise.reject(new DOMException('Share canceled', 'AbortError')),
+      })
+    })
+    await kitchen.open('#/shop', { plan: ['grilled-cheese'] })
+    await page.getByRole('button', { name: 'Share the list' }).click()
+    await expect(page.getByRole('button', { name: 'Share the list' })).toBeEnabled()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+
   test('a price must be a price', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'] })
     await page.getByRole('button', { name: 'Correct the price of Lemon' }).click()

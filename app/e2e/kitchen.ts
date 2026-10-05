@@ -17,24 +17,26 @@ export interface Kitchen {
 
 export const test = base.extend<{ kitchen: Kitchen }>({
   // Playwright calls the second argument `use`; named `provide` here so lint does not take it for a React hook.
-  kitchen: async ({ page }, provide, testInfo) => {
+  kitchen: async ({ page, baseURL }, provide) => {
     const backend = new FakeSupabase()
     const pageErrors: string[] = []
     const consoleErrors: string[] = []
+    // The app is served whole from its own site (fonts included); only Supabase is elsewhere.
+    const otherSites: string[] = []
+    const own = new URL(baseURL ?? '').origin
     let errorScreenExpected = false
     page.on('pageerror', (error) => pageErrors.push(error.message))
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      if (url.protocol === 'data:' || url.protocol === 'blob:') return
+      if (url.origin !== own && url.origin !== SUPABASE_URL) otherSites.push(request.url())
+    })
     page.on('console', (message) => {
       // Chrome logs every 4xx and 5xx response. The fake records the ones that matter.
       if (message.type() === 'error' && !message.text().startsWith('Failed to load resource')) {
         consoleErrors.push(message.text())
       }
     })
-    // The suite never waits on Google Fonts. The screens project lets them load so screenshots look real.
-    if (testInfo.project.name !== 'screens') {
-      await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) =>
-        route.fulfill({ status: 200, contentType: 'text/css', body: '' }),
-      )
-    }
     await page.route(`${SUPABASE_URL}/**`, (route) => backend.handle(route))
 
     await provide({
@@ -49,6 +51,7 @@ export const test = base.extend<{ kitchen: Kitchen }>({
     })
 
     expect(backend.unhandled, 'requests the fake Supabase does not handle').toEqual([])
+    expect(otherSites, 'requests to other sites').toEqual([])
     expect(pageErrors, 'uncaught errors on the page').toEqual([])
     if (!errorScreenExpected) expect(consoleErrors, 'console errors').toEqual([])
   },

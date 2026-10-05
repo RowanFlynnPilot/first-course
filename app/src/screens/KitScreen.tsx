@@ -2,14 +2,17 @@
 
 import { Link } from 'react-router'
 import { CheckRow } from '../components/CheckRow'
-import { EQUIPMENT } from '../curriculum/equipment'
+import { useWrite } from '../components/useWrite'
+import { usePageTitle } from '../components/usePageTitle'
+import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { COURSE_NAMES } from '../lib/format'
 import { hasKit, kitByCourse } from '../lib/kit'
-import { addToKit, removeFromKit, type Shop, type ShopChange } from '../lib/shop'
+import { addAllToKit, addToKit, removeFromKit, type Shop, type ShopChange } from '../lib/shop'
 
 const COURSES = kitByCourse()
 
 export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
+  usePageTitle('Your kit')
   return (
     <main className="page">
       <nav className="back">
@@ -30,6 +33,7 @@ export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: Sh
             <p className="section-note">
               {missing.length === 0 ? 'You have all of it.' : `You have ${items.length - missing.length} of ${items.length}.`}
             </p>
+            {missing.length > 0 && <HaveAll items={items} shop={shop} onShopChange={onShopChange} />}
             <ul className="checks">
               {items.map((id) => {
                 const item = EQUIPMENT[id]
@@ -57,5 +61,33 @@ export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: Sh
         )
       })}
     </main>
+  )
+}
+
+/** One tap for a cook who already owns everything a course adds, instead of one per item. */
+function HaveAll({ items, shop, onShopChange }: { items: readonly EquipmentId[]; shop: Shop; onShopChange: ShopChange }) {
+  const { busy, error, run } = useWrite()
+  const unticked = items.filter((id) => !shop.kit.has(id))
+  return (
+    <div className="actions">
+      <button
+        className="button button-quiet"
+        type="button"
+        disabled={busy}
+        onClick={() =>
+          void run(async () => {
+            await addAllToKit(unticked)
+            onShopChange((previous) => ({ ...previous, kit: new Set([...previous.kit, ...unticked]) }))
+          })
+        }
+      >
+        I have all of these
+      </button>
+      {error !== null && (
+        <p className="notice notice-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }

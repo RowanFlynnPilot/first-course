@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { RatingPicker } from '../components/RatingPicker'
+import { usePageTitle } from '../components/usePageTitle'
 import type { Chef } from '../lib/chefs'
 import { insertCookLog } from '../lib/cookLogs'
 import type { Prices } from '../lib/cost'
@@ -25,6 +26,7 @@ export function LogScreen({
   // Same gate as cook mode, checked before anything is written.
   const { recipe } = cookable(id, logs)
   const navigate = useNavigate()
+  usePageTitle(`Log a cook: ${recipe.title}`)
   const [rating, setRating] = useState<Rating | null>(null)
   const [notes, setNotes] = useState('')
   // Today where the cook is, unless they are logging one from another day. Read the clock once.
@@ -83,9 +85,17 @@ export function LogScreen({
             {error}
           </p>
         )}
-        <button className="button" type="submit" disabled={busy || rating === null}>
+        <button className="button" type="submit" 
+          disabled={busy || rating === null}
+          aria-describedby={rating === null ? 'save-hint' : undefined}
+        >
           Save this cook
         </button>
+        {rating === null && (
+          <p className="section-note" id="save-hint">
+            Pick how it went first.
+          </p>
+        )}
       </form>
     </main>
   )

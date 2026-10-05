@@ -2,19 +2,21 @@ import { Link, useParams } from 'react-router'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
 import { Plate } from '../components/Plate'
+import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { recipeById } from '../curriculum/recipes'
 import { TECHNIQUES } from '../curriculum/techniques'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 import {
   cookCostPerServingCents,
+  COUNTED_SERVINGS,
   DELIVERY_FEE_CENTS,
   keptPerCookCents,
   orderCostPerServingCents,
   SERVICE_FEE_RATE,
   TIP_RATE,
 } from '../lib/cost'
-import { COURSE_NAMES, formatCents, formatCookedOn, plural, skillList } from '../lib/format'
+import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, plural, skillList } from '../lib/format'
 import {
   goodCooks,
   lastNote,
@@ -38,6 +40,7 @@ export function RecipeScreen({
   const { id } = useParams()
   if (id === undefined) throw new Error('Recipe route is missing its id')
   const recipe = recipeById(id)
+  usePageTitle(recipe.title)
   const state = recipeState(recipe, logs)
   const missing = missingTechniques(recipe, logs)
   const good = goodCooks(recipe, logs)
@@ -174,8 +177,10 @@ function Written({
         </dl>
         <p className="section-note">
           Cooking counts only the part of each package you use. Ordering is the menu price plus {feesPercent}% in
-          fees and tip, and one {formatCents(DELIVERY_FEE_CENTS)} delivery fee. Grocery prices are estimates until you
-          correct them on the grocery list.
+          fees and tip, and one {formatCents(DELIVERY_FEE_CENTS)} delivery fee.
+          {content.servings > COUNTED_SERVINGS &&
+            ` It makes ${content.servings} servings, but “you keep” counts ${COUNTED_SERVINGS}: dinner, not the leftovers.`}{' '}
+          Grocery prices are estimates until you correct them on the grocery list.
         </p>
       </section>
 
@@ -202,7 +207,10 @@ function Written({
         <p className="section-note">{plural(content.steps.length, 'step', 'steps')}. Cook mode shows one at a time.</p>
         <ol className="method">
           {content.steps.map((step) => (
-            <li key={step.text}>{step.text}</li>
+            <li key={step.text}>
+              {step.text}
+              {step.timer !== null && <span className="row-note">Timer: {formatDuration(step.timer.seconds)}</span>}
+            </li>
           ))}
         </ol>
       </section>

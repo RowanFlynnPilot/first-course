@@ -80,6 +80,13 @@ export const checkOff = (id: IngredientId) => add('grocery_checks', { ingredient
 export const uncheck = (id: IngredientId) => remove('grocery_checks', 'ingredient_id', id, 'uncheck it')
 
 export const addToKit = (id: EquipmentId) => add('kit_items', { equipment_id: id }, 'add it to your kit')
+
+/** Several at once, in one request: "I have all of these". */
+export async function addAllToKit(ids: readonly EquipmentId[]) {
+  const rows = ids.map((id) => ({ equipment_id: id }))
+  const { error } = await supabase.from('kit_items').upsert(rows, { ignoreDuplicates: true })
+  if (error) throw new Error(`Could not add them to your kit: ${error.message}`)
+}
 export const removeFromKit = (id: EquipmentId) => remove('kit_items', 'equipment_id', id, 'take it out of your kit')
 
 /** The package price the cook paid, in place of the estimate in ingredients.ts. */

@@ -1,7 +1,9 @@
 import { ChefEditor } from '../components/ChefEditor'
+import { usePageTitle } from '../components/usePageTitle'
 import { createChef, DEFAULT_LOOK, type Chef } from '../lib/chefs'
 
 export function NameChefScreen({ onCreated }: { onCreated: (chef: Chef) => void }) {
+  usePageTitle('Create your chef')
   return (
     <main className="page auth">
       <h1 className="title">Create your chef</h1>

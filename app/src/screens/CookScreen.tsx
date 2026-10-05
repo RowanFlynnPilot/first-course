@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
 import { useCookTimers } from '../components/useCookTimers'
+import { usePageTitle } from '../components/usePageTitle'
 import type { EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import { formatClock } from '../lib/format'
@@ -25,6 +26,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
   // Timers belong to the whole cook, not to one step, so a timer started on
   // step 3 keeps running while you read step 4, and through a reload.
   const timers = useCookTimers(recipe.id)
+  usePageTitle(`${step === 0 ? 'Before you start' : `Step ${step} of ${last}`}: ${recipe.title}`)
   const screenStaysOn = useWakeLock()
   const elsewhere = timers.steps.filter((other) => other !== step)
 

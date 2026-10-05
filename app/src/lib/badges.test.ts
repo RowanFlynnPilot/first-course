@@ -44,8 +44,9 @@ describe('badges', () => {
   })
 
   it('count kept money at today’s prices', () => {
-    const sauces = Array.from({ length: 2 }, () => log('weeknight-meat-sauce', 2))
-    // Two meat sauces keep $158.38 at the estimates.
+    const sauces = Array.from({ length: 3 }, () => log('weeknight-meat-sauce', 2))
+    // Each meat sauce keeps $41.59 at the estimates: two dinners not ordered, not four.
+    expect(earnedBadges(sauces.slice(1), ESTIMATES)).not.toContain('kept-100')
     expect(earnedBadges(sauces, ESTIMATES)).toContain('kept-100')
     expect(earnedBadges(sauces, ESTIMATES)).not.toContain('kept-500')
   })

@@ -26,6 +26,18 @@ test('sign in', async ({ page, kitchen }) => {
   await shoot(page, 'auth')
 })
 
+test('forgot password, and the new password after the link', async ({ page, kitchen }) => {
+  await kitchen.open('./', { signedIn: false })
+  await page.getByRole('button', { name: 'Forgot your password?' }).click()
+  await shoot(page, 'auth-reset')
+  const hash = kitchen.backend.recoveryHash()
+  // A new hash alone does not load the page again, so reload as the email link would.
+  await page.goto(`./${hash}`)
+  await page.reload()
+  await page.getByRole('heading', { name: 'Set a new password' }).waitFor()
+  await shoot(page, 'set-password')
+})
+
 test('sign-up with email confirmation on', async ({ page, kitchen }) => {
   await kitchen.open('./', { signedIn: false, confirmEmail: true })
   await page.getByLabel('Email').fill('new-cook@example.test')

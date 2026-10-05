@@ -5,6 +5,7 @@
 import { INGREDIENTS, type IngredientId, type Section } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import { packagePriceCents, type Prices } from './cost'
+import { listOf, packagesOf } from './format'
 
 /** Store order: the list walks the aisles in this order. */
 export const SECTIONS: readonly { readonly id: Section; readonly name: string }[] = [
@@ -67,4 +68,23 @@ export function groceryList(plan: readonly string[], pantry: ReadonlySet<Ingredi
     totalCents: lines.reduce((sum, line) => sum + line.totalCents, 0),
     inPantry,
   }
+}
+
+/**
+ * What is still to buy, as plain text: for a note on the phone that works
+ * with no signal in the store, or for someone else doing the shop.
+ */
+export function groceryText(plan: readonly string[], list: GroceryList, checks: ReadonlySet<IngredientId>): string {
+  const aisles = list.sections.flatMap(({ name, lines }) => {
+    const left = lines.filter((line) => !checks.has(line.ingredientId))
+    if (left.length === 0) return []
+    const items = left.map(({ ingredientId, packages }) => {
+      const { name: item, package: bought } = INGREDIENTS[ingredientId]
+      return `- ${item}: ${packagesOf(packages, bought.label)}`
+    })
+    return [[name, ...items].join('\n')]
+  })
+  if (aisles.length === 0) throw new Error('Everything on the list is in the cart, so there is nothing to share')
+  const recipes = listOf(plan.map((id) => recipeById(id).title))
+  return [`Grocery list for ${recipes}`, ...aisles].join('\n\n')
 }

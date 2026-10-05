@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router'
 import { ChefEditor } from '../components/ChefEditor'
+import { usePageTitle } from '../components/usePageTitle'
 import { updateChef, type Chef } from '../lib/chefs'
 import { unlockedExtras } from '../lib/extras'
 import { levelForXp, rankIndexForLevel, totalXp } from '../lib/leveling'
@@ -17,6 +18,7 @@ export function EditChefScreen({
   onSaved: (chef: Chef) => void
 }) {
   const navigate = useNavigate()
+  usePageTitle('Change your chef')
   return (
     <main className="page">
       <nav className="back">

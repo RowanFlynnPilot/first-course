@@ -46,6 +46,15 @@ export function formatClock(totalSeconds: number): string {
   return hours === 0 ? `${minutes}:${seconds}` : `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
 }
 
+/** A timer's length in words: "15 minutes", "1 hour", "2 hours 30 minutes". Timers run in whole minutes. */
+export function formatDuration(totalSeconds: number): string {
+  if (totalSeconds <= 0 || totalSeconds % 60 !== 0) throw new Error(`A timer runs in whole minutes, not ${totalSeconds} seconds`)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = (totalSeconds % 3600) / 60
+  const parts = [hours > 0 ? plural(hours, 'hour', 'hours') : '', minutes > 0 ? plural(minutes, 'minute', 'minutes') : '']
+  return parts.filter((part) => part !== '').join(' ')
+}
+
 /**
  * How many packages to buy, in words: "2 red onions" from "1 red onion".
  * A label that is not a plain "1 <thing>" keeps a count in front: "2 × 1 lb pack".

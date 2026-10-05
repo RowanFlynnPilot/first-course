@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { BadgeArt } from '../components/BadgeArt'
 import { PromotionBeat, UsualBeat } from '../components/Beats'
+import { usePageTitle } from '../components/usePageTitle'
 import { ChefSprite } from '../components/ChefSprite'
 import { Plate } from '../components/Plate'
 import { XpBar } from '../components/XpBar'
@@ -54,6 +55,7 @@ export function MenuScreen({
   shop: Shop
   notice: CookNotice | null
 }) {
+  usePageTitle(null)
   const next = nextRecipe(logs)
   const usual = RECIPES.filter((recipe) => recipe.tier === 5)
   const learned = learnedTechniques(logs)

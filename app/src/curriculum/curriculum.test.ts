@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { cookCostPerServingCents, ESTIMATES, orderCostPerServingCents } from '../lib/cost'
-import { formatAmount } from '../lib/format'
+import { formatAmount, formatDuration } from '../lib/format'
 import type { EquipmentId } from './equipment'
 import { INGREDIENTS, type Ingredient } from './ingredients'
 import { RECIPES } from './recipes'
@@ -87,7 +87,7 @@ describe('written recipes', () => {
       }
       for (const step of content.steps) {
         if (step.timer === null) continue
-        expect(step.timer.seconds, id).toBeGreaterThan(0)
+        formatDuration(step.timer.seconds) // throws unless it is whole minutes, as the recipe page prints it
         // Short enough for a chip at the top of cook mode, beside its clock.
         expect(step.timer.label.length, `${id}: ${step.timer.label}`).toBeGreaterThan(0)
         expect(step.timer.label.length, `${id}: ${step.timer.label}`).toBeLessThanOrEqual(16)

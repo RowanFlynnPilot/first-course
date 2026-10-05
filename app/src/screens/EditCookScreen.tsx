@@ -4,6 +4,7 @@
 import { startTransition, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { RatingPicker } from '../components/RatingPicker'
+import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { recipeById } from '../curriculum/recipes'
 import { deleteCookLog, updateCookLog } from '../lib/cookLogs'
@@ -39,6 +40,7 @@ export function EditCookScreen({
   const log = findCook(logs, id)
   const recipe = recipeById(log.recipeId)
   const navigate = useNavigate()
+  usePageTitle(`Change this cook: ${recipe.title}`)
   const [rating, setRating] = useState<Rating>(log.rating)
   const [notes, setNotes] = useState(log.notes)
   const [cookedOn, setCookedOn] = useState(log.cookedOn)

@@ -2,6 +2,7 @@
 // using it on everyday food.
 
 import { Link } from 'react-router'
+import { usePageTitle } from '../components/usePageTitle'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import { SPICE_HABITS, SPICES, SPICES_LATER } from '../curriculum/spices'
 import { COURSE_NAMES } from '../lib/format'
@@ -12,6 +13,7 @@ const SHELF = spiceShelf()
 const COUNT = SHELF.reduce((sum, course) => sum + course.spices.length, 0)
 
 export function SpicesScreen({ shop }: { shop: Shop }) {
+  usePageTitle('Spices')
   return (
     <main className="page">
       <nav className="back">

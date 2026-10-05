@@ -3,6 +3,7 @@ import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import type { RecipeContent } from '../curriculum/types'
 import {
   cookCostCents,
+  COUNTED_SERVINGS,
   DELIVERY_FEE_CENTS,
   ESTIMATES,
   keptPerCookCents,
@@ -44,5 +45,12 @@ describe('cost', () => {
   it('prices an order as every serving plus fees, tip and one delivery fee', () => {
     expect(orderCostCents(content)).toBe(Math.round(2000 * (1 + SERVICE_FEE_RATE + TIP_RATE)) + DELIVERY_FEE_CENTS)
     expect(keptPerCookCents(content, ESTIMATES)).toBe(orderCostCents(content) - cookCostCents(content, ESTIMATES))
+  })
+
+  it('counts at most two servings as meals not ordered, against their share of the cook', () => {
+    const big: RecipeContent = { ...content, servings: 6 }
+    expect(COUNTED_SERVINGS).toBe(2)
+    expect(orderCostCents(big)).toBe(orderCostCents(content))
+    expect(keptPerCookCents(big, ESTIMATES)).toBe(orderCostCents(big) - Math.round(cookCostCents(big, ESTIMATES) / 3))
   })
 })

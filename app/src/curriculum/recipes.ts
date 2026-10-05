@@ -2879,7 +2879,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Margherita pizza', menuPriceCents: 1600 },
+      delivery: { label: 'Margherita pizza', menuPriceCents: 1000 },
       pairing: {
         wine: 'Falanghina',
         principle: 'Tomato does not require a red',

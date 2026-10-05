@@ -2,6 +2,7 @@
 
 import { Link } from 'react-router'
 import { CheckRow } from '../components/CheckRow'
+import { usePageTitle } from '../components/usePageTitle'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { SECTIONS } from '../lib/grocery'
 import { clearFromPantry, stockPantry, type Shop, type ShopChange } from '../lib/shop'
@@ -9,6 +10,7 @@ import { clearFromPantry, stockPantry, type Shop, type ShopChange } from '../lib
 const STAPLES = (Object.keys(INGREDIENTS) as IngredientId[]).filter((id) => INGREDIENTS[id].staple)
 
 export function PantryScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
+  usePageTitle('Your pantry')
   return (
     <main className="page">
       <nav className="back">

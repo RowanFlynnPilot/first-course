@@ -59,6 +59,19 @@ test.describe('the kit', () => {
     await expect(course('Fourth course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 5 new things to get')
   })
 
+  test('one tap ticks everything a course adds', async ({ page, kitchen }) => {
+    await kitchen.open('#/kit', { kit: ['chefs-knife'] })
+    const start = page.locator('section').filter({ has: page.getByRole('heading', { name: 'To start' }) })
+    await start.getByRole('button', { name: 'I have all of these' }).click()
+    await expect(start.getByText('You have all of it.')).toBeVisible()
+    await expect(start.getByRole('button', { name: 'I have all of these' })).toHaveCount(0)
+    const owned = kitchen.backend.table('kit_items').map((row) => row.equipment_id)
+    expect([...owned].sort()).toEqual([...FIRST_COURSE_KIT].sort())
+    // The other courses are untouched.
+    const second = page.locator('section').filter({ has: page.getByRole('heading', { name: 'New for the second course' }) })
+    await expect(second.getByRole('button', { name: 'I have all of these' })).toBeVisible()
+  })
+
   test('a stainless or cast-iron skillet counts as a 12-inch skillet', async ({ page, kitchen }) => {
     await kitchen.open('#/kit', { kit: ['steel-skillet'] })
     const large = page.getByRole('listitem').filter({ hasText: /^Large skillet, 12 inch(?!,)/ })

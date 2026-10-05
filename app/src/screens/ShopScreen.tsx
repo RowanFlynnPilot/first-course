@@ -4,13 +4,14 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { CheckRow } from '../components/CheckRow'
+import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { EQUIPMENT } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
 import { formatAmount, formatCents, inSentence, listOf, packagesOf, plural } from '../lib/format'
-import { groceryList, type GroceryLine } from '../lib/grocery'
+import { groceryList, groceryText, type GroceryLine } from '../lib/grocery'
 import { missingKit } from '../lib/kit'
 import {
   checkOff,
@@ -24,16 +25,17 @@ import {
 } from '../lib/shop'
 
 export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
+  usePageTitle('This week')
   const planned = shop.plan.map(recipeById)
   const list = groceryList(shop.plan, shop.pantry, shop.prices)
   const needKit = missingKit(planned, shop.kit)
   const inCart = list.lines.filter((line) => shop.checks.has(line.ingredientId))
+  const toBuy = list.lines.length - inCart.length
   const finish = useWrite()
   const [finished, setFinished] = useState<string | null>(null)
 
   async function doneShopping() {
-    const left = list.lines.length - inCart.length
-    if (left > 0 && !window.confirm(`${plural(left, 'thing is', 'things are')} not checked off. Finish shopping anyway?`)) {
+    if (toBuy > 0 && !window.confirm(`${plural(toBuy, 'thing is', 'things are')} not checked off. Finish shopping anyway?`)) {
       return
     }
     const staples = inCart.map((line) => line.ingredientId).filter((id) => INGREDIENTS[id].staple)
@@ -99,6 +101,7 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
               {listOf(list.inPantry.map((id) => inSentence(INGREDIENTS[id].name)))}.
             </p>
           )}
+          {toBuy > 0 && <ShareButton text={groceryText(shop.plan, list, shop.checks)} />}
           {list.sections.map((section) => (
             <div className="aisle" key={section.id}>
               <h3 className="aisle-title">{section.name}</h3>
@@ -134,6 +137,38 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
         </section>
       )}
     </main>
+  )
+}
+
+/** Sends what is left to buy through the phone's share sheet: to Notes, a message, or whoever is shopping. */
+function ShareButton({ text }: { text: string }) {
+  const { busy, error, run } = useWrite()
+  // Like the wake lock, sharing needs HTTPS, so the plain-HTTP LAN URL says so.
+  if (!('share' in navigator)) return <p className="section-note">This browser cannot share the list.</p>
+
+  function share() {
+    void run(async () => {
+      try {
+        await navigator.share({ title: 'Grocery list', text })
+      } catch (cause) {
+        // Closing the share sheet without sending is not a failure.
+        if ((cause as Error).name === 'AbortError') return
+        throw new Error(`Could not share the list: ${(cause as Error).message}`)
+      }
+    })
+  }
+
+  return (
+    <div className="actions">
+      <button className="button button-quiet" type="button" disabled={busy} onClick={share}>
+        Share the list
+      </button>
+      {error !== null && (
+        <p className="notice notice-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 
