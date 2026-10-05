@@ -17,7 +17,8 @@ export function PantryScreen({ shop, onShopChange }: { shop: Shop; onShopChange:
       <h1 className="title">Your pantry</h1>
       <p className="lede">
         Staples you have at home stay off the grocery list. “Done shopping” adds the ones you bought. When one runs
-        out, untick it.
+        out, untick it. New to spices? The <Link to="/spices">spice guide</Link> says what to buy and how to start
+        using it.
       </p>
       {SECTIONS.map((section) => {
         const staples = STAPLES.filter((id) => INGREDIENTS[id].section === section.id).sort((a, b) =>

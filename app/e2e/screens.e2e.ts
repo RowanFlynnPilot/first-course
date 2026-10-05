@@ -130,6 +130,11 @@ test('pantry and kit', async ({ page, kitchen }) => {
   await shoot(page, 'kit')
 })
 
+test('spice guide', async ({ page, kitchen }) => {
+  await kitchen.open('#/spices', { pantry: ['kosher-salt', 'black-pepper'] })
+  await shoot(page, 'spices')
+})
+
 test('change a cook', async ({ page, kitchen }) => {
   await kitchen.open('#/recipe/chopped-salad', { logs: [{ recipe: 'chopped-salad', rating: 2, notes: 'Too much onion.' }] })
   await page.getByRole('link', { name: /Decent/ }).click()

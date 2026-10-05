@@ -18,6 +18,7 @@ import { NameChefScreen } from './screens/NameChefScreen'
 import { PantryScreen } from './screens/PantryScreen'
 import { RecipeScreen } from './screens/RecipeScreen'
 import { ShopScreen } from './screens/ShopScreen'
+import { SpicesScreen } from './screens/SpicesScreen'
 import { supabase } from './supabase'
 
 export default function App() {
@@ -153,6 +154,7 @@ function Pages({
       <Route path="/shop" element={<ShopScreen shop={shop} onShopChange={onShopChange} />} />
       <Route path="/pantry" element={<PantryScreen shop={shop} onShopChange={onShopChange} />} />
       <Route path="/kit" element={<KitScreen shop={shop} onShopChange={onShopChange} />} />
+      <Route path="/spices" element={<SpicesScreen shop={shop} />} />
       <Route path="*" element={<NotOnTheMenu />} />
     </Routes>
   )

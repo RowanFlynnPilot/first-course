@@ -110,6 +110,7 @@ app/
       techniques.ts            28 skills, 6 disciplines -> TechniqueId
       ingredients.ts           priced ingredients   -> IngredientId
       equipment.ts             the kit catalogue    -> EquipmentId
+      spices.ts                the spice guide: taste, buy, use, try it on -> SpiceId
       types.ts                 Recipe, RecipeContent, Step, Pairing
       recipes.ts               all 31 recipes, RECIPES, recipeById
       curriculum.test.ts       graph rules the types cannot express
@@ -123,6 +124,7 @@ app/
       cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
       grocery.ts               the grocery list: whole packages per store section, checkout total
       kit.ts                   what equipment a set of recipes needs, and what is missing
+      spices.ts                the spice shelf: each spice under the course that first uses it
       cookLogs.ts, chefs.ts,   the only Supabase reads/writes; rows -> app data
         shop.ts                  (shop.ts: plan, pantry, checks, prices, kit, finish_shopping)
       format.ts                money, quantities, dates, lists
@@ -140,13 +142,13 @@ app/
       useCookTimers.ts         cook mode's timers: persisted, chimed from one check
       XpBar.tsx, IngredientList.tsx, EquipmentList.tsx, RatingPicker.tsx
     screens/                   Auth, NameChef, Menu, Chef, EditChef, Recipe, Cook, Log,
-                               EditCook, Shop, Pantry, Kit
+                               EditCook, Shop, Pantry, Kit, Spices
 ```
 
 Routes: `/` menu, `/chef` chef sheet, `/chef/edit`, `/recipe/:id`,
 `/cook/:id/:step` (step 0 is "get everything out", steps 1..n are the
 method), `/cook/:id/log`, `/cook-log/:id` (change or delete a cook), `/shop`
-(this week), `/pantry`, `/kit`.
+(this week), `/pantry`, `/kit`, `/spices`.
 
 A signed-in account with no chef row sees the create-your-chef screen before
 anything else.
@@ -526,8 +528,8 @@ build; a failed run keeps its traces as an artifact.
 ## Phase 2: the shop and the kit (built)
 
 The grocery list, the pantry, prices you can correct, and the kit. Built
-October 4, 2026; reached from three links on the menu (This week, Pantry,
-Kit).
+October 4, 2026; reached from links on the menu (This week, Pantry, Kit,
+Spices).
 
 Migration `00004_shop_kit_and_cook_edits.sql` (applied), all tables keyed by
 `user_id` with the same own-rows RLS and explicit grants as `cook_logs`:
@@ -575,6 +577,16 @@ Behavior:
   pages and step 0 of cook mode mark "Not in your kit yet"; the shop screen
   lists what the week's plan still needs.
 - **Install to home screen.** Built: see "Install to the home screen" above.
+- **The spice guide** (`curriculum/spices.ts`, `lib/spices.ts`, `/spices`).
+  The eight spices the recipes use, each filed under the first course that
+  needs it (derived from the recipes, like the kit) with a link to that
+  recipe: what it tastes like, what to buy, how to use it, and everyday food
+  to try it on. It opens with six habits (buy small, bags over jars, the
+  smell test, cool and dark, bloom in fat, add a little and taste) and ends
+  with five jars worth adding later. It marks what is in the pantry and
+  stores nothing. A guide entry is keyed by `IngredientId`, and
+  `spices.test.ts` fails if no recipe uses one. A recipe that adds a new
+  spice should add its guide entry.
 
 ## Phase 3: cook mode hardened, and leveling (built)
 
@@ -588,7 +600,7 @@ precisely" and "Design").
 
 As of October 4, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all four migrations are on
-the live project, and every push runs 74 unit tests and 88 e2e tests before
+the live project, and every push runs 77 unit tests and 90 e2e tests before
 it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:

@@ -9,8 +9,8 @@ things they currently order. Built so far:
   a cook, and the unlock rules.
 - **Phase 2, the shop and the kit.** This week's plan, a grocery list in
   whole packages and store order, checking it off, correcting prices, the
-  pantry, the kit of equipment each course needs, and changing or deleting
-  a cook.
+  pantry, the kit of equipment each course needs, a spice guide, and
+  changing or deleting a cook.
 - **Phase 3, cook mode hardened and leveling.** Timers that survive a reload
   and chime when you come back, installing to the home screen, the
   promotion moment, the idle chef, the cooking streak, and 15 badges.
@@ -105,20 +105,21 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 74 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 77 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 88 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 90 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, and creating and changing the chef
   - cooking and logging, the after-cook notice and what unlocks, and Back
     after logging
   - every step of every recipe, one test per recipe
   - timers across steps, reloads and leaving
-  - the plan, the grocery list, prices, Done shopping, the pantry and the kit
+  - the plan, the grocery list, prices, Done shopping, the pantry, the kit
+    and the spice guide
   - changing and deleting a cook
   - promotions, the usual's moments, badges, the streak and reduced motion
   - the manifest and icons, and the error screens

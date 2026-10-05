@@ -875,7 +875,7 @@ p {
 
 .quick-links {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, auto);
   margin-top: 1.5rem;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -1370,4 +1370,34 @@ mark {
 .cook-nav .button {
   min-height: 3.5rem;
   font-size: var(--large);
+}
+
+/* ── The spice guide ── */
+
+.spices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spice {
+  padding: 1rem 0;
+}
+
+.spice + .spice {
+  border-top: 1px solid var(--line);
+}
+
+.spice-name {
+  margin: 0;
+  font: 700 1.125rem / 1.3 var(--display);
+}
+
+.spice .skills {
+  margin-top: 0.75rem;
+}
+
+.spice-try {
+  margin: 0;
+  padding-left: 1.25rem;
 }

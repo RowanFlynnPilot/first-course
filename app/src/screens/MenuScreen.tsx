@@ -114,10 +114,11 @@ export function MenuScreen({
 
         <UpNext recipe={next} logs={logs} prices={shop.prices} />
 
-        <nav className="quick-links" aria-label="Shopping and kit">
+        <nav className="quick-links" aria-label="Shopping, kit and spices">
           <Link to="/shop">{shop.plan.length === 0 ? 'This week' : `This week (${shop.plan.length})`}</Link>
           <Link to="/pantry">Pantry</Link>
           <Link to="/kit">Kit</Link>
+          <Link to="/spices">Spices</Link>
         </nav>
 
         <section className="section">
