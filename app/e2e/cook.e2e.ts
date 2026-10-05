@@ -34,7 +34,7 @@ test.describe('cooking and logging', () => {
     await expect(page.getByRole('heading', { name: 'Get everything out before you turn anything on.' })).toBeVisible()
     await expect(page.getByText('Before you start')).toBeVisible()
     const steps = await cookThrough(page)
-    expect(steps).toBe(7)
+    expect(steps).toBe(8)
 
     await expect(page.getByRole('button', { name: 'Save this cook' })).toBeDisabled()
     await rateAndSave(page, 'Decent', 'More lemon next time.')
@@ -66,7 +66,7 @@ test.describe('cooking and logging', () => {
     await rateAndSave(page, 'Decent')
     await expect(noticeLines(page).first()).toHaveText('+120 XP. Level 2.')
     await page.goBack()
-    await expect(page.getByText('Step 7 of 7')).toBeVisible()
+    await expect(page.getByText('Step 8 of 8')).toBeVisible()
     expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
   })
 

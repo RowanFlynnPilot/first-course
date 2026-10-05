@@ -47,7 +47,7 @@ cd C:\Users\rpfly\Projects\first-course; npx supabase link --project-ref <your-p
 npx supabase db push
 ```
 
-Applies five migrations, each with explicit grants and row-level security so
+Applies six migrations, each with explicit grants and row-level security so
 a cook touches only their own rows:
 
 - `00001_phase1_foundation.sql`: the cook log
@@ -57,6 +57,8 @@ a cook touches only their own rows:
   price corrections and kit; `finish_shopping()`; changing and deleting a cook
 - `00005_chef_creator.sql`: hairstyle, facial hair, glasses, more skin and
   hair colors, and the extras the chef wears
+- `00006_keep_the_plan.sql`: Done shopping marks the plan shopped instead of
+  clearing it, and saving a cook takes its recipe off the plan
 
 If earlier migrations are already pushed, the same command applies only the
 new ones. `npx supabase db push --dry-run` shows which first.
@@ -116,7 +118,7 @@ The deploy workflow runs these, and nothing deploys unless all pass:
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 105 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 117 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired email link, creating
     and changing the chef, the character
@@ -140,8 +142,10 @@ These need hardware, a kitchen, or a store:
 - [ ] Add to Home Screen (Safari's share sheet, or Chrome's menu). The icon
       is the plate, and it opens at the menu with no browser bar.
 - [ ] Cook mode keeps the screen awake.
-- [ ] A timer reaching zero chimes with the ring switch on. Note whether it
-      chimes with the switch off; it may be silent.
+- [ ] A timer reaching zero rings every 5 seconds until you tap the screen.
+      Check it rings with the ring switch off too, loud enough over the
+      range hood, and that a podcast pauses while it rings and what happens
+      to it after.
 - [ ] Start a timer, lock the phone, and unlock after it ends. The chime
       plays when you look again, and the step says "Time is up".
 - [ ] Start a timer and leave Safari for a while, long enough that it may

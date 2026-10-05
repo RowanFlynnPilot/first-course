@@ -17,22 +17,28 @@ function findCook(logs: readonly CookLog[], id: string | undefined): CookLog {
   return log
 }
 
-function lostSentence(before: readonly CookLog[], after: readonly CookLog[]): string | null {
+function lostSentence(before: readonly CookLog[], after: readonly CookLog[], plan: readonly string[]): string | null {
   const lost = progressLost(before, after)
   const parts = [
     ...(lost.skills.length > 0 ? [`unlearn ${skillList(lost.skills)}`] : []),
     ...(lost.locked.length > 0 ? [`lock ${listOf(lost.locked.map((recipe) => recipe.title))} again`] : []),
     ...(lost.unmastered.length > 0 ? [`undo mastering ${listOf(lost.unmastered.map((recipe) => recipe.title))}`] : []),
   ]
-  return parts.length === 0 ? null : `This would ${listOf(parts)}.`
+  if (parts.length === 0) return null
+  const planned = lost.locked.filter((recipe) => plan.includes(recipe.id)).map((recipe) => recipe.title)
+  const onPlan = planned.length === 0 ? '' : ` ${listOf(planned)} ${planned.length === 1 ? 'is' : 'are'} on this week’s plan.`
+  return `This would ${listOf(parts)}.${onPlan}`
 }
 
 export function EditCookScreen({
   logs,
+  plan,
   onUpdated,
   onDeleted,
 }: {
   logs: readonly CookLog[]
+  /** This week's plan, to say when a recipe that would lock again is on it. */
+  plan: readonly string[]
   onUpdated: (log: CookLog) => void
   onDeleted: (id: string) => void
 }) {
@@ -50,10 +56,11 @@ export function EditCookScreen({
   const remove = useWrite()
 
   const edited = logs.map((candidate) => (candidate.id === log.id ? { ...candidate, rating, cookedOn, notes } : candidate))
-  const saveWarning = lostSentence(logs, edited)
+  const saveWarning = lostSentence(logs, edited, plan)
   const deleteWarning = lostSentence(
     logs,
     logs.filter((candidate) => candidate.id !== log.id),
+    plan,
   )
 
   function submit(event: FormEvent) {

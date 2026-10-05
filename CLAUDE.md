@@ -146,7 +146,8 @@ app/
       badgeSprites.ts          the badge medals and symbols, earned and locked palettes
       BadgeArt.tsx             one badge
       Beats.tsx                the full-screen moments: a promotion, a dish of the usual in reach
-      ChefEditor.tsx           name, look and extras form, used to create and to change
+      ChefEditor.tsx           name, look and extras form, used to create (extras are one
+                                 line then: nothing is earned yet) and to change
       CheckRow.tsx             a checkbox row that saves itself (grocery list, pantry, kit)
       useWrite.ts              busy + error for one write from a button
       usePageTitle.ts          each screen's title: "This week · First Course"
@@ -303,10 +304,16 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - `recipeState(recipe, logs)`: `locked` if any required skill is unlearned;
   else `ready` with no cooks; else `mastered` at 3 good cooks including a
   "Nailed it"; else `cooked`.
-- `nextRecipe(logs, plan)`: the first recipe on this week's plan that is
-  unlocked (the menu labels it "On this week's plan"); else, in menu order,
-  the first unlocked recipe without a good cook (so a Rough cook is
-  suggested again before anything new), else the first not yet mastered.
+- `nextRecipe(logs, plan, shopped)`: the first unlocked recipe on this
+  week's plan, groceries bought before groceries still to buy, each in the
+  order added (the menu labels it "Groceries bought" or "On this week's
+  plan"); else, in menu order, the first unlocked recipe without a good cook
+  (so a Rough cook is suggested again before anything new), else the first
+  not yet mastered.
+- `teacherOf(technique)`: the one recipe that teaches a skill. A locked
+  recipe page names it, with a link: "Locked. Learn heat control from Soft
+  scrambled eggs on toast."
+
 
 `lib/leveling.ts`:
 
@@ -360,7 +367,8 @@ makes more than two servings.
 
 The moments after a cook (`notice.ts`, played by `MenuScreen` and
 `Beats.tsx`): a promotion holds the whole screen first, then each dish of
-the usual whose skills are now all learned, each until the cook taps on.
+the usual whose skills are now all learned, each until the cook taps on
+("Next" while another moment follows, "Back to the menu" on the last).
 The usual never appears as a line in the notice. Only then does the menu
 play its own celebration: the level-up hop, the XP bar, the yolk.
 
@@ -492,17 +500,25 @@ build; a failed run keeps its traces as an artifact.
 - **Wake lock needs HTTPS.** `navigator.wakeLock` does not exist on the
   plain-HTTP LAN URL, so cook mode shows "This browser will not keep the
   screen awake here." It works on the deployed site and on localhost.
-- **The timer chime is Web Audio**, created on the tap that starts a timer.
-  Not yet verified on an iPhone with the ring switch off; it may be silent.
+- **The timer ring is Web Audio**, created on the tap that starts a timer:
+  three square-wave beeps, repeated every 5 seconds until the cook taps the
+  page, and given up 2 minutes after the first ring. While it rings, Safari
+  16.4 and later get `navigator.audioSession.type = 'playback'`, which should
+  sound with the ring switch off and pauses other audio; it goes back to
+  `'auto'` when the ring stops. Not yet verified on an iPhone. "Start
+  timer" is a full-width solid button above the Why, and "Stop timer" asks
+  first when more than a minute is left.
 - **Timers are end times in `sessionStorage`** (`lib/timers.ts`), one entry
   per recipe, keyed by step, each `{ endsAt, rang }`. They survive moving
   between steps, a reload, and a phone discarding a backgrounded tab.
-  `components/useCookTimers.ts` plays every chime from one check that runs on
+  `components/useCookTimers.ts` plays every ring from one check that runs on
   a quarter-second tick and again on `visibilitychange`, so a timer that ran
-  out while the phone was locked chimes when the cook looks again. Sound
-  needs a tap on the page first: starting a timer is one, and after a reload
-  cook mode says "Tap anywhere so your timers can chime"; a timer that runs
-  out before that tap chimes at the tap. A timer finished more than 30
+  out while the phone was locked rings when the cook looks again (the 2
+  minutes count from the first ring, not from the end). `rang` means the
+  ring is over: the cook tapped, or it rang out. Sound needs a tap on the
+  page first: starting a timer is one, and after a reload cook mode says
+  "Tap anywhere so your timers can chime"; a timer that runs out before
+  that tap rings once at the tap. A timer finished more than 30
   minutes ago is dropped (`STALE_AFTER_MS`). "Leave cook mode" (which asks
   first if one is running) and saving the cook both clear the recipe's
   timers.
@@ -605,8 +621,12 @@ build; a failed run keeps its traces as an artifact.
 - **Email confirmation is on for the live project** (October 4, 2026), and
   its Site URL is the Pages URL. Sign-up returns no session until the email
   link is clicked; the sign-in screen says "Check your email" as a plain
-  notice. The e2e fake does this with `confirmEmail: true` in the seed and
-  otherwise behaves like development (confirmation off).
+  notice. Signing in before the link is clicked fails with "Email not
+  confirmed", and the screen offers "Send the confirmation email again"
+  (`supabase.auth.resend`). An expired link's message comes with how to get
+  a new one. The e2e fake does this with `confirmEmail: true` (and
+  `unconfirmed: true` for the seeded account) in the seed and otherwise
+  behaves like development (confirmation off).
 - **Never `npx supabase config push` the repo's `config.toml`.** It holds
   local-development values (site URL `127.0.0.1`, confirmation off, MFA off)
   and pushing it would reset ten live settings. To change one live setting,
@@ -639,8 +659,9 @@ Migration `00004_shop_kit_and_cook_edits.sql` (applied), all tables keyed by
 - `cook_logs` gains update of `cooked_on`, `rating` and `notes` (never
   `recipe_id`) and delete
 
-Plan, pantry, checks and kit grant select, insert and delete only; adding is
-an insert that ignores duplicates, so adding twice is harmless.
+Plan, pantry, checks and kit grant select, insert and delete (the plan also
+updates `shopped`, from 00006); adding is an insert that ignores duplicates,
+so adding twice is harmless.
 
 Migration `00006_keep_the_plan.sql` (October 5, 2026) changes two things,
 because clearing the plan at "Done shopping" emptied This week right when
@@ -660,9 +681,13 @@ Behavior:
 - **Plan.** "Add to this week" (and "Take off this week") on any unlocked
   recipe page. One batch per recipe; no servings scaling. A recipe stays on
   the plan until a cook of it is saved, marked "Groceries bought" once
-  shopped for, and the menu suggests it first.
+  shopped for (with "Put it back on the list" for groceries not bought or
+  gone off), and the menu suggests it first. A planned recipe that a
+  deleted cook locks again says "Locked again: needs …", and the
+  change-cook screen warns that it is on the plan.
 - **Grocery list** (`lib/grocery.ts`, `/shop`). Sum `qty` per ingredient
-  across the plan's recipes not yet shopped for, drop what the pantry has (and say which), packages =
+  across the plan's recipes not yet shopped for, drop what the pantry has
+  (and list each, with "Put it on the list" for one that ran out), packages =
   `ceil(qty / package.units)`, grouped by `section` in store order: produce,
   meat, dairy, bakery, pantry, frozen. Each line shows the package, the
   count when it is more than one, and what the plan uses when that is not
@@ -672,11 +697,18 @@ Behavior:
   share sheet (`navigator.share`, HTTPS only), to Notes for a store with no
   signal or to whoever is shopping; closing the sheet is not an error.
 - **Checking off.** Tap to check. "Done shopping" asks first if anything is
-  unchecked, then `finish_shopping()` puts the checked-off staples in the
-  pantry, clears the checks and marks the plan shopped, in one transaction.
+  unchecked, naming it ("They come off the list"), then `finish_shopping()`
+  puts the checked-off staples in the pantry, clears the checks and marks
+  the plan shopped, in one transaction. With everything ticked, the list
+  says to tap "Done shopping". Ticks left from a shop that never got "Done
+  shopping" (for recipes since cooked or taken off) are cleared before the
+  list grows again (`clearStaleChecks` in `shop.ts`, run before "Add to this
+  week" and "Put it back on the list"), so a new list never opens with
+  things ticked that were never bought for it.
 - **Pantry** (`/pantry`). Every `staple: true` ingredient, by store section,
   with a toggle. What a staple is: used a little at a time and keeps for
-  weeks. A can or a pack of meat is used up whole, so it is not one.
+  weeks. A can or a pack of meat is used up whole, so it is not one; garlic,
+  fresh ginger and a parmesan wedge are.
 - **Price overrides.** Tap a price on the grocery list to correct the
   package price, or go back to the estimate. Every price read goes through
   `packagePriceCents(id, prices)` in `cost.ts`; kept totals use current
@@ -718,7 +750,7 @@ precisely" and "Design").
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all six migrations are
-on the live project, and every push runs 95 unit tests and 105 e2e tests before it deploys.
+on the live project, and every push runs 95 unit tests and 117 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

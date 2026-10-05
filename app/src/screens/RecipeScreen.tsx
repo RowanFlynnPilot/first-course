@@ -5,7 +5,7 @@ import { Plate } from '../components/Plate'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { recipeById } from '../curriculum/recipes'
-import { TECHNIQUES } from '../curriculum/techniques'
+import { TECHNIQUES, type TechniqueId } from '../curriculum/techniques'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 import {
   cookCostPerServingCents,
@@ -24,9 +24,10 @@ import {
   missingTechniques,
   RATINGS,
   recipeState,
+  teacherOf,
   type CookLog,
 } from '../lib/progress'
-import { addToPlan, removeFromPlan, withoutPlanned, type Shop, type ShopChange } from '../lib/shop'
+import { addToPlan, clearStaleChecks, removeFromPlan, withoutPlanned, type Shop, type ShopChange } from '../lib/shop'
 
 export function RecipeScreen({
   logs,
@@ -75,7 +76,7 @@ export function RecipeScreen({
         </section>
       )}
 
-      {state === 'locked' && <p className="notice">Locked. You still need {skillList(missing)}.</p>}
+      {state === 'locked' && <LockedNotice missing={missing} />}
 
       <Written
         recipe={recipe}
@@ -146,7 +147,7 @@ function Written({
           <Link className="button" to={`/cook/${recipe.id}/0`}>
             Start cooking
           </Link>
-          <PlanButton recipe={recipe} planned={shop.plan.includes(recipe.id)} onShopChange={onShopChange} />
+          <PlanButton recipe={recipe} shop={shop} onShopChange={onShopChange} />
           <Link className="button button-quiet" to={`/cook/${recipe.id}/log`}>
             Log a cook
           </Link>
@@ -218,26 +219,42 @@ function Written({
   )
 }
 
+/** "Locked. Learn heat control from Soft scrambled eggs on toast.", one sentence per recipe that teaches what is missing. */
+function LockedNotice({ missing }: { missing: readonly TechniqueId[] }) {
+  const teachers = new Map<Recipe, TechniqueId[]>()
+  for (const technique of missing) {
+    const teacher = teacherOf(technique)
+    teachers.set(teacher, [...(teachers.get(teacher) ?? []), technique])
+  }
+  return (
+    <p className="notice">
+      Locked.
+      {[...teachers].map(([teacher, skills]) => (
+        <span key={teacher.id}>
+          {' '}
+          Learn {skillList(skills)} from <Link to={`/recipe/${teacher.id}`}>{teacher.title}</Link>.
+        </span>
+      ))}
+    </p>
+  )
+}
+
 /** "Add to this week": one batch per recipe on the plan, no servings scaling. */
-function PlanButton({
-  recipe,
-  planned,
-  onShopChange,
-}: {
-  recipe: Recipe
-  planned: boolean
-  onShopChange: ShopChange
-}) {
+function PlanButton({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop; onShopChange: ShopChange }) {
   const { busy, error, run } = useWrite()
+  const planned = shop.plan.includes(recipe.id)
 
   function toggle() {
     void run(async () => {
       if (planned) {
         await removeFromPlan(recipe.id)
-        onShopChange((shop) => withoutPlanned(shop, recipe.id))
+        onShopChange((previous) => withoutPlanned(previous, recipe.id))
       } else {
+        // Old ticks go first, so the list this recipe joins does not open with them.
+        const checks = await clearStaleChecks(shop)
+        onShopChange((previous) => ({ ...previous, checks }))
         await addToPlan(recipe.id)
-        onShopChange((shop) => ({ ...shop, plan: [...shop.plan, recipe.id] }))
+        onShopChange((previous) => ({ ...previous, plan: [...previous.plan, recipe.id] }))
       }
     })
   }
@@ -249,7 +266,15 @@ function PlanButton({
       </button>
       {planned && (
         <p className="plan-note">
-          On <Link to="/shop">this week’s list</Link>.
+          {shop.shopped.has(recipe.id) ? (
+            <>
+              On <Link to="/shop">this week’s plan</Link>, groceries bought.
+            </>
+          ) : (
+            <>
+              On <Link to="/shop">this week’s list</Link>.
+            </>
+          )}
         </p>
       )}
       {error !== null && (

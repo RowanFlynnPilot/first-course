@@ -91,8 +91,11 @@ export function ChefEditor({
 }: {
   initial: Chef
   rank: RankIndex
-  /** The extras this cook has earned so far. */
-  unlocked: ReadonlySet<ExtraId>
+  /**
+   * The extras this cook has earned so far. null for a new chef, who has cooked
+   * nothing yet: the extras become one line saying how they are earned.
+   */
+  unlocked: ReadonlySet<ExtraId> | null
   submitLabel: string
   onSubmit: (chef: Chef) => Promise<void>
 }) {
@@ -128,7 +131,7 @@ export function ChefEditor({
   return (
     <form className="form" onSubmit={submit}>
       <div className="editor-preview">
-        <ChefSprite rank={rank} look={look} extras={extras.filter((id) => unlocked.has(id))} scale={6} />
+        <ChefSprite rank={rank} look={look} extras={extras.filter((id) => unlocked?.has(id) === true)} scale={6} />
       </div>
       <label className="field">
         Chef’s name
@@ -177,37 +180,13 @@ export function ChefEditor({
         onChange={(index) => setLook({ ...look, glasses: pick(GLASSES, index) })}
       />
 
-      <div className="extras">
-        <h2 className="section-title">Extras</h2>
+      {unlocked === null ? (
         <p className="section-note">
-          Rank decides the hat and the jacket. Extras go over them, and you earn them by cooking one kind of dish.
+          Extras, like clogs or a tool in hand, are earned by cooking. Put them on later from the chef sheet.
         </p>
-        {SLOTS.map((slot) => {
-          const options = EXTRAS.filter((extra) => extra.slot === slot.id)
-          const chosen = extras.find((id) => extraById(id).slot === slot.id) ?? null
-          const locked = options.filter((extra) => !unlocked.has(extra.id))
-          return (
-            <div key={slot.id}>
-              <Choices
-                legend={slot.name}
-                name={`extra-${slot.id}`}
-                options={[{ name: 'None' }, ...options.map((extra) => ({ name: extra.name, locked: !unlocked.has(extra.id) }))]}
-                value={chosen === null ? 0 : options.findIndex((extra) => extra.id === chosen) + 1}
-                onChange={(index) => wear(slot.id, index === 0 ? null : (options[index - 1]?.id ?? null))}
-              />
-              {locked.length > 0 && (
-                <ul className="extras-locked">
-                  {locked.map((extra) => (
-                    <li key={extra.id}>
-                      {extra.name}: {extra.how}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      ) : (
+        <Extras unlocked={unlocked} extras={extras} wear={wear} />
+      )}
 
       {error !== null && (
         <p className="notice notice-error" role="alert">
@@ -218,5 +197,50 @@ export function ChefEditor({
         {submitLabel}
       </button>
     </form>
+  )
+}
+
+/** Each slot's extras: the earned ones to choose from, the locked ones with how to earn them. */
+function Extras({
+  unlocked,
+  extras,
+  wear,
+}: {
+  unlocked: ReadonlySet<ExtraId>
+  extras: readonly ExtraId[]
+  wear: (slot: ExtraSlot, id: ExtraId | null) => void
+}) {
+  return (
+    <div className="extras">
+      <h2 className="section-title">Extras</h2>
+      <p className="section-note">
+        Rank decides the hat and the jacket. Extras go over them, and you earn them by cooking one kind of dish.
+      </p>
+      {SLOTS.map((slot) => {
+        const options = EXTRAS.filter((extra) => extra.slot === slot.id)
+        const chosen = extras.find((id) => extraById(id).slot === slot.id) ?? null
+        const locked = options.filter((extra) => !unlocked.has(extra.id))
+        return (
+          <div key={slot.id}>
+            <Choices
+              legend={slot.name}
+              name={`extra-${slot.id}`}
+              options={[{ name: 'None' }, ...options.map((extra) => ({ name: extra.name, locked: !unlocked.has(extra.id) }))]}
+              value={chosen === null ? 0 : options.findIndex((extra) => extra.id === chosen) + 1}
+              onChange={(index) => wear(slot.id, index === 0 ? null : (options[index - 1]?.id ?? null))}
+            />
+            {locked.length > 0 && (
+              <ul className="extras-locked">
+                {locked.map((extra) => (
+                  <li key={extra.id}>
+                    {extra.name}: {extra.how}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }

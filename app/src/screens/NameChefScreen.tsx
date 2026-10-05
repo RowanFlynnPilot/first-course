@@ -14,7 +14,7 @@ export function NameChefScreen({ onCreated }: { onCreated: (chef: Chef) => void 
       <ChefEditor
         initial={{ name: '', ...DEFAULT_LOOK, extras: [] }}
         rank={0}
-        unlocked={new Set()}
+        unlocked={null}
         submitLabel="Create chef"
         onSubmit={async (chef) => onCreated(await createChef(chef))}
       />

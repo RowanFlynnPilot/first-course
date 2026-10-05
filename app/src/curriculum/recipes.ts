@@ -50,8 +50,13 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Cut the tomatoes into wedges, then cut the wedges into bite-size chunks. Slice the quarter onion as thin as you can.',
+          text: 'Cut the tomatoes into wedges, then cut the wedges into bite-size chunks.',
           why: null,
+          timer: null,
+        },
+        {
+          text: 'Cut the top off the onion, then cut it in half from top to bottom, through the hairy root. Peel off the papery skin. Lay one half flat side down and cut it in half the same way: that is your quarter. Slice it across as thin as you can. Wrap the rest and put it in the fridge.',
+          why: 'The root holds the layers together while you slice, so cut through it, never off. Flat side down again, so nothing rolls.',
           timer: null,
         },
         {
@@ -1144,7 +1149,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Get everything ready first. Slice the quarter onion as thin as you can. Unwrap the cheese slices. Set out the pickles and ketchup. Measure the salt and pepper into the small bowl. Tear 4 squares of parchment paper, about 6 inches across.',
+          text: 'Get everything ready first. Peel the onion and cut a quarter through the root, as for the salad, then slice it as thin as you can; wrap the rest for the fridge. Unwrap the cheese slices. Set out the pickles and ketchup. Measure the salt and pepper into the small bowl. Tear 4 squares of parchment paper, about 6 inches across.',
           why: 'Each burger cooks in about 3 minutes. Once the beef is in the pan there is no time for anything else.',
           timer: null,
         },

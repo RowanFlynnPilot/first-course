@@ -11,6 +11,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     return { error }
   }
 
+  componentDidCatch() {
+    document.title = 'Something broke · First Course'
+  }
+
   render() {
     if (this.state.error === null) return this.props.children
     return (
@@ -19,9 +23,11 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
         <p className="notice notice-error" role="alert">
           {this.state.error.message}
         </p>
-        <p>
-          <a href={import.meta.env.BASE_URL}>Back to the menu</a>
-        </p>
+        <div className="actions">
+          <a className="button" href={import.meta.env.BASE_URL}>
+            Back to the menu
+          </a>
+        </div>
       </main>
     )
   }

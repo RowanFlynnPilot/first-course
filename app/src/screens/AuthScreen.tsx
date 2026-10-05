@@ -14,14 +14,28 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
   // Forgot the password: the same screen asks only for the email and sends a link.
   const [resetting, setResetting] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  // Signed up, but the confirmation link expired or never came: send another.
+  const [unconfirmed, setUnconfirmed] = useState(false)
+  const [confirmationResent, setConfirmationResent] = useState(false)
 
   async function signIn(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
     setConfirmationSent(false)
+    setConfirmationResent(false)
     const { error: failure } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false)
     setError(failure ? failure.message : null)
+    setUnconfirmed(failure?.code === 'email_not_confirmed')
+  }
+
+  async function resendConfirmation() {
+    setBusy(true)
+    const { error: failure } = await supabase.auth.resend({ type: 'signup', email })
+    setBusy(false)
+    setError(failure ? failure.message : null)
+    setUnconfirmed(failure !== null)
+    setConfirmationResent(failure === null)
   }
 
   async function createAccount() {
@@ -47,6 +61,8 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
     setError(null)
     setConfirmationSent(false)
     setResetSent(false)
+    setUnconfirmed(false)
+    setConfirmationResent(false)
   }
 
   const emailField = (
@@ -62,9 +78,17 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
     </label>
   )
   const errorNotice = error !== null && (
-    <p className="notice notice-error" role="alert">
-      {error}
-    </p>
+    <>
+      <p className="notice notice-error" role="alert">
+        {error}
+      </p>
+      {error === linkError && (
+        <p className="section-note">
+          Email links expire. For a new confirmation link, sign in and ask for one. For a new password link, use
+          “Forgot your password?”.
+        </p>
+      )}
+    </>
   )
 
   return (
@@ -104,9 +128,19 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
             />
           </label>
           {errorNotice}
+          {unconfirmed && (
+            <button className="button button-quiet" type="button" disabled={busy} onClick={resendConfirmation}>
+              Send the confirmation email again
+            </button>
+          )}
           {confirmationSent && (
             <p className="notice" role="status">
               Check your email to confirm the account, then sign in.
+            </p>
+          )}
+          {confirmationResent && (
+            <p className="notice" role="status">
+              Sent. Open the newest email’s link, then sign in.
             </p>
           )}
           <button className="button" type="submit" disabled={busy}>

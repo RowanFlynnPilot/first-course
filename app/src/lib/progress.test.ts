@@ -16,7 +16,7 @@ describe('progress', () => {
     expect(recipeState(recipeById('chopped-salad'), [])).toBe('ready')
     expect(recipeState(eggs, [])).toBe('ready')
     expect(recipeState(grilledCheese, [])).toBe('locked')
-    expect(nextRecipe([], [])?.id).toBe('chopped-salad')
+    expect(nextRecipe([], [], new Set())?.id).toBe('chopped-salad')
   })
 
   it('does not teach a skill on a rough cook', () => {
@@ -35,13 +35,16 @@ describe('progress', () => {
   it('suggests a rough cook again before moving on', () => {
     const logs = [log('chopped-salad', 2), log(eggs.id, 1)]
     expect(recipeState(recipeById('sheet-pan-sausage'), logs)).toBe('ready')
-    expect(nextRecipe(logs, [])?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, [], new Set())?.id).toBe(eggs.id)
   })
 
   it('suggests what is on this week’s plan first, unless it is locked', () => {
     const logs = [log('chopped-salad', 2)]
-    expect(nextRecipe(logs, ['grilled-cheese', 'sheet-pan-sausage', eggs.id])?.id).toBe('sheet-pan-sausage')
-    expect(nextRecipe(logs, ['grilled-cheese'])?.id).toBe(eggs.id)
+    const plan = ['grilled-cheese', 'sheet-pan-sausage', eggs.id]
+    expect(nextRecipe(logs, plan, new Set())?.id).toBe('sheet-pan-sausage')
+    // Groceries bought come first.
+    expect(nextRecipe(logs, plan, new Set([eggs.id]))?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, ['grilled-cheese'], new Set(['grilled-cheese']))?.id).toBe(eggs.id)
   })
 
   it('refuses to cook or log a locked recipe', () => {

@@ -10,35 +10,42 @@ import { EQUIPMENT } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
-import { formatAmount, formatCents, inSentence, listOf, packagesOf, plural } from '../lib/format'
+import { formatAmount, formatCents, inSentence, listOf, packagesOf, plural, skillList } from '../lib/format'
 import { groceryList, groceryText, type GroceryLine } from '../lib/grocery'
 import { missingKit } from '../lib/kit'
+import { missingTechniques, recipeState, type CookLog } from '../lib/progress'
 import {
   checkOff,
+  clearFromPantry,
+  clearStaleChecks,
   finishShopping,
   removeFromPlan,
   resetPrice,
   setPrice,
+  shopForAgain,
+  toShopFor,
   uncheck,
   withoutPlanned,
   type Shop,
   type ShopChange,
 } from '../lib/shop'
 
-export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
+export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: readonly CookLog[]; onShopChange: ShopChange }) {
   usePageTitle('This week')
   const planned = shop.plan.map(recipeById)
   // Only what is not yet bought goes on the list.
-  const toShop = shop.plan.filter((id) => !shop.shopped.has(id))
+  const toShop = toShopFor(shop)
   const list = groceryList(toShop, shop.pantry, shop.prices)
   const needKit = missingKit(planned, shop.kit)
   const inCart = list.lines.filter((line) => shop.checks.has(line.ingredientId))
-  const toBuy = list.lines.length - inCart.length
+  const notInCart = list.lines.filter((line) => !shop.checks.has(line.ingredientId))
+  const toBuy = notInCart.length
   const finish = useWrite()
   const [finished, setFinished] = useState<string | null>(null)
 
   async function doneShopping() {
-    if (toBuy > 0 && !window.confirm(`${plural(toBuy, 'thing is', 'things are')} not checked off. Finish shopping anyway?`)) {
+    const left = listOf(notInCart.map((line) => inSentence(INGREDIENTS[line.ingredientId].name)))
+    if (toBuy > 0 && !window.confirm(`Not checked off: ${left}. They come off the list. Finish shopping anyway?`)) {
       return
     }
     const staples = inCart.map((line) => line.ingredientId).filter((id) => INGREDIENTS[id].staple)
@@ -81,12 +88,7 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
             <p className="section-note">Each recipe leaves the plan when you log a cook of it.</p>
             <ul className="rows">
               {planned.map((recipe) => (
-                <PlanRow
-                  key={recipe.id}
-                  recipe={recipe}
-                  shopped={shop.shopped.has(recipe.id)}
-                  onShopChange={onShopChange}
-                />
+                <PlanRow key={recipe.id} recipe={recipe} shop={shop} logs={logs} onShopChange={onShopChange} />
               ))}
             </ul>
           </>
@@ -116,10 +118,16 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
             on each recipe: the oil, spices and sauces you buy now last for many cooks.
           </p>
           {list.inPantry.length > 0 && (
-            <p className="section-note">
-              Left off because your <Link to="/pantry">pantry</Link> has them:{' '}
-              {listOf(list.inPantry.map((id) => inSentence(INGREDIENTS[id].name)))}.
-            </p>
+            <>
+              <p className="section-note">
+                Left off because your <Link to="/pantry">pantry</Link> has them. Out of one? Put it on the list.
+              </p>
+              <ul className="rows">
+                {list.inPantry.map((id) => (
+                  <InPantryRow key={id} id={id} onShopChange={onShopChange} />
+                ))}
+              </ul>
+            </>
           )}
           {toBuy > 0 && <ShareButton text={groceryText(toShop, list, shop.checks)} />}
           {list.sections.map((section) => (
@@ -141,6 +149,12 @@ export function ShopScreen({ shop, onShopChange }: { shop: Shop; onShopChange: S
           <p className="section-note">
             {inCart.length} of {plural(list.lines.length, 'thing', 'things')} in the cart. Tap a price to correct it.
           </p>
+          {toBuy === 0 && (
+            <p className="notice">
+              Everything is in the cart. Tap “Done shopping” to put the staples in your pantry and mark the plan
+              bought.
+            </p>
+          )}
           {finish.error !== null && (
             <p className="notice notice-error" role="alert">
               {finish.error}
@@ -192,8 +206,21 @@ function ShareButton({ text }: { text: string }) {
   )
 }
 
-function PlanRow({ recipe, shopped, onShopChange }: { recipe: Recipe; shopped: boolean; onShopChange: ShopChange }) {
+function PlanRow({
+  recipe,
+  shop,
+  logs,
+  onShopChange,
+}: {
+  recipe: Recipe
+  shop: Shop
+  logs: readonly CookLog[]
+  onShopChange: ShopChange
+}) {
   const { busy, error, run } = useWrite()
+  const shopped = shop.shopped.has(recipe.id)
+  // Deleting a cook can take away a skill this recipe needs.
+  const locked = recipeState(recipe, logs) === 'locked'
   return (
     <li>
       <div className="plan-row">
@@ -201,6 +228,7 @@ function PlanRow({ recipe, shopped, onShopChange }: { recipe: Recipe; shopped: b
           <Link className="row-title" to={`/recipe/${recipe.id}`}>
             {recipe.title}
           </Link>
+          {locked && <span className="row-note">Locked again: needs {skillList(missingTechniques(recipe, logs))}</span>}
           {shopped && <span className="row-note">Groceries bought</span>}
         </span>
         <button
@@ -210,11 +238,69 @@ function PlanRow({ recipe, shopped, onShopChange }: { recipe: Recipe; shopped: b
           onClick={() =>
             void run(async () => {
               await removeFromPlan(recipe.id)
-              onShopChange((shop) => withoutPlanned(shop, recipe.id))
+              onShopChange((previous) => withoutPlanned(previous, recipe.id))
             })
           }
         >
           Take off
+        </button>
+      </div>
+      {shopped && (
+        <button
+          className="link-button"
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            void run(async () => {
+              // Old ticks go first, so the list this recipe goes back on does not open with them.
+              const checks = await clearStaleChecks(shop)
+              onShopChange((previous) => ({ ...previous, checks }))
+              await shopForAgain(recipe.id)
+              onShopChange((previous) => {
+                const next = new Set(previous.shopped)
+                next.delete(recipe.id)
+                return { ...previous, shopped: next }
+              })
+            })
+          }
+        >
+          Put it back on the list
+        </button>
+      )}
+      {error !== null && (
+        <p className="notice notice-error" role="alert">
+          {error}
+        </p>
+      )}
+    </li>
+  )
+}
+
+/** A staple left off the list because the pantry has it, with a way to say it ran out. */
+function InPantryRow({ id, onShopChange }: { id: IngredientId; onShopChange: ShopChange }) {
+  const { busy, error, run } = useWrite()
+  const { name } = INGREDIENTS[id]
+  return (
+    <li>
+      <div className="plan-row">
+        <span>{name}</span>
+        <button
+          className="link-button"
+          type="button"
+          disabled={busy}
+          aria-label={`Put ${inSentence(name)} on the list`}
+          onClick={() =>
+            void run(async () => {
+              await clearFromPantry(id)
+              onShopChange((previous) => {
+                const pantry = new Set(previous.pantry)
+                pantry.delete(id)
+                return { ...previous, pantry }
+              })
+            })
+          }
+        >
+          Put it on the list
         </button>
       </div>
       {error !== null && (

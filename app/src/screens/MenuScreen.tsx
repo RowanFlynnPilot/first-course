@@ -56,7 +56,7 @@ export function MenuScreen({
   notice: CookNotice | null
 }) {
   usePageTitle(null)
-  const next = nextRecipe(logs, shop.plan)
+  const next = nextRecipe(logs, shop.plan, shop.shopped)
   const usual = RECIPES.filter((recipe) => recipe.tier === 5)
   const learned = learnedTechniques(logs)
   const xp = totalXp(logs)
@@ -118,7 +118,12 @@ export function MenuScreen({
           </div>
         )}
 
-        <UpNext recipe={next} planned={next !== null && shop.plan.includes(next.id)} logs={logs} prices={shop.prices} />
+        <UpNext
+          recipe={next}
+          plan={next === null || !shop.plan.includes(next.id) ? null : shop.shopped.has(next.id) ? 'bought' : 'planned'}
+          logs={logs}
+          prices={shop.prices}
+        />
 
         <nav className="quick-links" aria-label="Shopping, kit and spices">
           <Link to="/shop">{shop.plan.length === 0 ? 'This week' : `This week (${shop.plan.length})`}</Link>
@@ -198,10 +203,13 @@ export function MenuScreen({
           chef={chef}
           extras={wornExtras(chef.extras, logs)}
           rank={moment.rank}
+          last={seen === moments.length - 1}
           onDone={() => setSeen(seen + 1)}
         />
       )}
-      {moment?.kind === 'usual' && <UsualBeat recipe={moment.recipe} onDone={() => setSeen(seen + 1)} />}
+      {moment?.kind === 'usual' && (
+        <UsualBeat recipe={moment.recipe} last={seen === moments.length - 1} onDone={() => setSeen(seen + 1)} />
+      )}
     </>
   )
 }
@@ -217,13 +225,13 @@ function StreakLine({ streak }: { streak: Streak }) {
 
 function UpNext({
   recipe,
-  planned,
+  plan,
   logs,
   prices,
 }: {
   recipe: Recipe | null
-  /** The suggestion is on this week's plan. */
-  planned: boolean
+  /** Whether the suggestion is on this week's plan, and its groceries bought. */
+  plan: 'bought' | 'planned' | null
   logs: readonly CookLog[]
   prices: Prices
 }) {
@@ -243,7 +251,13 @@ function UpNext({
       <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={88} />
       <div>
         <p className="tray-label">
-          {planned ? 'On this week’s plan' : state === 'ready' ? 'Cook this next' : 'Cook this again'}
+          {plan === 'bought'
+            ? 'Groceries bought'
+            : plan === 'planned'
+              ? 'On this week’s plan'
+              : state === 'ready'
+                ? 'Cook this next'
+                : 'Cook this again'}
         </p>
         <h2 className="tray-title">{recipe.title}</h2>
         <p className="tray-body">

@@ -7,7 +7,7 @@ import { ChefSprite } from '../components/ChefSprite'
 import { usePageTitle } from '../components/usePageTitle'
 import { XpBar } from '../components/XpBar'
 import { RECIPES } from '../curriculum/recipes'
-import { DISCIPLINES, TECHNIQUES, type TechniqueId } from '../curriculum/techniques'
+import { DISCIPLINES, TECHNIQUES } from '../curriculum/techniques'
 import { BADGES, earnedBadges } from '../lib/badges'
 import type { Chef } from '../lib/chefs'
 import { totalKeptCents, type Prices } from '../lib/cost'
@@ -24,14 +24,8 @@ import {
   XP_PER_MASTERY,
   XP_PER_SKILL,
 } from '../lib/leveling'
-import { recipeState, type CookLog } from '../lib/progress'
+import { recipeState, teacherOf, type CookLog } from '../lib/progress'
 import { currentStreak, longestStreak } from '../lib/streak'
-
-function teacherOf(technique: TechniqueId) {
-  const recipe = RECIPES.find((candidate) => candidate.teaches.includes(technique))
-  if (!recipe) throw new Error(`No recipe teaches ${technique}`)
-  return recipe
-}
 
 export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly CookLog[]; prices: Prices }) {
   usePageTitle('Chef sheet')

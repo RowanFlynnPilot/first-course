@@ -34,7 +34,53 @@ test.describe('timers in cook mode', () => {
     await chip.click()
     await expect(page.getByText('Step 3 of 7')).toBeVisible()
     await expect(page.getByRole('timer')).toContainText('Time is up')
-    await page.getByRole('button', { name: 'Reset timer' }).click()
+    await page.getByRole('button', { name: 'Stop timer' }).click()
+    await expect(page.getByRole('button', { name: 'Start 15:00 timer' })).toBeVisible()
+  })
+
+  test('a finished timer rings every 5 seconds until a tap, and gives up after 2 minutes', async ({ page, kitchen }) => {
+    const beeps = () => page.evaluate(() => (window as unknown as { beeps: number }).beeps)
+    await page.clock.install({ time: new Date('2026-10-03T18:00:00-05:00') })
+    await page.addInitScript(COUNT_BEEPS)
+    await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
+    await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
+    // Time moves only when the test moves it.
+    await page.clock.pauseAt(new Date('2026-10-03T18:00:30-05:00'))
+
+    await page.clock.fastForward('15:00')
+    await expect.poll(beeps).toBe(3)
+    await page.clock.fastForward('00:05')
+    await expect.poll(beeps).toBe(6)
+    await page.getByText('Step 3 of 7').click()
+    await page.clock.fastForward('00:10')
+    await expect(page.getByRole('timer')).toContainText('Time is up')
+    expect(await beeps()).toBe(6)
+
+    // A second timer, left alone, rings out.
+    await page.getByRole('button', { name: 'Stop timer' }).click()
+    await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
+    await page.clock.fastForward('15:00')
+    await expect.poll(beeps).toBe(9)
+    await page.clock.runFor('02:30')
+    const rung = await beeps()
+    expect(rung).toBeGreaterThan(9)
+    await page.clock.runFor('00:30')
+    expect(await beeps()).toBe(rung)
+  })
+
+  test('stopping a timer with more than a minute left asks first', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
+    await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
+    const asked: string[] = []
+    page.once('dialog', (dialog) => {
+      asked.push(dialog.message())
+      void dialog.dismiss()
+    })
+    await page.getByRole('button', { name: 'Stop timer' }).click()
+    expect(asked).toEqual([expect.stringMatching(/^Stop the timer\? It still has 1[45]:\d\d to go\.$/)])
+    await expect(page.getByRole('timer')).toContainText(/1[45]:\d\d/)
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByRole('button', { name: 'Stop timer' }).click()
     await expect(page.getByRole('button', { name: 'Start 15:00 timer' })).toBeVisible()
   })
 
@@ -62,11 +108,11 @@ test.describe('timers in cook mode', () => {
     await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
     await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
     await page.clock.fastForward('05:00')
-    await expect(page.getByRole('timer')).toContainText(/^(10:00|9:[45]\d)Reset timer$/)
+    await expect(page.getByRole('timer')).toContainText(/^(10:00|9:[45]\d)Stop timer$/)
 
     await page.reload()
     await expect(page.getByText('Step 3 of 7')).toBeVisible()
-    await expect(page.getByRole('timer')).toContainText(/^(10:00|9:[45]\d)Reset timer$/)
+    await expect(page.getByRole('timer')).toContainText(/^(10:00|9:[45]\d)Stop timer$/)
     await expect(page.getByText('The page reloaded. Tap anywhere so your timers can chime.')).toBeVisible()
 
     await page.getByText('Step 3 of 7').click()

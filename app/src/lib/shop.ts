@@ -7,6 +7,7 @@ import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import { supabase } from '../supabase'
 import type { Prices } from './cost'
+import { groceryList } from './grocery'
 
 export interface Shop {
   /** Recipe ids on this week's plan, in the order they were added. A recipe leaves it when it is cooked. */
@@ -22,6 +23,11 @@ export interface Shop {
 
 /** How a screen changes the shop after a write succeeds. */
 export type ShopChange = (change: (shop: Shop) => Shop) => void
+
+/** Planned recipes whose groceries are still to buy: the grocery list covers only these. */
+export function toShopFor(shop: Shop): string[] {
+  return shop.plan.filter((id) => !shop.shopped.has(id))
+}
 
 /** The shop with a recipe off the plan: taken off, or cooked (the database does that itself, 00006). */
 export function withoutPlanned(shop: Shop, recipeId: string): Shop {
@@ -88,6 +94,28 @@ export const clearFromPantry = (id: IngredientId) =>
 
 export const checkOff = (id: IngredientId) => add('grocery_checks', { ingredient_id: id }, 'check it off')
 export const uncheck = (id: IngredientId) => remove('grocery_checks', 'ingredient_id', id, 'uncheck it')
+
+/**
+ * Clears ticks the current list no longer shows: left from a shop that never
+ * got "Done shopping", for recipes since cooked or taken off. Called before
+ * the list grows, so a new list never opens with things ticked that were
+ * never bought for it. Returns the ticks that are left.
+ */
+export async function clearStaleChecks(shop: Shop): Promise<ReadonlySet<IngredientId>> {
+  const listed = new Set(groceryList(toShopFor(shop), shop.pantry, shop.prices).lines.map((line) => line.ingredientId))
+  const stale = [...shop.checks].filter((id) => !listed.has(id))
+  if (stale.length > 0) {
+    const { error } = await supabase.from('grocery_checks').delete().in('ingredient_id', stale)
+    if (error) throw new Error(`Could not clear old ticks from the list: ${error.message}`)
+  }
+  return new Set([...shop.checks].filter((id) => listed.has(id)))
+}
+
+/** A recipe already shopped for goes back on the grocery list: the groceries were not bought, or went off. */
+export async function shopForAgain(recipeId: string) {
+  const { error } = await supabase.from('plan_items').update({ shopped: false }).eq('recipe_id', recipeId)
+  if (error) throw new Error(`Could not put it back on the list: ${error.message}`)
+}
 
 export const addToKit = (id: EquipmentId) => add('kit_items', { equipment_id: id }, 'add it to your kit')
 

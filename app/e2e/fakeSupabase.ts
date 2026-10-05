@@ -129,6 +129,8 @@ export interface Seed {
    * returns the new user without a session. Default false, as in development.
    */
   readonly confirmEmail?: boolean
+  /** The seeded account never clicked its confirmation link (with confirmEmail). Default false. */
+  readonly unconfirmed?: boolean
   /** null = the account has not created a chef yet. */
   readonly chef?: {
     readonly name: string
@@ -158,6 +160,8 @@ interface Account {
   readonly id: string
   readonly email: string
   readonly password: string
+  /** The email link was clicked. Signing in needs it while "Confirm email" is on. */
+  readonly confirmed: boolean
 }
 
 function base64url(value: unknown): string {
@@ -171,7 +175,9 @@ export class FakeSupabase {
   readonly unhandled: string[] = []
   /** Emails a password reset link was asked for, in order. */
   readonly resetRequests: string[] = []
-  private readonly accounts: Account[] = [{ id: crypto.randomUUID(), email: EMAIL, password: PASSWORD }]
+  /** Emails a new confirmation link was asked for, in order. */
+  readonly resendRequests: string[] = []
+  private readonly accounts: Account[] = [{ id: crypto.randomUUID(), email: EMAIL, password: PASSWORD, confirmed: true }]
   private readonly tokens = new Map<string, string>()
   private readonly rows: Record<string, Row[]> = Object.fromEntries(Object.keys(TABLES).map((name) => [name, []]))
   private readonly failures: { table: string; method: string; message: string }[] = []
@@ -198,6 +204,11 @@ export class FakeSupabase {
 
   async load(page: Page, seed: Seed) {
     this.confirmEmail = seed.confirmEmail ?? false
+    if (seed.unconfirmed === true) {
+      const [account, ...rest] = this.accounts
+      if (account === undefined) throw new Error('The fake has no accounts')
+      this.accounts.splice(0, this.accounts.length, { ...account, confirmed: false }, ...rest)
+    }
     const user_id = this.userId
     const chef = seed.chef === undefined ? { name: 'Remy', skin: 1, hair: 1 } : seed.chef
     if (chef !== null) this.insertRow('chefs', { ...chef, user_id })
@@ -281,6 +292,9 @@ export class FakeSupabase {
       if (account === undefined) {
         return json(route, request, 400, { error_code: 'invalid_credentials', msg: 'Invalid login credentials' })
       }
+      if (this.confirmEmail && !account.confirmed) {
+        return json(route, request, 400, { error_code: 'email_not_confirmed', msg: 'Email not confirmed' })
+      }
       return json(route, request, 200, this.session(account.id))
     }
     if (method === 'POST' && path === '/token' && grant === 'refresh_token') {
@@ -294,7 +308,7 @@ export class FakeSupabase {
       if (this.accounts.some((candidate) => candidate.email === email)) {
         return json(route, request, 422, { error_code: 'user_already_exists', msg: 'User already registered' })
       }
-      const account = { id: crypto.randomUUID(), email, password }
+      const account = { id: crypto.randomUUID(), email, password, confirmed: !this.confirmEmail }
       this.accounts.push(account)
       if (this.confirmEmail) {
         // The new user, unconfirmed and with no session, until the email link is clicked.
@@ -312,6 +326,12 @@ export class FakeSupabase {
       // Supabase answers the same whether or not the email has an account, so it never says which emails exist.
       const { email } = request.postDataJSON() as { email: string }
       this.resetRequests.push(email)
+      return json(route, request, 200, {})
+    }
+    if (method === 'POST' && path === '/resend') {
+      const { email, type } = request.postDataJSON() as { email: string; type: string }
+      if (type !== 'signup') return this.reject(route, `POST /auth/v1/resend of type ${type}`)
+      this.resendRequests.push(email)
       return json(route, request, 200, {})
     }
     if (path === '/user' && (method === 'GET' || method === 'PUT')) {

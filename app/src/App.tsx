@@ -186,9 +186,9 @@ function Pages({
       <Route path="/cook/:id/:step" element={<CookScreen logs={logs} kit={shop.kit} />} />
       <Route
         path="/cook-log/:id"
-        element={<EditCookScreen logs={logs} onUpdated={onLogUpdated} onDeleted={onLogDeleted} />}
+        element={<EditCookScreen logs={logs} plan={shop.plan} onUpdated={onLogUpdated} onDeleted={onLogDeleted} />}
       />
-      <Route path="/shop" element={<ShopScreen shop={shop} onShopChange={onShopChange} />} />
+      <Route path="/shop" element={<ShopScreen shop={shop} logs={logs} onShopChange={onShopChange} />} />
       <Route path="/pantry" element={<PantryScreen shop={shop} onShopChange={onShopChange} />} />
       <Route path="/kit" element={<KitScreen shop={shop} onShopChange={onShopChange} />} />
       <Route path="/spices" element={<SpicesScreen shop={shop} />} />

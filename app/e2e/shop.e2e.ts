@@ -50,7 +50,9 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(page.getByRole('status')).toHaveText(
       'Done shopping. Extra-virgin olive oil and Kosher salt went into your pantry.',
     )
-    expect(asked).toEqual(['5 things are not checked off. Finish shopping anyway?'])
+    // The confirm names what was not bought.
+    expect(asked).toHaveLength(1)
+    expect(asked[0]).toMatch(/^Not checked off: .*red onion.*\. They come off the list\. Finish shopping anyway\?$/)
     // The plan stays, shopped for; the list and the checks are cleared.
     expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'sheet-pan-sausage', shopped: true }])
     expect(kitchen.backend.table('grocery_checks')).toEqual([])
@@ -70,7 +72,9 @@ test.describe('this week: the plan and the grocery list', () => {
     await page.goto('#/recipe/sheet-pan-sausage')
     await page.getByRole('button', { name: 'Add to this week' }).click()
     await page.getByRole('link', { name: 'this week’s list' }).click()
-    await expect(page.getByText('Left off because your pantry has them: extra-virgin olive oil and kosher salt.')).toBeVisible()
+    await expect(page.getByText(/^Left off because your pantry has them\./)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Put extra-virgin olive oil on the list' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Put kosher salt on the list' })).toBeVisible()
     await expect(page.getByRole('checkbox', { name: /Kosher salt/ })).toHaveCount(0)
   })
 
@@ -90,6 +94,60 @@ test.describe('this week: the plan and the grocery list', () => {
     const tray = page.locator('.tray')
     await expect(tray.getByText('On this week’s plan')).toBeVisible()
     await expect(tray.getByRole('heading', { name: 'Soft scrambled eggs on toast' })).toBeVisible()
+  })
+
+  test('the menu suggests a planned recipe with its groceries bought before one without', async ({ page, kitchen }) => {
+    await kitchen.open('./', { plan: ['soft-scrambled-eggs', 'chopped-salad'], shopped: ['chopped-salad'] })
+    const tray = page.locator('.tray')
+    await expect(tray.getByText('Groceries bought')).toBeVisible()
+    await expect(tray.getByRole('heading', { name: 'Soft scrambled eggs on toast' })).toHaveCount(0)
+    await expect(tray.getByRole('heading', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
+  })
+
+  test('ticks left from a shop that never finished do not carry into a new list', async ({ page, kitchen }) => {
+    // Lemon was ticked for a salad since cooked, without "Done shopping".
+    await kitchen.open('#/recipe/chopped-salad', { checks: ['lemon', 'feta'] })
+    await page.getByRole('button', { name: 'Add to this week' }).click()
+    await expect(page.getByRole('button', { name: 'Take off this week' })).toBeVisible()
+    expect(kitchen.backend.table('grocery_checks')).toEqual([])
+    await page.getByRole('link', { name: 'this week’s list' }).click()
+    await expect(page.getByRole('checkbox', { name: /Lemon/ })).not.toBeChecked()
+  })
+
+  test('with everything in the cart, the list says to finish', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', {
+      logs: [{ recipe: 'soft-scrambled-eggs', rating: 2 }],
+      plan: ['grilled-cheese'],
+      checks: ['butter', 'cheddar', 'sandwich-bread'],
+    })
+    await expect(page.getByText(/^Everything is in the cart\. Tap “Done shopping”/)).toBeVisible()
+  })
+
+  test('a recipe shopped for can go back on the list', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['chopped-salad'], shopped: ['chopped-salad'] })
+    await expect(page.getByRole('checkbox')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Put it back on the list' }).click()
+    await expect(page.getByRole('checkbox', { name: /Lemon/ })).toBeVisible()
+    await expect(page.getByText('Groceries bought')).toHaveCount(0)
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'chopped-salad', shopped: false }])
+  })
+
+  test('a staple that ran out goes back on the list from This week', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { logs: [{ recipe: 'soft-scrambled-eggs', rating: 2 }], plan: ['grilled-cheese'], pantry: ['butter'] })
+    await page.getByRole('button', { name: 'Put salted butter on the list' }).click()
+    await expect(page.getByRole('checkbox', { name: /Salted butter/ })).toBeVisible()
+    expect(kitchen.backend.table('pantry_items')).toEqual([])
+  })
+
+  test('a change that would lock a planned recipe says so', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/soft-scrambled-eggs', { logs: [{ recipe: 'soft-scrambled-eggs', rating: 2 }], plan: ['grilled-cheese'] })
+    await page.getByRole('link', { name: /Change/ }).click()
+    await expect(page.getByText(/Grilled cheese is on this week’s plan\./).first()).toBeVisible()
+  })
+
+  test('a planned recipe that is locked says so on This week', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['grilled-cheese'] })
+    await expect(page.getByText('Locked again: needs heat control')).toBeVisible()
   })
 
   test('the pantry keeps a staple off the list until it is unticked', async ({ page, kitchen }) => {

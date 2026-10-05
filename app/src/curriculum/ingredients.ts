@@ -67,7 +67,7 @@ export const INGREDIENTS = {
     name: 'Garlic',
     section: 'produce',
     unit: 'clove',
-    staple: false,
+    staple: true,
     package: { label: '1 head', priceCents: 79, units: 10 },
   },
   parsley: {
@@ -116,7 +116,7 @@ export const INGREDIENTS = {
     name: 'Fresh ginger, grated',
     section: 'produce',
     unit: 'tbsp',
-    staple: false,
+    staple: true,
     // A 1-inch piece grates to about 1 tablespoon.
     package: { label: '1 knob, about 3 inches', priceCents: 99, units: 3 },
   },
@@ -233,7 +233,7 @@ export const INGREDIENTS = {
     name: 'Parmesan',
     section: 'dairy',
     unit: 'oz',
-    staple: false,
+    staple: true,
     package: { label: '5 oz wedge', priceCents: 599, units: 5 },
   },
   cheddar: {

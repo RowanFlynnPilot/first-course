@@ -28,12 +28,12 @@ export const EQUIPMENT = {
   'small-nonstick-skillet': { name: 'Nonstick skillet, 8 to 10 inch', note: 'For eggs and single sandwiches.', coveredBy: [] },
   'large-skillet': {
     name: 'Large skillet, 12 inch',
-    note: 'Any kind. A stainless steel or cast-iron one counts.',
+    note: 'Any kind. Buying one? Buy cast iron: it is also the skillet the third and fourth courses ask for.',
     coveredBy: ['steel-skillet', 'cast-iron-skillet'],
   },
   'steel-skillet': {
     name: 'Large skillet, 12 inch, stainless steel or cast iron',
-    note: 'Not nonstick: pan sauces and smash burgers need a pan that browns and takes high heat.',
+    note: 'Not nonstick: pan sauces and smash burgers need a pan that browns and takes high heat. Cast iron counts.',
     coveredBy: ['cast-iron-skillet'],
   },
   'cast-iron-skillet': {

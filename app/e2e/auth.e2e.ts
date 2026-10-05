@@ -10,6 +10,9 @@ test.describe('signing in and creating a chef', () => {
 
     await expect(page.getByRole('heading', { name: 'Create your chef' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create chef' })).toBeDisabled()
+    // Nothing is earned yet, so the extras are one line, not eight locked ones.
+    await expect(page.getByText(/^Extras, like clogs or a tool in hand, are earned by cooking\./)).toBeVisible()
+    await expect(page.getByRole('group', { name: 'In hand' })).toHaveCount(0)
     await page.getByLabel('Chef’s name').fill('  Remy  ')
     await page.getByRole('radio', { name: 'Tone 4' }).check()
     await page.getByRole('radio', { name: 'Red', exact: true }).check()
@@ -97,12 +100,25 @@ test.describe('signing in and creating a chef', () => {
       signedIn: false,
     })
     await expect(page.getByRole('alert')).toHaveText('Email link is invalid or has expired')
+    await expect(page.getByText(/^Email links expire\./)).toBeVisible()
     // Left in the address, the router would take the error for a page.
     expect(new URL(page.url()).hash).toBe('')
     await page.getByLabel('Email').fill(EMAIL)
     await page.getByLabel('Password').fill(PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByText('Cook this next')).toBeVisible()
+  })
+
+  test('an account that never confirmed can ask for the email again', async ({ page, kitchen }) => {
+    await kitchen.open('./', { signedIn: false, confirmEmail: true, unconfirmed: true })
+    await page.getByLabel('Email').fill(EMAIL)
+    await page.getByLabel('Password').fill(PASSWORD)
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    await expect(page.getByRole('alert')).toHaveText('Email not confirmed')
+    await page.getByRole('button', { name: 'Send the confirmation email again' }).click()
+    await expect(page.getByRole('status')).toHaveText('Sent. Open the newest email’s link, then sign in.')
+    await expect(page.getByRole('button', { name: 'Send the confirmation email again' })).toHaveCount(0)
+    expect(kitchen.backend.resendRequests).toEqual([EMAIL])
   })
 
   test('keeps everything after signing out and back in', async ({ page, kitchen }) => {

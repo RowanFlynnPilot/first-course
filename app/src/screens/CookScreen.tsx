@@ -52,6 +52,12 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
   }
   const left = timers.secondsLeft(step)
 
+  // One mis-tap with wet fingers should not lose a long timer.
+  function stopTimer(remaining: number) {
+    if (remaining > 60 && !window.confirm(`Stop the timer? It still has ${formatClock(remaining)} to go.`)) return
+    timers.stop(step)
+  }
+
   return (
     <main className="page cook">
       <header className="cook-head">
@@ -102,7 +108,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
           {timer !== null && (
             <div className="timer" role="timer" aria-live="off">
               {left === null ? (
-                <button className="button button-quiet" type="button" onClick={() => timers.start(step, timer.seconds)}>
+                <button className="button timer-start" type="button" onClick={() => timers.start(step, timer.seconds)}>
                   Start {formatClock(timer.seconds)} timer
                 </button>
               ) : (
@@ -110,8 +116,8 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
                   <p className={left === 0 ? 'timer-clock timer-clock-done' : 'timer-clock'}>
                     {left === 0 ? 'Time is up' : formatClock(left)}
                   </p>
-                  <button className="link-button" type="button" onClick={() => timers.reset(step)}>
-                    Reset timer
+                  <button className="link-button" type="button" onClick={() => stopTimer(left)}>
+                    Stop timer
                   </button>
                 </>
               )}

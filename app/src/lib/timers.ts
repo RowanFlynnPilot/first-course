@@ -3,7 +3,10 @@
 // moment each timer ends, so nothing has to keep counting while the page is
 // away: the time left is always the end time minus now.
 
-/** One timer: when it ends, and whether its chime has played. */
+/**
+ * One timer: when it ends, and whether its ring is over (the cook tapped the
+ * page while it rang, or it rang long enough).
+ */
 export interface Timer {
   readonly endsAt: number
   readonly rang: boolean
@@ -22,7 +25,7 @@ export function liveTimers(timers: Timers, now: number): Timers {
   return Object.fromEntries(Object.entries(timers).filter(([, timer]) => now - timer.endsAt < STALE_AFTER_MS))
 }
 
-/** Timers that have run out and not chimed yet, by step. */
+/** Timers that have run out and whose ring is not over, by step. */
 export function dueTimers(timers: Timers, now: number): number[] {
   return Object.entries(timers)
     .filter(([, timer]) => !timer.rang && timer.endsAt <= now)

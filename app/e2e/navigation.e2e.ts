@@ -28,6 +28,21 @@ test.describe('moving between screens', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'This week' })).toBeFocused()
   })
 
+  test('a locked recipe names the recipe that teaches what it needs', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/grilled-cheese', FRESH)
+    await expect(page.locator('.notice').first()).toHaveText('Locked. Learn heat control from Soft scrambled eggs on toast.')
+    await page.getByRole('link', { name: 'Soft scrambled eggs on toast' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Soft scrambled eggs on toast' })).toBeVisible()
+  })
+
+  test('the error screen has a full-size way back, and says so in the title', async ({ page, kitchen }) => {
+    kitchen.expectErrorScreen()
+    await kitchen.open('#/somewhere-else', FRESH)
+    await expect(page).toHaveTitle('Something broke · First Course')
+    const back = page.getByRole('link', { name: 'Back to the menu' })
+    expect((await back.boundingBox())?.height).toBeGreaterThanOrEqual(48)
+  })
+
   test('the log form says why it cannot save yet', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/chopped-salad/log', FRESH)
     await expect(page.getByRole('button', { name: 'Save this cook' })).toBeDisabled()

@@ -57,14 +57,23 @@ export function recipeState(recipe: Recipe, logs: readonly CookLog[]): RecipeSta
   return 'cooked'
 }
 
+/** The one recipe that teaches a skill (locked decision 3). */
+export function teacherOf(technique: TechniqueId): Recipe {
+  const recipe = RECIPES.find((candidate) => candidate.teaches.includes(technique))
+  if (recipe === undefined) throw new Error(`No recipe teaches ${technique}`)
+  return recipe
+}
+
 /**
- * What the menu suggests cooking next: the first recipe on this week's plan
- * that is unlocked; else, in menu order, the first unlocked recipe without a
- * good cook; failing that, the first not yet mastered.
+ * What the menu suggests cooking next: the first unlocked recipe on this
+ * week's plan, groceries bought before groceries still to buy, each in the
+ * order added; else, in menu order, the first unlocked recipe without a good
+ * cook; failing that, the first not yet mastered.
  */
-export function nextRecipe(logs: readonly CookLog[], plan: readonly string[]): Recipe | null {
-  // This week's plan first, in the order it was added: those groceries are bought or on the list.
-  const planned = plan.map(recipeById).find((recipe) => recipeState(recipe, logs) !== 'locked')
+export function nextRecipe(logs: readonly CookLog[], plan: readonly string[], shopped: ReadonlySet<string>): Recipe | null {
+  const planned = [...plan.filter((id) => shopped.has(id)), ...plan.filter((id) => !shopped.has(id))]
+    .map(recipeById)
+    .find((recipe) => recipeState(recipe, logs) !== 'locked')
   if (planned !== undefined) return planned
   const open = RECIPES.filter((recipe) => recipeState(recipe, logs) !== 'locked')
   return (

@@ -64,12 +64,15 @@ export function PromotionBeat({
   chef,
   extras,
   rank,
+  last,
   onDone,
 }: {
   chef: Chef
   /** The extras the chef is wearing: see wornExtras. */
   extras: readonly ExtraId[]
   rank: RankIndex
+  /** No other moment follows this one. */
+  last: boolean
   onDone: () => void
 }) {
   const next = RANKS[rank + 1]
@@ -83,7 +86,7 @@ export function PromotionBeat({
         </div>
       }
       onDone={onDone}
-      doneLabel="Back to the menu"
+      doneLabel={last ? 'Back to the menu' : 'Next'}
     >
       <p>{RANKS[rank].costume}</p>
       <p>
@@ -95,7 +98,7 @@ export function PromotionBeat({
   )
 }
 
-export function UsualBeat({ recipe, onDone }: { recipe: Recipe; onDone: () => void }) {
+export function UsualBeat({ recipe, last, onDone }: { recipe: Recipe; last: boolean; onDone: () => void }) {
   const badge = usualBadge(recipe)
   return (
     <Beat
@@ -108,7 +111,7 @@ export function UsualBeat({ recipe, onDone }: { recipe: Recipe; onDone: () => vo
         </div>
       }
       onDone={onDone}
-      doneLabel="Back to the menu"
+      doneLabel={last ? 'Back to the menu' : 'Next'}
       extra={
         <Link className="button button-quiet" to={`/recipe/${recipe.id}`}>
           See the dish

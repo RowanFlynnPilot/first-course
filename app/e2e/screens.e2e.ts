@@ -74,6 +74,7 @@ test('cook mode', async ({ page, kitchen }) => {
   await kitchen.open('#/cook/sheet-pan-sausage/0', SALAD_DONE)
   await shoot(page, 'cook-0')
   await page.goto('#/cook/sheet-pan-sausage/3')
+  await shoot(page, 'cook-timer-start')
   await page.getByRole('button', { name: /Start .* timer/ }).click()
   await shoot(page, 'cook-timer')
   await page.goto('#/cook/sheet-pan-sausage/4')
