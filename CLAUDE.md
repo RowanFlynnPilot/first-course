@@ -581,12 +581,17 @@ Behavior:
   The eight spices the recipes use, each filed under the first course that
   needs it (derived from the recipes, like the kit) with a link to that
   recipe: what it tastes like, what to buy, how to use it, and everyday food
-  to try it on. It opens with six habits (buy small, bags over jars, the
-  smell test, cool and dark, bloom in fat, add a little and taste) and ends
-  with five jars worth adding later. It marks what is in the pantry and
-  stores nothing. A guide entry is keyed by `IngredientId`, and
-  `spices.test.ts` fails if no recipe uses one. A recipe that adds a new
-  spice should add its guide entry.
+  to try it on. It opens with seven habits (buy small, read the label,
+  refill jars from bags, the smell test, cool and dark, bloom in fat, add a
+  little and taste) and ends with five jars worth adding later. It marks what
+  is in the pantry and stores nothing. A guide entry is keyed by
+  `IngredientId`, and `spices.test.ts` fails if no recipe uses one. A recipe
+  that adds a new spice should add its guide entry, and the guide's advice
+  must match the recipes: the October 2026 read-back found it contradicting
+  them on blooming times, where cumin goes in the dal, and how much pepper
+  flakes the aglio uses, plus a Diamond Crystal salt conversion that was too
+  high. An everyday idea that involves raw meat points to a recipe with a
+  thermometer step, not a free-form rub.
 
 ## Phase 3: cook mode hardened, and leveling (built)
 

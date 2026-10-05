@@ -19,8 +19,8 @@ export function SpicesScreen({ shop }: { shop: Shop }) {
       </nav>
       <h1 className="title">Spices</h1>
       <p className="lede">
-        These {COUNT} cover every recipe on the menu. Buy each one when the menu first needs it, and use it on everyday
-        food too, so the jar runs out while it still smells of something.
+        These {COUNT} spices and seasonings cover every recipe on the menu. Buy each one when the menu first needs it,
+        and use it on everyday food too, so the jar runs out while it still smells of something.
       </p>
 
       <section className="section">
