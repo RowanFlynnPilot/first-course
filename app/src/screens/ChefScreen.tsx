@@ -10,6 +10,7 @@ import { DISCIPLINES, TECHNIQUES, type TechniqueId } from '../curriculum/techniq
 import { BADGES, earnedBadges } from '../lib/badges'
 import type { Chef } from '../lib/chefs'
 import { totalKeptCents, type Prices } from '../lib/cost'
+import { EXTRAS, trackCooks, wornExtras } from '../lib/extras'
 import { formatCents, localDateString, plural } from '../lib/format'
 import {
   disciplineStats,
@@ -40,6 +41,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
   const [today] = useState(() => localDateString(new Date()))
   const streak = currentStreak(logs, today)
   const earned = new Set(earnedBadges(logs, prices))
+  const worn = wornExtras(chef.extras, logs)
 
   return (
     <main className="page">
@@ -48,7 +50,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
       </nav>
 
       <header className="sheet-head">
-        <ChefSprite rank={rank} skin={chef.skin} hair={chef.hair} scale={5} idle />
+        <ChefSprite rank={rank} look={chef} extras={worn} scale={5} idle />
         <div>
           <h1 className="title">{chef.name}</h1>
           <p className="sheet-rank">
@@ -56,7 +58,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
           </p>
           <XpBar xp={xp} fromXp={null} />
           <p className="sheet-edit">
-            <Link to="/chef/edit">Change name or look</Link>
+            <Link to="/chef/edit">Change name, look or extras</Link>
           </p>
         </div>
       </header>
@@ -113,6 +115,30 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
       </section>
 
       <section className="section">
+        <h2 className="section-title">Extras</h2>
+        <p className="section-note">
+          Earned by cooking one kind of dish, and worn over your rank’s outfit.{' '}
+          <Link to="/chef/edit">Choose what to wear</Link>.
+        </p>
+        <ul className="extras-list">
+          {EXTRAS.map((extra) => {
+            const cooks = trackCooks(extra.track, logs)
+            return (
+              <li key={extra.id}>
+                <span className="row-title">
+                  {extra.name}
+                  {worn.includes(extra.id) && ', wearing it'}
+                </span>
+                <span className="row-note">
+                  {cooks >= extra.cooks ? 'Earned.' : `${extra.how} ${cooks} of ${extra.cooks} so far.`}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+
+      <section className="section">
         <h2 className="section-title">Skills</h2>
         <p className="section-note">Six kinds of skill. Each one is learned by cooking the recipe that teaches it.</p>
         {disciplineStats(logs).map((stat) => (
@@ -156,7 +182,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
         <ol className="ladder">
           {RANK_INDEXES.map((index) => (
             <li key={index} className={index === rank ? 'rung rung-current' : 'rung'}>
-              <ChefSprite rank={index} skin={chef.skin} hair={chef.hair} scale={2} />
+              <ChefSprite rank={index} look={chef} extras={worn} scale={2} />
               <span>
                 <span className="row-title">{RANKS[index].name}</span>
                 <span className="row-note">{index === rank ? 'You are here' : `Level ${RANKS[index].fromLevel}`}</span>

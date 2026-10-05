@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router'
 import { ChefEditor } from '../components/ChefEditor'
 import { updateChef, type Chef } from '../lib/chefs'
+import { unlockedExtras } from '../lib/extras'
 import { levelForXp, rankIndexForLevel, totalXp } from '../lib/leveling'
 import type { CookLog } from '../lib/progress'
 
@@ -25,6 +26,7 @@ export function EditChefScreen({
       <ChefEditor
         initial={chef}
         rank={rankIndexForLevel(levelForXp(totalXp(logs)))}
+        unlocked={new Set(unlockedExtras(logs))}
         submitLabel="Save chef"
         onSubmit={async (next) => {
           onSaved(await updateChef(userId, next))

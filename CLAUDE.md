@@ -40,7 +40,8 @@ Use these words in the UI and in code comments.
 | Kept | Money not spent on delivery |
 | Cook mode | The one-step-per-screen view used at the stove |
 | Chef | The player's character, a pixel sprite. Has a name, a look, a level and a rank |
-| Look | The two things a cook chooses about the sprite: skin tone and hair color |
+| Look | What a cook chooses about the sprite: skin tone, hair color, hairstyle, facial hair, glasses |
+| Extra | Something the chef wears or carries over the rank's outfit (a tool in hand, clogs, a towel, a patch), earned by cooking one kind of dish |
 | XP, level | Earned by cooking. Level comes from total XP |
 | Rank | Dishwasher, prep cook, line cook, sous chef, head chef, executive chef |
 | Discipline | One of six kinds of skill: prep, pan, pot, oven, sauce, palate |
@@ -71,11 +72,13 @@ In UI copy say "ordering" or "delivered", never a delivery brand name.
     Postgres is UTC and would misdate an evening cook.
 11. **Level never gates anything.** Recipes unlock through skills only. XP,
     level and rank are a scoreboard, not a lock.
-12. **Only the chef's name and look are stored.** XP, level, rank and
-    discipline stats are derived from the cook log in `lib/leveling.ts`,
-    like all other progress. Changing the XP rules re-scores everyone with
-    no migration. Rank decides the sprite's hat and outfit; the cook never
-    picks those.
+12. **Only the chef's name, look and chosen extras are stored.** XP, level,
+    rank, discipline stats and which extras are earned are derived from the
+    cook log (`lib/leveling.ts`, `lib/extras.ts`), like all other progress.
+    Changing the XP or unlock rules re-scores everyone with no migration.
+    Rank decides the sprite's hat and outfit; the cook never picks those.
+    Extras are drawn over the outfit and never replace it, so the sprite
+    always shows the rank (Rowan's call, October 4, 2026).
 13. **One gate for cooking and logging.** `cookable()` in `lib/progress.ts`
     is the only thing that decides whether a recipe can be cooked or logged.
     Both cook mode and the log form call it before doing anything.
@@ -95,6 +98,8 @@ supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                00003_chef_look.sql (skin, hair, and editing the chef)
                                00004_shop_kit_and_cook_edits.sql (plan, pantry, checks,
                                  prices, kit, finish_shopping(), editing the cook log)
+                               00005_chef_creator.sql (hairstyle, facial hair, glasses,
+                                 more colors, chosen extras)
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
@@ -124,6 +129,7 @@ app/
       cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
       grocery.ts               the grocery list: whole packages per store section, checkout total
       kit.ts                   what equipment a set of recipes needs, and what is missing
+      extras.ts                the 8 extras, the track and good-cook count that earns each, what is worn
       spices.ts                the spice shelf: each spice under the course that first uses it
       cookLogs.ts, chefs.ts,   the only Supabase reads/writes; rows -> app data
         shop.ts                  (shop.ts: plan, pantry, checks, prices, kit, finish_shopping)
@@ -131,12 +137,13 @@ app/
     components/
       Plate.tsx                the plate (see Design)
       PixelArt.tsx             draws any pixel art (rows of palette keys) as crisp SVG, with frames
-      chefSprites.ts           the six sprites as pixel rows, the idle frames, skin and hair palettes
+      chefSprites.ts           the six rank sprites as pixel rows, the look options and extras as
+                                 patches drawn over them, the idle frames, the palettes
       ChefSprite.tsx           the chef, standing or idling
       badgeSprites.ts          the badge medals and symbols, earned and locked palettes
       BadgeArt.tsx             one badge
       Beats.tsx                the full-screen moments: a promotion, a dish of the usual in reach
-      ChefEditor.tsx           name + skin + hair form, used to create and to change
+      ChefEditor.tsx           name, look and extras form, used to create and to change
       CheckRow.tsx             a checkbox row that saves itself (grocery list, pantry, kit)
       useWrite.ts              busy + error for one write from a button
       useCookTimers.ts         cook mode's timers: persisted, chimed from one check
@@ -361,7 +368,8 @@ with only Rough cooks gets a yolk outline. Spend boldness there and keep the
 rest quiet.
 
 **The chef is a pixel sprite.** A 16-bit console RPG look, with EarthBound
-as the reference Rowan gave: a small front-facing character, 16 pixels wide,
+as the reference Rowan gave: a small front-facing character, 16 pixels wide
+(drawn 20 wide, with room beside it for a tool in hand),
 big head, two tall dot eyes, a dark outline, flat color with one shade. The
 sprites are original. Never copy or trace a character from that game or any
 other.
@@ -376,9 +384,18 @@ other.
   chef, cobalt buttons for head chef, gold buttons and a gold hat band for
   executive chef.
 - The sprite palette is the app's palette (ink outline, white, cobalt,
-  yolk) plus a grey, navy trousers, five skin tones and five hair colors.
-  Do not add colors casually; the sprite belongs on this page because it
-  shares the page's colors.
+  yolk, ketchup) plus a yolk shade, a grey, navy trousers, seven skin tones
+  and nine hair colors, four of them fun ones (blue, pink, green, purple)
+  that Rowan asked for. Do not add colors casually; the sprite belongs on
+  this page because it shares the page's colors. Skin tones and hair colors
+  are stored as indexes, so new ones go at the end of their lists.
+- The look and the extras are patches: pixels drawn over the rank's art,
+  positioned from the eye row (`Patch` in `chefSprites.ts`). Hairstyles,
+  facial hair and glasses touch only the hairline, face and shoulders;
+  extras touch only the body and the space beside it. Neither ever touches
+  the hat, which `chefSprites.test.ts` checks for every rank, look and
+  extra. Glasses are silver rims ('w'): cobalt or ink frames merged with
+  the eyes into a mask.
 - `ChefSprite` takes `scale`, whole screen pixels per sprite pixel. It must
   be an integer or the pixels render uneven. In use: 2 on the ladder, 3 on
   the menu, 5 on the chef sheet, 6 in the editor, 7 in the promotion moment.
@@ -486,11 +503,27 @@ build; a failed run keeps its traces as an artifact.
 - **Shop writes are not optimistic.** A checkbox changes only after Supabase
   says the write succeeded; a failure shows its message under the row. In a
   store with weak signal that is slower, and it is never wrong.
-- **The chef can be changed but not deleted.** Name, skin and hair are
+- **The chef can be changed but not deleted.** Name, look and extras are
   editable at `/chef/edit`. The grant is column-level, so `user_id` and
   `created_at` cannot be updated even by the owner. Supabase refuses an
   update with no filter, which is why `updateChef` takes the user id.
-- **All four migrations are applied to the live project** (October 4, 2026).
+- **Extras are earned per track** (`lib/extras.ts`): good cooks of every
+  recipe on the track, usual included, at 5 and at 15. The chef row keeps
+  the extras the cook chose (`extras text[]`, at most one per slot, which
+  `toChef` checks); the sprite wears only those still earned
+  (`wornExtras`), so deleting a cook can take one off, and it comes back
+  when it is earned again. The editor shows locked extras with how to earn
+  them, the chef sheet counts progress, and the after-cook notice names a
+  new one.
+- **Migrations 00001 to 00004 are applied to the live project** (October 4,
+  2026); `00005_chef_creator.sql` is written and checked, and waits for
+  Rowan to run `npx supabase db push` before the app code that needs it
+  deploys. `00005` was checked the same way as `00004` (18 checks: defaults
+  for old chefs, every new column, the range checks, `user_id` and
+  `created_at` refused, own rows only, anon refused). Set
+  `auto_expose_new_tables = false` under `[api]` in the scratch config:
+  without it the local stack grants everything to `anon` and
+  `authenticated`, and the grant checks fail for the wrong reason.
   Before the push, `00004` ran on a throwaway local Supabase stack (Postgres
   17, PostgREST, Auth) with `auto_expose_new_tables = false`, and a script
   made the app's calls through supabase-js as two cooks and as anon: own rows
@@ -604,8 +637,9 @@ precisely" and "Design").
 ## Where things stand, and what comes next
 
 As of October 4, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), all four migrations are on
-the live project, and every push runs 77 unit tests and 90 e2e tests before
+recipes are written (four courses and the usual), migrations 00001 to 00004
+are on the live project (00005, the character creator, is ready to push),
+and every push runs 85 unit tests and 93 e2e tests before
 it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:

@@ -46,17 +46,26 @@ const TABLES: Record<string, TableSpec> = {
     deletable: true,
     check: (row) => (row.rating === 1 || row.rating === 2 || row.rating === 3 ? null : 'rating must be 1 to 3'),
   },
-  // 00002 and 00003
+  // 00002, 00003 and 00005
   chefs: {
-    columns: ['user_id', 'name', 'skin', 'hair', 'created_at'],
+    columns: ['user_id', 'name', 'skin', 'hair', 'hair_style', 'facial_hair', 'glasses', 'extras', 'created_at'],
     key: ['user_id'],
-    defaults: (now) => ({ skin: 1, hair: 1, created_at: now }),
-    updatable: ['name', 'skin', 'hair'],
+    defaults: (now) => ({ skin: 1, hair: 1, hair_style: 0, facial_hair: 0, glasses: 0, extras: [], created_at: now }),
+    updatable: ['name', 'skin', 'hair', 'hair_style', 'facial_hair', 'glasses', 'extras'],
     deletable: false,
     check: (row) => {
       const name = row.name
       if (typeof name !== 'string' || name !== name.trim() || name.length < 1 || name.length > 24) {
         return 'chef name must be 1 to 24 characters with no outer spaces'
+      }
+      const ranges: readonly [string, number][] = [['skin', 6], ['hair', 8], ['hair_style', 3], ['facial_hair', 3], ['glasses', 2]]
+      for (const [column, max] of ranges) {
+        const value = row[column]
+        if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > max) return `${column} must be 0 to ${max}`
+      }
+      const extras = row.extras
+      if (!Array.isArray(extras) || !extras.every((id) => typeof id === 'string') || extras.length > 4) {
+        return 'extras must be at most 4 text ids'
       }
       return null
     },
@@ -121,7 +130,15 @@ export interface Seed {
    */
   readonly confirmEmail?: boolean
   /** null = the account has not created a chef yet. */
-  readonly chef?: { readonly name: string; readonly skin: number; readonly hair: number } | null
+  readonly chef?: {
+    readonly name: string
+    readonly skin: number
+    readonly hair: number
+    readonly hair_style?: number
+    readonly facial_hair?: number
+    readonly glasses?: number
+    readonly extras?: readonly string[]
+  } | null
   readonly logs?: readonly SeedLog[]
   /** Recipe ids added to this week. */
   readonly plan?: readonly string[]

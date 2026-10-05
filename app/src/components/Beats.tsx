@@ -7,6 +7,7 @@ import { Link } from 'react-router'
 import type { Recipe } from '../curriculum/types'
 import { badgeById, usualBadge } from '../lib/badges'
 import type { Chef } from '../lib/chefs'
+import type { ExtraId } from '../lib/extras'
 import { RANKS, type RankIndex } from '../lib/leveling'
 import { BADGE_PALETTE, SYMBOLS } from './badgeSprites'
 import { ChefSprite } from './ChefSprite'
@@ -59,7 +60,18 @@ function Beat({
   )
 }
 
-export function PromotionBeat({ chef, rank, onDone }: { chef: Chef; rank: RankIndex; onDone: () => void }) {
+export function PromotionBeat({
+  chef,
+  extras,
+  rank,
+  onDone,
+}: {
+  chef: Chef
+  /** The extras the chef is wearing: see wornExtras. */
+  extras: readonly ExtraId[]
+  rank: RankIndex
+  onDone: () => void
+}) {
   const next = RANKS[rank + 1]
   return (
     <Beat
@@ -67,7 +79,7 @@ export function PromotionBeat({ chef, rank, onDone }: { chef: Chef; rank: RankIn
       title={`${chef.name} is now a ${RANKS[rank].name.toLowerCase()}`}
       art={
         <div className="beat-stage beat-plate">
-          <ChefSprite rank={rank} skin={chef.skin} hair={chef.hair} scale={7} idle />
+          <ChefSprite rank={rank} look={chef} extras={extras} scale={7} idle />
         </div>
       }
       onDone={onDone}

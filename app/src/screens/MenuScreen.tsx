@@ -10,6 +10,7 @@ import type { Recipe, Tier } from '../curriculum/types'
 import { badgeById } from '../lib/badges'
 import type { Chef } from '../lib/chefs'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents, type Prices } from '../lib/cost'
+import { wornExtras } from '../lib/extras'
 import { COURSE_NAMES, formatCents, localDateString, plural, skillList } from '../lib/format'
 import { missingKit } from '../lib/kit'
 import { levelForXp, rankIndexForLevel, RANKS, totalXp, type RankIndex } from '../lib/leveling'
@@ -81,7 +82,7 @@ export function MenuScreen({
           className={notice !== null && notice.levelUp !== null && settled ? 'chef-card chef-card-levelup' : 'chef-card'}
           to="/chef"
         >
-          <ChefSprite rank={rank} skin={chef.skin} hair={chef.hair} scale={3} idle />
+          <ChefSprite rank={rank} look={chef} extras={wornExtras(chef.extras, logs)} scale={3} idle />
           <span>
             <span className="row-title">{chef.name}</span>
             <span className="row-note chef-level">
@@ -186,7 +187,12 @@ export function MenuScreen({
       </main>
 
       {moment?.kind === 'promotion' && (
-        <PromotionBeat chef={chef} rank={moment.rank} onDone={() => setSeen(seen + 1)} />
+        <PromotionBeat
+          chef={chef}
+          extras={wornExtras(chef.extras, logs)}
+          rank={moment.rank}
+          onDone={() => setSeen(seen + 1)}
+        />
       )}
       {moment?.kind === 'usual' && <UsualBeat recipe={moment.recipe} onDone={() => setSeen(seen + 1)} />}
     </>

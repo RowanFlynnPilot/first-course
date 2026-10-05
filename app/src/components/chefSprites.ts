@@ -1,19 +1,24 @@
-// The chef sprites: original 16-bit RPG-style characters, 16 pixels wide,
-// drawn as rows of palette keys. Rank changes the hat and the outfit; the
-// cook's chosen skin tone and hair color fill in S, s and H.
+// The chef sprites: original 16-bit RPG-style characters, drawn as rows of
+// palette keys. Rank changes the hat and the outfit. The cook's look (skin,
+// hair color, hairstyle, facial hair, glasses) and the extras they have earned
+// are drawn over it as patches, so the hat and jacket always show the rank.
 //
 //   . clear      K outline    E eyes
 //   S skin       s skin shade H hair
 //   W white      w white shade
 //   B cobalt     b cobalt highlight
-//   Y yolk       G grey tee   P navy trousers
+//   Y yolk       y yolk shade R ketchup
+//   G grey       P navy trousers
 //
-// To edit a sprite, edit the rows. chefSprites.test.ts checks every row is 16
-// wide and uses only these keys.
+// The rank art below is 16 wide; the sprite is drawn 20 wide, with 2 clear
+// columns each side, so a tool held beside the chef has room. To edit a
+// sprite, edit the rows. chefSprites.test.ts checks every row and patch.
 
+import type { ExtraId } from '../lib/extras'
 import type { RankIndex } from '../lib/leveling'
 
-export const SPRITE_WIDTH = 16
+export const SPRITE_WIDTH = 20
+const PAD = '..'
 
 const HAIRLINE = '...KHHSSSSHHK...'
 
@@ -183,8 +188,161 @@ const BODIES: Six = [
   ],
 ]
 
-export function spriteRows(rank: RankIndex): readonly string[] {
-  return [...HATS[rank], ...FACE, ...BODIES[rank]]
+// ── Patches: the look and the extras, drawn over the rank's art ──
+
+/**
+ * Pixels to draw over the sprite. `top` counts rows from the first face row
+ * (the eyes): -1 is the hairline, 5 is the shoulders, 15 the shoes. `left` is
+ * the column in the 20-wide sprite. In `rows`, '.' leaves a pixel alone.
+ */
+export interface Patch {
+  readonly top: number
+  readonly left: number
+  readonly rows: readonly string[]
+}
+
+const face = (top: number, rows: readonly string[]): Patch => ({ top, left: 0, rows })
+
+/** A tool held in the right hand, beside the arm: 5 wide, from the eyes to the waist. */
+const tool = (rows: readonly string[]): Patch => ({ top: 0, left: 15, rows })
+
+// ── Looks: what a cook chooses about their chef ──
+
+/** The indexes of a fixed list of options: 0 | 1 | ... | length - 1. */
+type IndexOf<T extends readonly unknown[]> = Exclude<Partial<T>['length'], T['length']>
+
+// Existing chefs store these indexes, so new options go at the end.
+export const SKIN_TONES = [
+  { name: 'Tone 1', base: '#f8d9bd', shade: '#e3b08a' },
+  { name: 'Tone 2', base: '#eebd94', shade: '#d39a70' },
+  { name: 'Tone 3', base: '#cf9566', shade: '#b07748' },
+  { name: 'Tone 4', base: '#a06c45', shade: '#82532f' },
+  { name: 'Tone 5', base: '#7b5137', shade: '#5e3b26' },
+  { name: 'Tone 6', base: '#5f3d29', shade: '#47291b' },
+  { name: 'Tone 7', base: '#462c1f', shade: '#331e14' },
+] as const
+
+export const HAIR_COLORS = [
+  { name: 'Black', color: '#23232e' },
+  { name: 'Brown', color: '#5c3b25' },
+  { name: 'Blond', color: '#d2a03c' },
+  { name: 'Red', color: '#a44a2b' },
+  { name: 'Grey', color: '#9aa1ad' },
+  { name: 'Blue', color: '#3f8fd6' },
+  { name: 'Pink', color: '#e38ab2' },
+  { name: 'Green', color: '#3f9a6c' },
+  { name: 'Purple', color: '#7b5ac6' },
+] as const
+
+export const HAIR_STYLES = [
+  { name: 'Short', patches: [] },
+  { name: 'Cropped', patches: [face(-1, ['.......S....S.......', '......S......S......'])] },
+  {
+    name: 'Long',
+    patches: [
+      face(-1, [
+        '....KH........HK....',
+        '....KH........HK....',
+        '....KH........HK....',
+        '....KH........HK....',
+        '....KH........HK....',
+        '....KHH......HHK....',
+        '....KHH......HHK....',
+        '....KH........HK....',
+      ]),
+    ],
+  },
+  {
+    name: 'Curly',
+    patches: [face(-1, ['...KHHH......HHHK...', '...KHHH......HHHK...', '....KHH......HHK....'])],
+  },
+] as const satisfies readonly { readonly name: string; readonly patches: readonly Patch[] }[]
+
+export const FACIAL_HAIR = [
+  { name: 'None', patches: [] },
+  { name: 'Mustache', patches: [face(3, ['........HHHH........'])] },
+  {
+    name: 'Beard',
+    patches: [face(2, ['......H......H......', '......HHHHHHHH......', '.......HHHHHH.......'])],
+  },
+  { name: 'Stubble', patches: [face(3, ['......ss....ss......', '.......ssssss.......'])] },
+] as const satisfies readonly { readonly name: string; readonly patches: readonly Patch[] }[]
+
+export const GLASSES = [
+  { name: 'None', patches: [] },
+  {
+    name: 'Round',
+    patches: [face(-1, ['........w..w........', '.......w.ww.w.......', '.......w.ww.w.......', '........w..w........'])],
+  },
+  {
+    name: 'Square',
+    patches: [face(-1, ['.......KKKKKK.......', '.......w.ww.w.......', '.......wwwwww.......'])],
+  },
+] as const satisfies readonly { readonly name: string; readonly patches: readonly Patch[] }[]
+
+export type SkinIndex = IndexOf<typeof SKIN_TONES>
+export type HairIndex = IndexOf<typeof HAIR_COLORS>
+export type HairStyleIndex = IndexOf<typeof HAIR_STYLES>
+export type FacialHairIndex = IndexOf<typeof FACIAL_HAIR>
+export type GlassesIndex = IndexOf<typeof GLASSES>
+
+/** Everything a cook chooses about how their chef looks. Rank chooses the rest. */
+export interface Look {
+  readonly skin: SkinIndex
+  readonly hair: HairIndex
+  readonly hairStyle: HairStyleIndex
+  readonly facialHair: FacialHairIndex
+  readonly glasses: GlassesIndex
+}
+
+/** True when `value` is an index into `options`. */
+export function isIndexOf<T extends readonly unknown[]>(options: T, value: number): value is Extract<IndexOf<T>, number> {
+  return Number.isInteger(value) && value >= 0 && value < options.length
+}
+
+// ── Extras: earned by cooking (lib/extras.ts), worn over the outfit ──
+
+const HANDLE = '.KyK.'
+
+export const EXTRA_ART: Readonly<Record<ExtraId, readonly Patch[]>> = {
+  'kitchen-towel': [{ top: 11, left: 3, rows: ['KWWK', 'KBBK', 'KWWK', 'KBBK', '.KK.'] }],
+  'wooden-spoon': [tool(['.....', '.KKK.', 'KyyyK', 'KyyyK', '.KyK.', HANDLE, HANDLE, HANDLE, HANDLE, HANDLE, HANDLE, HANDLE, '..K..'])],
+  'red-clogs': [{ top: 15, left: 5, rows: ['KRRK..KRRK'] }],
+  'smash-spatula': [tool(['.....', 'KKKKK', 'KGGGK', 'KGGGK', 'KKKKK', HANDLE, HANDLE, HANDLE, HANDLE, HANDLE, HANDLE, HANDLE, '..K..'])],
+  'pizza-patch': [{ top: 8, left: 9, rows: ['YR', 'RY'] }],
+  whisk: [tool(['.KKK.', 'KwKwK', 'KwKwK', 'KwKwK', '.KKK.', '.KGK.', '.KGK.', '.KGK.', '.KGK.', '.KGK.', '.KGK.', '.KGK.', '..K..'])],
+  'yellow-clogs': [{ top: 15, left: 5, rows: ['KYYK..KYYK'] }],
+  chopsticks: [tool(['.....', '.K.K.', '.K.K.', '.K.K.', '.K.K.', '.K.K.', '.K.K.', '.K.K.', '.K.K.', '.KK..', '.KK..', '.KK..'])],
+}
+
+// ── Drawing ──
+
+function drawPatch(rows: string[], patch: Patch, faceRow: number): void {
+  patch.rows.forEach((pixels, offset) => {
+    const y = faceRow + patch.top + offset
+    const row = rows[y]
+    if (row === undefined) throw new Error(`Patch row ${patch.top + offset} is outside the sprite`)
+    if (patch.left < 0 || patch.left + pixels.length > row.length) throw new Error(`Patch "${pixels}" is outside the sprite`)
+    let next = row
+    for (const [x, key] of [...pixels].entries()) {
+      if (key === '.') continue
+      next = next.slice(0, patch.left + x) + key + next.slice(patch.left + x + 1)
+    }
+    rows[y] = next
+  })
+}
+
+export function spriteRows(rank: RankIndex, look: Look, extras: readonly ExtraId[]): readonly string[] {
+  const hat = HATS[rank]
+  const rows = [...hat, ...FACE, ...BODIES[rank]].map((row) => PAD + row + PAD)
+  const patches = [
+    ...HAIR_STYLES[look.hairStyle].patches,
+    ...FACIAL_HAIR[look.facialHair].patches,
+    ...GLASSES[look.glasses].patches,
+    ...extras.flatMap((id) => EXTRA_ART[id]),
+  ]
+  for (const patch of patches) drawPatch(rows, patch, hat.length)
+  return rows
 }
 
 /**
@@ -192,51 +350,34 @@ export function spriteRows(rank: RankIndex): readonly string[] {
  * the trousers by one pixel (losing the row just above them), so the chef
  * dips at the knees while the feet stay planted and the height stays the same.
  */
-export function spriteFrames(rank: RankIndex): readonly [readonly string[], readonly string[]] {
-  const rows = spriteRows(rank)
+export function spriteFrames(
+  rank: RankIndex,
+  look: Look,
+  extras: readonly ExtraId[],
+): readonly [readonly string[], readonly string[]] {
+  const rows = spriteRows(rank, look, extras)
   const trousers = rows.length - 3
   const bob = ['.'.repeat(SPRITE_WIDTH), ...rows.slice(0, trousers - 1), ...rows.slice(trousers)]
   return [rows, bob]
 }
 
-// ── Looks: the two things a cook chooses about their chef ──
-
-export type LookIndex = 0 | 1 | 2 | 3 | 4
-export const LOOK_INDEXES: readonly LookIndex[] = [0, 1, 2, 3, 4]
-
-type Five<T> = readonly [T, T, T, T, T]
-
-export const SKIN_TONES: Five<{ readonly name: string; readonly base: string; readonly shade: string }> = [
-  { name: 'Tone 1', base: '#f8d9bd', shade: '#e3b08a' },
-  { name: 'Tone 2', base: '#eebd94', shade: '#d39a70' },
-  { name: 'Tone 3', base: '#cf9566', shade: '#b07748' },
-  { name: 'Tone 4', base: '#a06c45', shade: '#82532f' },
-  { name: 'Tone 5', base: '#7b5137', shade: '#5e3b26' },
-]
-
-export const HAIR_COLORS: Five<{ readonly name: string; readonly color: string }> = [
-  { name: 'Black', color: '#23232e' },
-  { name: 'Brown', color: '#5c3b25' },
-  { name: 'Blond', color: '#d2a03c' },
-  { name: 'Red', color: '#a44a2b' },
-  { name: 'Grey', color: '#9aa1ad' },
-]
-
-export const SPRITE_KEYS = ['K', 'E', 'S', 's', 'H', 'W', 'w', 'B', 'b', 'Y', 'G', 'P'] as const
+export const SPRITE_KEYS = ['K', 'E', 'S', 's', 'H', 'W', 'w', 'B', 'b', 'Y', 'y', 'R', 'G', 'P'] as const
 export type SpriteKey = (typeof SPRITE_KEYS)[number]
 
-export function spritePalette(skin: LookIndex, hair: LookIndex): Record<SpriteKey, string> {
+export function spritePalette(look: Look): Record<SpriteKey, string> {
   return {
     K: '#131a33',
     E: '#131a33',
-    S: SKIN_TONES[skin].base,
-    s: SKIN_TONES[skin].shade,
-    H: HAIR_COLORS[hair].color,
+    S: SKIN_TONES[look.skin].base,
+    s: SKIN_TONES[look.skin].shade,
+    H: HAIR_COLORS[look.hair].color,
     W: '#ffffff',
     w: '#c9d2e6',
     B: '#1d3a9e',
     b: '#4868cf',
     Y: '#f5b81c',
+    y: '#c98e0a',
+    R: '#c4321f',
     G: '#9aa5b8',
     P: '#2b3660',
   }

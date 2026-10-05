@@ -12,7 +12,7 @@ test.describe('signing in and creating a chef', () => {
     await expect(page.getByRole('button', { name: 'Create chef' })).toBeDisabled()
     await page.getByLabel('Chef’s name').fill('  Remy  ')
     await page.getByRole('radio', { name: 'Tone 4' }).check()
-    await page.getByRole('radio', { name: 'Red' }).check()
+    await page.getByRole('radio', { name: 'Red', exact: true }).check()
     await page.getByRole('button', { name: 'Create chef' }).click()
 
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 1 dishwasher')

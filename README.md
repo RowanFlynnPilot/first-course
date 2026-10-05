@@ -14,6 +14,9 @@ things they currently order. Built so far:
 - **Phase 3, cook mode hardened and leveling.** Timers that survive a reload
   and chime when you come back, installing to the home screen, the
   promotion moment, the idle chef, the cooking streak, and 15 badges.
+- **The character creator.** Hairstyle, facial hair, glasses and more
+  colors, and 8 extras (tools in hand, clogs, a towel, a patch) earned by
+  cooking each kind of dish and worn over the rank's outfit.
 - **Recipes.** All 31 are written: four courses and the seven dishes of the
   usual.
 
@@ -44,7 +47,7 @@ cd C:\Users\rpfly\Projects\first-course; npx supabase link --project-ref <your-p
 npx supabase db push
 ```
 
-Applies four migrations, each with explicit grants and row-level security so
+Applies five migrations, each with explicit grants and row-level security so
 a cook touches only their own rows:
 
 - `00001_phase1_foundation.sql`: the cook log
@@ -52,6 +55,8 @@ a cook touches only their own rows:
 - `00003_chef_look.sql`: the chef's skin tone and hair color, and editing the chef
 - `00004_shop_kit_and_cook_edits.sql`: the plan, pantry, grocery checks,
   price corrections and kit; `finish_shopping()`; changing and deleting a cook
+- `00005_chef_creator.sql`: hairstyle, facial hair, glasses, more skin and
+  hair colors, and the extras the chef wears
 
 If earlier migrations are already pushed, the same command applies only the
 new ones. `npx supabase db push --dry-run` shows which first.
@@ -105,15 +110,16 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 77 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 85 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 90 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 93 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
-  - signing in and up, and creating and changing the chef
+  - signing in and up, creating and changing the chef, the character
+    creator, and earning and wearing extras
   - cooking and logging, the after-cook notice and what unlocks, and Back
     after logging
   - every step of every recipe, one test per recipe

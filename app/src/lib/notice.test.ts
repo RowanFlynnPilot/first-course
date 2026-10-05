@@ -60,6 +60,12 @@ describe('the after-cook notice', () => {
     expect(cookNotice(eggs, five, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe('No XP this time. A recipe pays out for its first 5 cooks.')
   })
 
+  it('names an extra the cook just earned', () => {
+    const before = [log('smash-cheeseburger', 2), log('smash-cheeseburger', 2), log('onion-melt', 2), log('onion-melt', 3)]
+    const notice = cookNotice(recipeById('smash-cheeseburger'), before, log('smash-cheeseburger', 2), 'Remy', ESTIMATES)
+    expect(notice.lines).toContain('New extra for Remy: Red clogs. Put it on from the chef sheet.')
+  })
+
   it('makes a dish of the usual coming into reach its own moment, not a line', () => {
     // The double smash burger needs the smash crust, caramelizing and cold emulsions.
     const before = [log('smash-cheeseburger', 2), log('onion-melt', 2)]

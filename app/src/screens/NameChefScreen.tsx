@@ -1,5 +1,5 @@
 import { ChefEditor } from '../components/ChefEditor'
-import { createChef, type Chef } from '../lib/chefs'
+import { createChef, DEFAULT_LOOK, type Chef } from '../lib/chefs'
 
 export function NameChefScreen({ onCreated }: { onCreated: (chef: Chef) => void }) {
   return (
@@ -10,8 +10,9 @@ export function NameChefScreen({ onCreated }: { onCreated: (chef: Chef) => void 
         executive chef.
       </p>
       <ChefEditor
-        initial={{ name: '', skin: 1, hair: 1 }}
+        initial={{ name: '', ...DEFAULT_LOOK, extras: [] }}
         rank={0}
+        unlocked={new Set()}
         submitLabel="Create chef"
         onSubmit={async (chef) => onCreated(await createChef(chef))}
       />

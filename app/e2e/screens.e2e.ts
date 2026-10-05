@@ -204,6 +204,20 @@ test('chef sheet', async ({ page, kitchen }) => {
   await shoot(page, 'chef')
 })
 
+test('character creator and extras', async ({ page, kitchen }) => {
+  const burgers = Array.from({ length: 15 }, () => ({ recipe: 'smash-cheeseburger', rating: 2 as const }))
+  const basics = Array.from({ length: 5 }, () => ({ recipe: 'chopped-salad', rating: 3 as const }))
+  await kitchen.open('#/chef/edit', {
+    logs: [...burgers, ...basics],
+    chef: { name: 'Remy', skin: 3, hair: 6, hair_style: 2, facial_hair: 1, glasses: 1, extras: ['smash-spatula', 'red-clogs'] },
+  })
+  await shoot(page, 'chef-creator')
+  await page.goto('#/chef')
+  await shoot(page, 'chef-dressed')
+  await page.goto('./')
+  await shoot(page, 'menu-dressed')
+})
+
 test('edit chef', async ({ page, kitchen }) => {
   await kitchen.open('#/chef/edit', COOKED)
   await shoot(page, 'edit-chef')
