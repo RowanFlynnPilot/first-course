@@ -818,11 +818,12 @@ build; a failed run keeps its traces as an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **Migrations 00001 to 00007 are applied to the live project** (00001 to
-  00005 on October 4, 2026, 00006 and 00007 on October 5).
-  `00008_grants_and_limits.sql` waits for Rowan to run `npx supabase db
-  push`. It fixes what a read-only schema dump of the live project showed
-  on October 6: the project was made with the dashboard's default of
+- **All eight migrations are applied to the live project** (00001 to
+  00005 on October 4, 2026, 00006 and 00007 on October 5, 00008 on October
+  6; a schema dump afterwards showed `anon` with no table grants,
+  `authenticated` with exactly the grants above, and the limits in place).
+  `00008_grants_and_limits.sql` fixed what a read-only schema dump of the
+  live project showed on October 6: the project was made with the dashboard's default of
   exposing new tables, which granted everything (truncate included) on
   every table to `anon` and `authenticated`, so none of the column grants
   in 00001 to 00006 held live (a cook's recipe could be changed through the
@@ -1044,8 +1045,8 @@ precisely" and "Design").
 ## Where things stand, and what comes next
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), migrations 00001 to
-00007 are on the live project (00008 is ready to push), and every push runs 136 unit tests and 173 e2e tests before it deploys.
+recipes are written (four courses and the usual), all eight migrations
+are on the live project, and every push runs 136 unit tests and 173 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 
