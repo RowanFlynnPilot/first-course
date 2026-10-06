@@ -679,11 +679,10 @@ build; a failed run keeps its traces as an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **Migrations 00001 to 00006 are applied to the live project** (00001 to
-  00005 on October 4, 2026, 00006 on October 5). `00007_shop_what_you_saw.sql`
-  is written and checked, and waits for Rowan to run `npx supabase db push`
-  before the app code that needs it deploys: a migration always goes first.
-  `00007` was checked on a throwaway stack (14 checks: only the listed
+- **All seven migrations are applied to the live project** (00001 to
+  00005 on October 4, 2026, 00006 and 00007 on October 5). Rowan pushed
+  each one before the app code that needs it deployed: a migration always
+  goes first. `00007` was checked on a throwaway stack (14 checks: only the listed
   recipes are marked shopped and only the seen ticks cleared, a recipe and
   a tick added elsewhere survive, the one-argument function is gone, anon
   refused, the 00006 trigger still fires, and a cook can carry its own id,
@@ -860,8 +859,8 @@ precisely" and "Design").
 ## Where things stand, and what comes next
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), migrations 00001 to
-00006 are on the live project (00007 is ready to push), and every push runs 109 unit tests and 130 e2e tests before it deploys.
+recipes are written (four courses and the usual), all seven migrations
+are on the live project, and every push runs 109 unit tests and 130 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 
