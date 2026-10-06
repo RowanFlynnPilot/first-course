@@ -1,0 +1,16 @@
+# Weekly pull requests for outdated packages and actions. Each one runs the
+# full check (lint, unit and e2e tests) before it can be merged; none deploys.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: weekly
+    groups:
+      # One pull request for the dev tools, so a week's updates are one review.
+      dev:
+        dependency-type: development
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

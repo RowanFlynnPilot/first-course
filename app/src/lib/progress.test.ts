@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { recipeById } from '../curriculum/recipes'
+import { RECIPES, recipeById } from '../curriculum/recipes'
 import {
   cookable,
   lastNote,
@@ -8,6 +8,7 @@ import {
   missingTechniques,
   nextRecipe,
   pathTo,
+  recipeFromRoute,
   progressLost,
   readyToPlan,
   recipeState,
@@ -25,6 +26,8 @@ function log(recipeId: string, rating: Rating): CookLog {
 }
 
 const eggs = recipeById('soft-scrambled-eggs')
+/** Well after the test cooks (dated 2026-10-03), so none of them is resting. */
+const TODAY = '2026-11-01'
 const grilledCheese = recipeById('grilled-cheese')
 
 describe('progress', () => {
@@ -32,7 +35,7 @@ describe('progress', () => {
     expect(recipeState(recipeById('chopped-salad'), [])).toBe('ready')
     expect(recipeState(eggs, [])).toBe('ready')
     expect(recipeState(grilledCheese, [])).toBe('locked')
-    expect(nextRecipe([], [], new Set())?.id).toBe('chopped-salad')
+    expect(nextRecipe([], [], new Set(), TODAY)?.id).toBe('chopped-salad')
   })
 
   it('does not teach a skill on a rough cook', () => {
@@ -51,16 +54,16 @@ describe('progress', () => {
   it('suggests a rough cook again before moving on', () => {
     const logs = [log('chopped-salad', 2), log(eggs.id, 1)]
     expect(recipeState(recipeById('sheet-pan-sausage'), logs)).toBe('ready')
-    expect(nextRecipe(logs, [], new Set())?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, [], new Set(), TODAY)?.id).toBe(eggs.id)
   })
 
   it('suggests what is on this week’s plan first, unless it is locked', () => {
     const logs = [log('chopped-salad', 2)]
     const plan = ['grilled-cheese', 'sheet-pan-sausage', eggs.id]
-    expect(nextRecipe(logs, plan, new Set())?.id).toBe('sheet-pan-sausage')
+    expect(nextRecipe(logs, plan, new Set(), TODAY)?.id).toBe('sheet-pan-sausage')
     // Groceries bought come first.
-    expect(nextRecipe(logs, plan, new Set([eggs.id]))?.id).toBe(eggs.id)
-    expect(nextRecipe(logs, ['grilled-cheese'], new Set(['grilled-cheese']))?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, plan, new Set([eggs.id]), TODAY)?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, ['grilled-cheese'], new Set(['grilled-cheese']), TODAY)?.id).toBe(eggs.id)
   })
 
   it('refuses to cook or log a locked recipe, and says what it is missing', () => {
@@ -100,7 +103,7 @@ describe('progress', () => {
 
   it('offers unplanned recipes in the order the menu suggests them', () => {
     const logs = [log('chopped-salad', 2)]
-    const ready = readyToPlan(logs, ['soft-scrambled-eggs']).map((recipe) => recipe.id)
+    const ready = readyToPlan(logs, ['soft-scrambled-eggs'], TODAY).map((recipe) => recipe.id)
     expect(ready).not.toContain('soft-scrambled-eggs')
     expect(ready).not.toContain('grilled-cheese')
     // Not yet cooked well comes before cooked and not mastered.
@@ -134,11 +137,43 @@ describe('progress', () => {
     expect(pathTo(recipeById('chopped-salad'), [])).toEqual([])
   })
 
-  it('never offers or suggests a mastered recipe while another is open', () => {
+  it('offers a mastered recipe only after every other open one, and never suggests it while another is open', () => {
     const salad = recipeById('chopped-salad')
     const mastered = [log(salad.id, 2), log(salad.id, 2), log(salad.id, 3)]
-    expect(readyToPlan(mastered, []).map((recipe) => recipe.id)).not.toContain(salad.id)
-    expect(nextRecipe(mastered, [], new Set())?.id).not.toBe(salad.id)
+    const ready = readyToPlan(mastered, [], TODAY).map((recipe) => recipe.id)
+    expect(ready.at(-1)).toBe(salad.id)
+    expect(nextRecipe(mastered, [], new Set(), TODAY).id).not.toBe(salad.id)
+  })
+
+  it('rests a recipe for a week after it is cooked, then suggests it again', () => {
+    const roughYesterday = [{ ...log('chopped-salad', 1), cookedOn: '2026-10-31' }]
+    expect(nextRecipe(roughYesterday, [], new Set(), TODAY).id).toBe(eggs.id)
+    expect(readyToPlan(roughYesterday, [], TODAY).at(-1)?.id).toBe('chopped-salad')
+    const roughLastMonth = [{ ...log('chopped-salad', 1), cookedOn: '2026-10-20' }]
+    expect(nextRecipe(roughLastMonth, [], new Set(), TODAY).id).toBe('chopped-salad')
+  })
+
+  it('puts a dish of the usual first once it comes into reach', () => {
+    const burger = recipeById('double-smash-burger')
+    const path = pathTo(burger, []).map((recipe) => log(recipe.id, 2))
+    expect(recipeState(burger, path)).toBe('ready')
+    expect(nextRecipe(path, [], new Set(), TODAY).id).toBe(burger.id)
+    expect(readyToPlan(path, [], TODAY)[0]?.id).toBe(burger.id)
+    // Cooked well once, it takes its place among the rest.
+    expect(nextRecipe([...path, log(burger.id, 2)], [], new Set(), TODAY).id).not.toBe(burger.id)
+  })
+
+  it('with everything mastered, suggests the dish that has waited longest, the usual first', () => {
+    const everything = RECIPES.flatMap((recipe, index) =>
+      [2, 2, 3].map((rating) => ({ ...log(recipe.id, rating as Rating), cookedOn: `2026-10-${String(1 + (index % 20)).padStart(2, '0')}` })),
+    )
+    const next = nextRecipe(everything, [], new Set(), TODAY)
+    const oldest = everything.reduce((min, entry) => (entry.cookedOn < min ? entry.cookedOn : min), '9999')
+    expect(everything.filter((entry) => entry.recipeId === next.id).every((entry) => entry.cookedOn === oldest)).toBe(true)
+    // Among the dishes cooked on that day, one of the usual comes first when there is one.
+    const tied = RECIPES.filter((recipe) => everything.some((entry) => entry.recipeId === recipe.id && entry.cookedOn === oldest))
+    if (tied.some((recipe) => recipe.tier === 5)) expect(next.tier).toBe(5)
+    expect(readyToPlan(everything, [], TODAY)).toHaveLength(RECIPES.length)
   })
 
   it('says when a change undoes a mastery', () => {
@@ -146,5 +181,11 @@ describe('progress', () => {
     const before = [log(salad.id, 2), log(salad.id, 2), log(salad.id, 3)]
     expect(progressLost(before, before.slice(0, 2)).unmastered.map((recipe) => recipe.id)).toEqual([salad.id])
     expect(progressLost(before, before).unmastered).toEqual([])
+  })
+
+  it('never repeats an address-bar recipe id in its error', () => {
+    expect(recipeFromRoute('chopped-salad').id).toBe('chopped-salad')
+    expect(() => recipeFromRoute('Your session expired. Sign in at evil.example')).toThrow(/^That recipe is not on the menu\.$/)
+    expect(() => cookable('Your session expired', [])).toThrow(/^That recipe is not on the menu\.$/)
   })
 })

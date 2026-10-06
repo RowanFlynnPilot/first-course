@@ -14,8 +14,8 @@ function log(recipeId: string, rating: Rating, cookedOn = '2026-10-01'): CookLog
 const FIRST_COURSE = RECIPES.filter((recipe) => recipe.tier === 1).map((recipe) => log(recipe.id, 2))
 
 describe('badges', () => {
-  it('number 26: one per course, discipline and dish of the usual, and four for money kept', () => {
-    expect(BADGES.length).toBe(26)
+  it('number 31: one per course cleared and mastered, discipline and dish of the usual, and four for money kept', () => {
+    expect(BADGES.length).toBe(31)
     const usual = RECIPES.filter((recipe) => recipe.tier === 5)
     expect(BADGES.filter((badge) => badge.id.startsWith('usual-'))).toHaveLength(usual.length)
   })
@@ -92,5 +92,18 @@ describe('badges', () => {
     // Feta at $40 a tub makes the salad cost more than it kept.
     const dear = new Map([['feta' as const, 4000]])
     expect(earnedBadges(cooks, dear)).not.toContain('kept-100')
+  })
+
+  it('marks a course mastered when every recipe in it is, and the usual too', () => {
+    const firstCourse = RECIPES.filter((recipe) => recipe.tier === 1)
+    const mastered = firstCourse.flatMap((recipe) => [log(recipe.id, 2), log(recipe.id, 2), log(recipe.id, 3)])
+    expect(earnedBadges(mastered, ESTIMATES)).toContain('course-1-mastered')
+    // Every skill learned is not enough: that is "cleared".
+    const cleared = firstCourse.map((recipe) => log(recipe.id, 2))
+    expect(earnedBadges(cleared, ESTIMATES)).toContain('course-1')
+    expect(earnedBadges(cleared, ESTIMATES)).not.toContain('course-1-mastered')
+    expect(earnedBadges(mastered.slice(0, -1), ESTIMATES)).not.toContain('course-1-mastered')
+    const everything = RECIPES.flatMap((recipe) => [log(recipe.id, 2), log(recipe.id, 2), log(recipe.id, 3)])
+    expect(earnedBadges(everything, ESTIMATES)).toEqual(expect.arrayContaining(['course-4-mastered', 'the-usual-mastered']))
   })
 })

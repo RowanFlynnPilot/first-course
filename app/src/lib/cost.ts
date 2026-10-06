@@ -51,10 +51,15 @@ export function countedServings(content: RecipeContent): number {
   return Math.min(content.servings, COUNTED_SERVINGS)
 }
 
-/** One order covering the counted servings, with one delivery fee. */
+/**
+ * One order covering the counted servings, with one delivery fee. A side is
+ * added to an order you would place anyway, so it pays fees and tip but no
+ * delivery fee of its own.
+ */
 export function orderCostCents(content: RecipeContent): number {
   const food = content.delivery.menuPriceCents * countedServings(content)
-  return Math.round(food * (1 + SERVICE_FEE_RATE + TIP_RATE)) + DELIVERY_FEE_CENTS
+  const deliveryFee = content.delivery.side ? 0 : DELIVERY_FEE_CENTS
+  return Math.round(food * (1 + SERVICE_FEE_RATE + TIP_RATE)) + deliveryFee
 }
 
 export function orderCostPerServingCents(content: RecipeContent): number {

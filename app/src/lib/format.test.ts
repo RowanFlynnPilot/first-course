@@ -9,6 +9,7 @@ import {
   listOf,
   listPieces,
   packagesOf,
+  MAX_PRICE_CENTS,
   parseCents,
 } from './format'
 
@@ -77,5 +78,11 @@ describe('format', () => {
         .join('')
       expect(joined).toBe(listOf(words.slice(0, count)))
     }
+  })
+
+  it('refuses a price over $1,000 in plain words, as the database would', () => {
+    expect(parseCents('1000')).toBe(MAX_PRICE_CENTS)
+    expect(() => parseCents('1000.01')).toThrow('more than $1,000')
+    expect(() => parseCents('99999999999')).toThrow('more than $1,000')
   })
 })

@@ -4,7 +4,7 @@ import { LockedPage } from '../components/LockedNotice'
 import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
 import type { Chef } from '../lib/chefs'
-import { insertCookLog, newCookId } from '../lib/cookLogs'
+import { insertCookLog, newCookId, NOTES_MAX } from '../lib/cookLogs'
 import type { Prices } from '../lib/cost'
 import { checkCookedOn, localDateString } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
@@ -75,6 +75,7 @@ function LogForm({ recipe, chef, logs, prices, onLogged }: LogProps & { recipe: 
         <label className="field">
           Notes for next time
           <textarea
+            maxLength={NOTES_MAX}
             rows={3}
             value={notes}
             placeholder="Pan was too hot. Use less lemon."

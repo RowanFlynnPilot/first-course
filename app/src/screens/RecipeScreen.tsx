@@ -5,7 +5,6 @@ import { LockedNotice } from '../components/LockedNotice'
 import { Plate } from '../components/Plate'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
-import { recipeById } from '../curriculum/recipes'
 import { TECHNIQUES } from '../curriculum/techniques'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 import {
@@ -26,6 +25,7 @@ import {
   MASTERED_COOKS,
   masteryLeft,
   ratingLabel,
+  recipeFromRoute,
   recipeState,
   type CookLog,
 } from '../lib/progress'
@@ -42,11 +42,15 @@ export function RecipeScreen({
 }) {
   const { id } = useParams()
   if (id === undefined) throw new Error('Recipe route is missing its id')
-  const recipe = recipeById(id)
+  const recipe = recipeFromRoute(id)
   usePageTitle(recipe.title)
   const state = recipeState(recipe, logs)
   const good = goodCooks(recipe, logs)
-  const history = logs.filter((log) => log.recipeId === recipe.id).toReversed()
+  // Newest cook first, by the day it was cooked (a cook logged later for an earlier day sits by its day).
+  const history = logs
+    .filter((log) => log.recipeId === recipe.id)
+    .toReversed()
+    .toSorted((a, b) => b.cookedOn.localeCompare(a.cookedOn))
 
   return (
     <main className="page">
@@ -65,6 +69,23 @@ export function RecipeScreen({
         </div>
       </header>
       <p className="lede">{recipe.blurb}</p>
+      {history[0] !== undefined && (
+        // "Your cooks" sits under the whole method; this is the way there without scrolling past it.
+        <p className="history-jump">
+          <button
+            className="link-button"
+            type="button"
+            onClick={() => {
+              const heading = document.getElementById('your-cooks')
+              if (heading === null) throw new Error('The recipe page has no Your cooks section')
+              heading.scrollIntoView()
+              heading.focus({ preventScroll: true })
+            }}
+          >
+            {plural(history.length, 'cook', 'cooks')}, last {formatCookedOn(history[0].cookedOn)}
+          </button>
+        </p>
+      )}
 
       {recipe.teaches.length > 0 && (
         <section className="section">
@@ -93,7 +114,9 @@ export function RecipeScreen({
 
       {history.length > 0 && (
         <section className="section">
-          <h2 className="section-title">Your cooks</h2>
+          <h2 className="section-title" id="your-cooks" tabIndex={-1}>
+            Your cooks
+          </h2>
           <p className="section-note">
             {state === 'mastered'
               ? 'Mastered.'
@@ -184,7 +207,10 @@ function Written({
         </dl>
         <p className="section-note">
           Cooking counts only the part of each package you use. Ordering is the menu price plus {feesPercent}% in
-          fees and tip, and one {formatCents(DELIVERY_FEE_CENTS)} delivery fee.
+          fees and tip,{' '}
+          {content.delivery.side
+            ? 'with no delivery fee: a side rides on an order you would place anyway.'
+            : `and one ${formatCents(DELIVERY_FEE_CENTS)} delivery fee.`}
           {content.servings > COUNTED_SERVINGS &&
             ` It makes ${content.servings} servings, but “you keep” counts ${COUNTED_SERVINGS}: dinner, not the leftovers.`}{' '}
           Grocery prices are estimates until you correct them on the grocery list.

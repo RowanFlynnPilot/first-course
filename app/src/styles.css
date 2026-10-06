@@ -1689,3 +1689,8 @@ mark {
   min-height: 3rem;
   font-weight: 700;
 }
+
+/* "13 cooks, last Oct 2" under the blurb: the way to "Your cooks" at the foot of a long recipe. */
+.history-jump {
+  margin: -0.5rem 0 0.5rem;
+}

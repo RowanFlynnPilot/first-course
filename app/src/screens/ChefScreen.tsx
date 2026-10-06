@@ -194,7 +194,10 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
         <ul className="plain-list">
           <li>Every cook earns XP: 10 times the course number, times 1 for Rough, 2 for Decent, 3 for Nailed it.</li>
           <li>Each skill you learn is worth {XP_PER_SKILL}. Each recipe you master is worth {XP_PER_MASTERY}.</li>
-          <li>A recipe pays out for its first {XP_COOKS_PER_RECIPE} cooks. After that, cook it because it is dinner.</li>
+          <li>
+            A recipe pays out for its best {XP_COOKS_PER_RECIPE} cooks, so a better cook replaces a weaker one. After
+            that, cook it because it is dinner.
+          </li>
           <li>Level never locks anything. Recipes unlock through skills.</li>
         </ul>
       </section>

@@ -146,6 +146,9 @@ export function listPieces(count: number): ({ index: number } | { text: string }
   )
 }
 
+/** The most a package can cost, as the database checks it. */
+export const MAX_PRICE_CENTS = 100_000
+
 /**
  * A price typed by the cook, in cents: "3.49", "$3.49", "3", "3.5" or ".99".
  * Anything else, or nothing above zero, says what to type.
@@ -157,6 +160,8 @@ export function parseCents(typed: string): number {
   if (match === null || (dollars === '' && cents === '')) throw new Error('Enter the price you paid, like 3.49.')
   const total = Number(dollars || '0') * 100 + Number(cents.padEnd(2, '0'))
   if (total <= 0) throw new Error('Enter the price you paid, like 3.49.')
+  // The database refuses more (00008), and no package here costs that much.
+  if (total > MAX_PRICE_CENTS) throw new Error('That is more than $1,000. Enter the price of one package, like 3.49.')
   return total
 }
 

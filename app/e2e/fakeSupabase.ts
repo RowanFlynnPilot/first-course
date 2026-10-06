@@ -33,7 +33,9 @@ interface TableSpec {
   readonly check: (row: Row) => string | null
 }
 
-const PASSES = () => null
+// 00008: ids are the curriculum's typed ids, lowercase words joined by hyphens.
+const ID = /^[a-z0-9-]{1,64}$/
+const idCheck = (column: string) => (row: Row) => (typeof row[column] === 'string' && ID.test(String(row[column])) ? null : `${column} is not an id`)
 
 // One entry per table in supabase/migrations, kept in step with them.
 const TABLES: Record<string, TableSpec> = {
@@ -44,7 +46,12 @@ const TABLES: Record<string, TableSpec> = {
     defaults: (now) => ({ id: crypto.randomUUID(), notes: '', created_at: now }),
     updatable: ['cooked_on', 'rating', 'notes'],
     deletable: true,
-    check: (row) => (row.rating === 1 || row.rating === 2 || row.rating === 3 ? null : 'rating must be 1 to 3'),
+    check: (row) => {
+      if (row.rating !== 1 && row.rating !== 2 && row.rating !== 3) return 'rating must be 1 to 3'
+      if (typeof row.notes !== 'string' || row.notes.length > 2000) return 'notes must be at most 2000 characters'
+      if (typeof row.cooked_on !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.cooked_on)) return 'cooked_on must have a four-digit year'
+      return idCheck('recipe_id')(row)
+    },
   },
   // 00002, 00003 and 00005
   chefs: {
@@ -64,8 +71,8 @@ const TABLES: Record<string, TableSpec> = {
         if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > max) return `${column} must be 0 to ${max}`
       }
       const extras = row.extras
-      if (!Array.isArray(extras) || !extras.every((id) => typeof id === 'string') || extras.length > 4) {
-        return 'extras must be at most 4 text ids'
+      if (!Array.isArray(extras) || !extras.every((id) => typeof id === 'string' && /^[a-z0-9-]{1,32}$/.test(id)) || extras.length > 4) {
+        return 'extras must be at most 4 ids'
       }
       return null
     },
@@ -77,7 +84,7 @@ const TABLES: Record<string, TableSpec> = {
     defaults: (now) => ({ added_at: now, shopped: false }),
     updatable: ['shopped'],
     deletable: true,
-    check: (row) => (typeof row.shopped === 'boolean' ? null : 'shopped must be true or false'),
+    check: (row) => (typeof row.shopped === 'boolean' ? idCheck('recipe_id')(row) : 'shopped must be true or false'),
   },
   pantry_items: {
     columns: ['user_id', 'ingredient_id'],
@@ -85,7 +92,7 @@ const TABLES: Record<string, TableSpec> = {
     defaults: () => ({}),
     updatable: [],
     deletable: true,
-    check: PASSES,
+    check: idCheck('ingredient_id'),
   },
   grocery_checks: {
     columns: ['user_id', 'ingredient_id'],
@@ -93,7 +100,7 @@ const TABLES: Record<string, TableSpec> = {
     defaults: () => ({}),
     updatable: [],
     deletable: true,
-    check: PASSES,
+    check: idCheck('ingredient_id'),
   },
   price_overrides: {
     columns: ['user_id', 'ingredient_id', 'price_cents'],
@@ -102,7 +109,9 @@ const TABLES: Record<string, TableSpec> = {
     updatable: ['ingredient_id', 'price_cents'],
     deletable: true,
     check: (row) =>
-      Number.isInteger(row.price_cents) && Number(row.price_cents) > 0 ? null : 'price_cents must be above zero',
+      Number.isInteger(row.price_cents) && Number(row.price_cents) > 0 && Number(row.price_cents) <= 100_000
+        ? idCheck('ingredient_id')(row)
+        : 'price_cents must be above zero and at most 100000',
   },
   kit_items: {
     columns: ['user_id', 'equipment_id'],
@@ -110,7 +119,7 @@ const TABLES: Record<string, TableSpec> = {
     defaults: () => ({}),
     updatable: [],
     deletable: true,
-    check: PASSES,
+    check: idCheck('equipment_id'),
   },
 }
 
@@ -421,8 +430,18 @@ export class FakeSupabase {
     return this.linkHash('signup')
   }
 
-  private linkHash(type: 'recovery' | 'signup'): string {
-    const session = this.session(this.userId)
+  /**
+   * A reset link for a different account, as someone could send one that
+   * carries their own session: the account is made here, with no chef.
+   */
+  strangerHash(): string {
+    const stranger = { id: crypto.randomUUID(), email: 'someone.else@example.test', password: 'their own password', confirmed: true }
+    this.accounts.push(stranger)
+    return this.linkHash('recovery', stranger.id)
+  }
+
+  private linkHash(type: 'recovery' | 'signup', userId = this.userId): string {
+    const session = this.session(userId)
     const params = new URLSearchParams({
       access_token: session.access_token,
       expires_at: String(Math.floor(Date.now() / 1000) + 3600),
@@ -482,7 +501,7 @@ export class FakeSupabase {
       return json(route, request, status, shaped[0])
     }
 
-    const filters = [...url.searchParams].filter(([key]) => !['select', 'order', 'on_conflict', 'columns'].includes(key))
+    const filters = [...url.searchParams].filter(([key]) => !['select', 'order', 'on_conflict', 'columns', 'limit', 'offset'].includes(key))
     for (const [column, filter] of filters) {
       if (!spec.columns.includes(column)) return unknownColumn(route, request, name, column)
       if (!/^(eq|in)\./.test(filter)) return this.reject(route, `the filter ${column}=${filter}`)
@@ -493,13 +512,24 @@ export class FakeSupabase {
 
     if (method === 'GET') {
       const rows = matching()
+      // order=created_at.asc,id.asc: each key in turn, as PostgREST does.
       const order = url.searchParams.get('order')
       if (order !== null) {
-        const [column, direction] = order.split('.')
-        if (column === undefined || !spec.columns.includes(column)) return unknownColumn(route, request, name, String(column))
-        rows.sort((a, b) => compare(a[column], b[column]) * (direction === 'desc' ? -1 : 1))
+        const keys = order.split(',').map((key) => key.split('.') as [string, string | undefined])
+        for (const [column] of keys) if (!spec.columns.includes(column)) return unknownColumn(route, request, name, column)
+        rows.sort((a, b) => {
+          for (const [column, direction] of keys) {
+            const by = compare(a[column], b[column]) * (direction === 'desc' ? -1 : 1)
+            if (by !== 0) return by
+          }
+          return 0
+        })
       }
-      return respond(rows, 200)
+      // range(): offset and limit.
+      const offset = Number(url.searchParams.get('offset') ?? '0')
+      const limit = url.searchParams.get('limit')
+      const page = rows.slice(offset, limit === null ? undefined : offset + Number(limit))
+      return respond(page, 200)
     }
 
     if (method === 'POST') {

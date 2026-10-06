@@ -172,7 +172,7 @@ test.describe('this week: the plan and the grocery list', () => {
 
   test('says what kit the plan still needs', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'], kit: ['chefs-knife', 'cutting-board', 'large-bowl'] })
-    await expect(page.getByText('To cook these you also need: measuring spoons, small bowls, fork, and paper towels.')).toBeVisible()
+    await expect(page.getByText('To cook these you also need: measuring spoons, small bowls, fork, paper towels, and plastic wrap.')).toBeVisible()
   })
 
   test('a check that fails to save says why and stays unchecked', async ({ page, kitchen }) => {
@@ -237,16 +237,26 @@ test.describe('this week: the plan and the grocery list', () => {
   test('a corrected price changes what the recipe page says you keep', async ({ page, kitchen }) => {
     await kitchen.open('#/recipe/chopped-salad', { prices: { feta: 900 } })
     // Feta at $9.00 for a 4 oz tub instead of $3.49. The salad uses the whole tub, so cooking two
-    // servings costs $5.51 more, and you keep $21.89 instead of $27.40.
-    await expect(page.locator('.tab-kept mark')).toHaveText('$21.89')
+    // servings costs $5.51 more, and you keep $11.25 instead of $16.76.
+    await expect(page.locator('.tab-kept mark')).toHaveText('$11.25')
   })
 
   test('a staple already at home goes to the pantry from the list', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { ...SALAD_DONE, plan: ['sheet-pan-sausage'] })
+    // The line after it in the list, by the order the list shows.
+    const boxes = page.locator('.checks-cart input[type=checkbox]')
+    const names = await page.locator('.checks-cart .check-label .row-title').allTextContents()
+    const after = names[names.indexOf('Kosher salt') + 1] ?? names[names.indexOf('Kosher salt') - 1]
+    expect(await boxes.count()).toBe(names.length)
     await page.getByRole('button', { name: 'Have it: kosher salt' }).click()
     await expect(page.getByRole('checkbox', { name: /Kosher salt/ })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Put it on the list: kosher salt' })).toBeVisible()
     expect(kitchen.backend.table('pantry_items')).toMatchObject([{ ingredient_id: 'kosher-salt' }])
+    // Focus moves to the neighbouring line, not the top of a long list.
+    await expect(page.getByRole('checkbox', { name: new RegExp(`^${after}`) })).toBeFocused()
+    // And back on the list, the salt's own box takes it.
+    await page.getByRole('button', { name: 'Put it on the list: kosher salt' }).click()
+    await expect(page.getByRole('checkbox', { name: /^Kosher salt/ })).toBeFocused()
   })
 
   test('in the store the list comes first, and This week offers recipes to add', async ({ page, kitchen }) => {

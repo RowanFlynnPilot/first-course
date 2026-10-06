@@ -47,7 +47,7 @@ cd C:\Users\rpfly\Projects\first-course; npx supabase link --project-ref <your-p
 npx supabase db push
 ```
 
-Applies seven migrations, each with explicit grants and row-level security so
+Applies eight migrations, each with explicit grants and row-level security so
 a cook touches only their own rows:
 
 - `00001_phase1_foundation.sql`: the cook log
@@ -61,6 +61,9 @@ a cook touches only their own rows:
   clearing it, and saving a cook takes its recipe off the plan
 - `00007_shop_what_you_saw.sql`: Done shopping changes only the recipes and
   ticks the device showed, so another device's additions are left alone
+- `00008_grants_and_limits.sql`: takes back the everything-to-everyone grants
+  a project made with the dashboard's defaults has, grants exactly what the
+  app uses, and limits notes, ids, prices and dates
 
 If earlier migrations are already pushed, the same command applies only the
 new ones. `npx supabase db push --dry-run` shows which first.
@@ -114,13 +117,13 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 127 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 136 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 160 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 173 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired email link, creating
     and changing the chef, the character

@@ -65,16 +65,54 @@ export function recipeState(recipe: Recipe, logs: readonly CookLog[]): RecipeSta
   return 'cooked'
 }
 
+/** A recipe rests this many days after a cook before the menu suggests it again. */
+export const REST_DAYS = 7
+
+/** The latest day a recipe was cooked (YYYY-MM-DD), or null. */
+export function lastCooked(recipe: Recipe, logs: readonly CookLog[]): string | null {
+  return logs.reduce<string | null>(
+    (latest, log) => (log.recipeId === recipe.id && (latest === null || log.cookedOn > latest) ? log.cookedOn : latest),
+    null,
+  )
+}
+
+/** Whole days from one local date to another, both YYYY-MM-DD. */
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
+}
+
 /**
- * Unlocked recipes not on this week's plan, in the order the menu suggests
- * them: those without a good cook first, then those not yet mastered.
+ * Unlocked recipes in the order the menu suggests them: a dish of the usual
+ * that has come into reach without a good cook yet (what everything builds
+ * toward), then recipes without a good cook, then those not yet mastered,
+ * then mastered ones, the longest uncooked first. A recipe cooked in the
+ * last REST_DAYS goes to the back, so the suggestion is never what was
+ * cooked yesterday.
  */
-export function readyToPlan(logs: readonly CookLog[], plan: readonly string[]): Recipe[] {
-  const open = RECIPES.filter((recipe) => !plan.includes(recipe.id) && recipeState(recipe, logs) !== 'locked')
-  return [
-    ...open.filter((recipe) => goodCooks(recipe, logs) === 0),
-    ...open.filter((recipe) => goodCooks(recipe, logs) > 0 && recipeState(recipe, logs) !== 'mastered'),
+function suggestionOrder(logs: readonly CookLog[], today: string, exclude: readonly string[]): Recipe[] {
+  const open = RECIPES.filter((recipe) => !exclude.includes(recipe.id) && recipeState(recipe, logs) !== 'locked')
+  const since = (recipe: Recipe) => lastCooked(recipe, logs) ?? '0000-00-00'
+  const recent = (recipe: Recipe) => {
+    const last = lastCooked(recipe, logs)
+    return last !== null && daysBetween(last, today) < REST_DAYS
+  }
+  const rested = open.filter((recipe) => !recent(recipe))
+  const ordered = [
+    ...rested.filter((recipe) => recipe.tier === 5 && goodCooks(recipe, logs) === 0),
+    ...rested.filter((recipe) => goodCooks(recipe, logs) === 0),
+    ...rested.filter((recipe) => goodCooks(recipe, logs) > 0 && recipeState(recipe, logs) !== 'mastered'),
+    // Everything mastered: the dish that has waited longest, the usual's before the courses'.
+    ...rested
+      .filter((recipe) => recipeState(recipe, logs) === 'mastered')
+      .sort((a, b) => since(a).localeCompare(since(b)) || Number(b.tier === 5) - Number(a.tier === 5)),
+    ...open.filter(recent).sort((a, b) => since(a).localeCompare(since(b))),
   ]
+  return ordered.filter((recipe, index) => ordered.indexOf(recipe) === index)
+}
+
+/** Unlocked recipes not on this week's plan, in the order the menu suggests them. */
+export function readyToPlan(logs: readonly CookLog[], plan: readonly string[], today: string): Recipe[] {
+  return suggestionOrder(logs, today, plan)
 }
 
 /**
@@ -149,20 +187,19 @@ export function pathTo(recipe: Recipe, logs: readonly CookLog[]): Recipe[] {
 /**
  * What the menu suggests cooking next: the first unlocked recipe on this
  * week's plan, groceries bought before groceries still to buy, each in the
- * order added; else, in menu order, the first unlocked recipe without a good
- * cook; failing that, the first not yet mastered.
+ * order added; else the first in suggestion order (a dish of the usual just
+ * in reach, then a recipe without a good cook, then one not mastered, then
+ * the mastered one that has waited longest; anything cooked in the last
+ * week last). There is always one: the salad needs no skills.
  */
-export function nextRecipe(logs: readonly CookLog[], plan: readonly string[], shopped: ReadonlySet<string>): Recipe | null {
+export function nextRecipe(logs: readonly CookLog[], plan: readonly string[], shopped: ReadonlySet<string>, today: string): Recipe {
   const planned = [...plan.filter((id) => shopped.has(id)), ...plan.filter((id) => !shopped.has(id))]
     .map(recipeById)
     .find((recipe) => recipeState(recipe, logs) !== 'locked')
   if (planned !== undefined) return planned
-  const open = RECIPES.filter((recipe) => recipeState(recipe, logs) !== 'locked')
-  return (
-    open.find((recipe) => goodCooks(recipe, logs) === 0) ??
-    open.find((recipe) => recipeState(recipe, logs) !== 'mastered') ??
-    null
-  )
+  const next = suggestionOrder(logs, today, [])[0]
+  if (next === undefined) throw new Error('No recipe on the menu is open')
+  return next
 }
 
 /**
@@ -196,6 +233,17 @@ export function lastNote(recipeId: string, logs: readonly CookLog[]): string | n
 }
 
 /**
+ * A recipe named in the address bar. Anyone can put text there (a link in an
+ * email, say), and the error screen shows what is thrown, so the error never
+ * repeats it.
+ */
+export function recipeFromRoute(id: string): Recipe {
+  const recipe = RECIPES.find((candidate) => candidate.id === id)
+  if (recipe === undefined) throw new Error('That recipe is not on the menu.')
+  return recipe
+}
+
+/**
  * Whether a recipe can be cooked or logged right now (locked decision 13):
  * its content, or the skills it is missing. A recipe can lock again while
  * its screen is open, when a catch-up brings in a cook deleted elsewhere, so
@@ -205,7 +253,7 @@ export function cookable(
   id: string,
   logs: readonly CookLog[],
 ): { recipe: Recipe; content: RecipeContent; missing: null } | { recipe: Recipe; content: null; missing: TechniqueId[] } {
-  const recipe = recipeById(id)
+  const recipe = recipeFromRoute(id)
   const missing = missingTechniques(recipe, logs)
   return missing.length > 0 ? { recipe, content: null, missing } : { recipe, content: recipe.content, missing: null }
 }

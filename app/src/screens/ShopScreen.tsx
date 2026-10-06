@@ -18,6 +18,7 @@ import {
   formatMinutes,
   inSentence,
   listOf,
+  localDateString,
   packagesOf,
   parseCents,
   plural,
@@ -42,6 +43,8 @@ import {
 
 export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: readonly CookLog[]; onShopChange: ShopChange }) {
   usePageTitle('This week')
+  // Where the cook is standing, read once: a recipe cooked in the last week is offered last.
+  const [today] = useState(() => localDateString(new Date()))
   const planned = shop.plan.map(recipeById)
   // Only what is not yet bought goes on the list.
   const toShop = toShopFor(shop)
@@ -65,12 +68,19 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
   }
 
   const finishedRef = useFocusTarget<HTMLParagraphElement>('shop-done')
+  // Where focus goes when a line leaves the list ("Have it"): the next line, or the one before, so the cook keeps their place.
+  const order = list.sections.flatMap((section) => section.lines.map((line) => line.ingredientId))
+  function neighborOf(id: IngredientId): string {
+    const at = order.indexOf(id)
+    const near = order[at + 1] ?? order[at - 1]
+    return near === undefined ? 'grocery-title' : `check:${near}`
+  }
   const groceryTitle = useFocusTarget<HTMLHeadingElement>('grocery-title')
   const planTitle = useFocusTarget<HTMLHeadingElement>('plan-title')
 
   async function finishShopping() {
-    // A tick still saving would be left out of the pantry.
-    if (saving > 0) return
+    // A tick still saving would be left out of the pantry; a second tap while the first is out does nothing.
+    if (saving > 0 || finish.busy) return
     const left = listOf(notInCart.map((line) => inSentence(INGREDIENTS[line.ingredientId].name)))
     if (toBuy > 0 && !window.confirm(`Not checked off: ${left}. They come off the list. Finish shopping anyway?`)) {
       return
@@ -89,7 +99,7 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
 
   // In the store, the list comes first; at home, the plan.
   const shopping = toShop.length > 0
-  const ready = readyToPlan(logs, shop.plan).slice(0, SUGGESTIONS)
+  const ready = readyToPlan(logs, shop.plan, today).slice(0, SUGGESTIONS)
 
   const listSection = (
     <section className="section">
@@ -105,7 +115,14 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
           <h3 className="aisle-title">{section.name}</h3>
           <ul className="checks checks-cart">
             {section.lines.map((line) => (
-              <GroceryRow key={line.ingredientId} line={line} shop={shop} track={track} onShopChange={onShopChange} />
+              <GroceryRow
+                key={line.ingredientId}
+                line={line}
+                shop={shop}
+                track={track}
+                onShopChange={onShopChange}
+                neighbor={neighborOf(line.ingredientId)}
+              />
             ))}
           </ul>
         </div>
@@ -357,7 +374,7 @@ function InPantryRow({ id, qty, onShopChange }: { id: IngredientId; qty: number;
           type="button"
           aria-disabled={busy}
           aria-label={`Put it on the list: ${inSentence(name)}`}
-          onClick={() => void run(() => focusAfter('grocery-title', () => setInPantry(id, false, onShopChange)))}
+          onClick={() => void run(() => focusAfter(`check:${id}`, () => setInPantry(id, false, onShopChange)))}
         >
           Put it on the list
         </button>
@@ -376,12 +393,15 @@ function GroceryRow({
   shop,
   track,
   onShopChange,
+  neighbor,
 }: {
   line: GroceryLine
   shop: Shop
   /** Counts the write while it runs, so Done shopping can wait for it. */
   track: (write: () => Promise<void>) => Promise<void>
   onShopChange: ShopChange
+  /** The focus target for when this line leaves the list. */
+  neighbor: string
 }) {
   const have = useWrite()
   const [editing, setEditing] = useState(false)
@@ -416,6 +436,7 @@ function GroceryRow({
       label={ingredient.name}
       note={`${packagesOf(line.packages, ingredient.package.label)}${uses}`}
       onChange={(next) => track(() => setChecked(line.ingredientId, next, onShopChange))}
+      focusTarget={`check:${line.ingredientId}`}
       aside={
         <span className="line-actions">
           <button
@@ -436,7 +457,7 @@ function GroceryRow({
               aria-disabled={have.busy}
               aria-label={`Have it: ${inSentence(ingredient.name)}`}
               onClick={() =>
-                void have.run(() => focusAfter('grocery-title', () => setInPantry(line.ingredientId, true, onShopChange)))
+                void have.run(() => focusAfter(neighbor, () => setInPantry(line.ingredientId, true, onShopChange)))
               }
             >
               Have it

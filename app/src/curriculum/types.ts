@@ -38,8 +38,11 @@ export interface RecipeContent {
   readonly equipment: readonly EquipmentId[]
   readonly ingredients: readonly RecipeIngredient[]
   readonly steps: readonly Step[]
-  /** What you would have ordered instead, at its in-app menu price per serving. */
-  readonly delivery: { readonly label: string; readonly menuPriceCents: number }
+  /**
+   * What you would have ordered instead, at its in-app menu price per serving.
+   * A side rides on another order, so it carries no delivery fee of its own.
+   */
+  readonly delivery: { readonly label: string; readonly menuPriceCents: number; readonly side: boolean }
   readonly pairing: Pairing
 }
 

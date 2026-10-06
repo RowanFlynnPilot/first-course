@@ -22,8 +22,34 @@ if ((accessToken !== null && refreshToken !== null) || failed) {
   window.history.replaceState(null, '', window.location.pathname + window.location.search)
 }
 
+/** Who an access token signs in: its user id and email, read from the token's payload, or null if it is not one. */
+function tokenOwner(token: string): { id: string; email: string | null } | null {
+  const payload = token.split('.')[1]
+  if (payload === undefined) return null
+  try {
+    // A link is anyone's to write, so a payload that is not a token is a broken link, not a bug.
+    const claims: unknown = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    if (typeof claims !== 'object' || claims === null) return null
+    const { sub, email } = claims as { sub?: unknown; email?: unknown }
+    return typeof sub === 'string' ? { id: sub, email: typeof email === 'string' ? email : null } : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * An email link that brought the cook here carrying a session, or null. The
+ * app checks whose it is before signing in with it: anyone can send a link
+ * carrying their own account's tokens, so a cook already signed in as
+ * someone else is asked first.
+ */
+export const emailLink =
+  accessToken !== null && refreshToken !== null
+    ? { accessToken, refreshToken, owner: tokenOwner(accessToken), recovery: landing.get('type') === 'recovery' }
+    : null
+
 /** The cook arrived from a password reset link, so the app asks for a new password first. */
-export const fromPasswordReset = accessToken !== null && landing.get('type') === 'recovery'
+export const fromPasswordReset = emailLink?.recovery === true
 
 /**
  * Why an email link that brought the cook here failed, in the app's own words,
@@ -37,10 +63,9 @@ export const linkError = failed
 
 export const supabase = createClient(url, key, { auth: { detectSessionInUrl: false } })
 
-/** Signing in from the link's tokens, or null when there were none. Rejects with why it failed. */
-export const landingSignIn: Promise<void> | null =
-  accessToken !== null && refreshToken !== null
-    ? supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ error }) => {
-        if (error) throw new Error(`That email link did not sign you in: ${error.message}`)
-      })
-    : null
+/** Signs in with an email link's tokens. Rejects with why it failed. */
+export async function signInFromLink(link: NonNullable<typeof emailLink>): Promise<void> {
+  if (link.owner === null) throw new Error('That email link did not work.')
+  const { error } = await supabase.auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
+  if (error) throw new Error(`That email link did not sign you in: ${error.message}`)
+}

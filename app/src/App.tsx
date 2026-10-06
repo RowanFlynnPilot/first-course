@@ -20,7 +20,9 @@ import { RecipeScreen } from './screens/RecipeScreen'
 import { SetPasswordScreen } from './screens/SetPasswordScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { SpicesScreen } from './screens/SpicesScreen'
-import { fromPasswordReset, landingSignIn, linkError, supabase } from './supabase'
+import { clearFocusTarget } from './components/useFocusTarget'
+import { usePageTitle } from './components/usePageTitle'
+import { emailLink, fromPasswordReset, linkError, signInFromLink, supabase } from './supabase'
 
 export default function App() {
   // undefined = still asking Supabase; null = signed out.
@@ -28,7 +30,9 @@ export default function App() {
   // A password reset link signs the cook in, and the new password comes before anything else.
   const [settingPassword, setSettingPassword] = useState(fromPasswordReset)
   // An email link's sign-in finishes before anything shows, so the sign-in screen never flashes first.
-  const [landed, setLanded] = useState(landingSignIn === null)
+  const [landed, setLanded] = useState(emailLink === null)
+  // The link signs in a different account from the one signed in here: asked first.
+  const [switching, setSwitching] = useState<{ from: string; to: string } | null>(null)
   // Why an email link that brought the cook here failed. Shown once, then
   // gone: it must not come back on the sign-in screen after a sign-out.
   const [linkProblem, setLinkProblem] = useState<string | null>(linkError)
@@ -36,10 +40,14 @@ export default function App() {
   // but the session is still good elsewhere until it expires. Said on the
   // sign-in screen, which is where the cook lands.
   const [signOutProblem, setSignOutProblem] = useState<string | null>(null)
+  // Whether supabase-js signed this phone out since Sign out was tapped. It
+  // does even when the server never hears it, unless the session could not be
+  // loaded at all (no signal and an expired token): then nothing changed.
+  const signedOut = useRef(false)
 
-  useEffect(() => {
-    if (landingSignIn === null) return
-    landingSignIn.then(
+  function land() {
+    if (emailLink === null) throw new Error('No email link to sign in with')
+    signInFromLink(emailLink).then(
       () => setLanded(true),
       (cause: Error) => {
         // A reset link that did not sign anyone in leaves no password to set.
@@ -48,14 +56,47 @@ export default function App() {
         setLanded(true)
       },
     )
+  }
+
+  useEffect(() => {
+    if (emailLink === null) return
+    const link = emailLink
+    void supabase.auth.getSession().then(({ data }) => {
+      const current = data.session?.user
+      if (current !== undefined && link.owner !== null && current.id !== link.owner.id) {
+        setSwitching({ from: current.email ?? 'another account', to: link.owner.email ?? 'another account' })
+        return
+      }
+      land()
+    })
   }, [])
 
   useEffect(() => {
     // Fires once on subscribe with the stored session, then on every change.
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'SIGNED_OUT') signedOut.current = true
+      if (next !== null) setSignOutProblem(null)
+      setSession(next)
+    })
     return () => data.subscription.unsubscribe()
   }, [])
 
+  if (switching !== null) {
+    return (
+      <SwitchAccount
+        {...switching}
+        onSwitch={() => {
+          setSwitching(null)
+          land()
+        }}
+        onStay={() => {
+          setSwitching(null)
+          setSettingPassword(false)
+          setLanded(true)
+        }}
+      />
+    )
+  }
   if (session === undefined || !landed) return <p className="status">Loading…</p>
   if (session === null) {
     return (
@@ -75,14 +116,42 @@ export default function App() {
       onLinkProblemSeen={() => setLinkProblem(null)}
       onSignOut={async () => {
         setSignOutProblem(null)
+        signedOut.current = false
         const { error } = await supabase.auth.signOut()
-        if (error) {
-          const problem = `Signed out on this phone, but the sign-out did not reach the server: ${error.message}`
-          setSignOutProblem(problem)
-          throw new Error(problem)
-        }
+        if (error === null) return
+        if (!signedOut.current) throw new Error(`Could not sign out: ${error.message}. Try again with signal.`)
+        const problem = `Signed out on this phone, but the sign-out did not reach the server: ${error.message}`
+        setSignOutProblem(problem)
+        throw new Error(problem)
       }}
     />
+  )
+}
+
+/**
+ * An email link for a different account from the one signed in here. Anyone
+ * can send a link that carries their own account, and signing in with it
+ * would quietly put this cook's cooks into it, so the cook chooses.
+ */
+function SwitchAccount({ from, to, onSwitch, onStay }: { from: string; to: string; onSwitch: () => void; onStay: () => void }) {
+  usePageTitle('Switch accounts?')
+  return (
+    <main className="page auth">
+      <h1 className="wordmark">First Course</h1>
+      <h2 className="section-title">Switch accounts?</h2>
+      <p>
+        This email link signs in as {to}. You are signed in here as {from}. If you did not ask for this email, stay
+        signed in.
+      </p>
+      <div className="actions">
+        <button className="button" type="button" onClick={onStay}>
+          Stay signed in as {from}
+        </button>
+        <button className="button button-quiet" type="button" onClick={onSwitch}>
+          Switch to {to}
+        </button>
+      </div>
+    </main>
   )
 }
 
@@ -105,6 +174,11 @@ function Kitchen({
   onLinkProblemSeen: () => void
   onSignOut: () => Promise<void>
 }) {
+  // The link problem is shown once, here, and the app forgets it, so a later sign-out does not bring it back.
+  const [linkShown, setLinkShown] = useState(linkProblem)
+  useEffect(() => {
+    if (linkShown !== null) onLinkProblemSeen()
+  }, [linkShown, onLinkProblemSeen])
   const [logs, setLogs] = useState<readonly CookLog[] | null>(null)
   // undefined = still loading; null = this account has not named a chef.
   const [chef, setChef] = useState<Chef | null | undefined>(undefined)
@@ -196,7 +270,12 @@ function Kitchen({
     )
   }
   if (logs === null || chef === undefined || shop === null) return <p className="status">Loading your kitchen…</p>
-  if (chef === null) return <NameChefScreen onCreated={setChef} />
+  // Creating the chef is a write like any other: a catch-up that was out meanwhile reads again.
+  function chefSaved(saved: Chef) {
+    writes.current += 1
+    setChef(saved)
+  }
+  if (chef === null) return <NameChefScreen onCreated={chefSaved} />
 
   // Every write's change applies to the latest state, never to what a screen
   // drew from, so two writes that land close together both stay.
@@ -217,12 +296,12 @@ function Kitchen({
 
   return (
     <HashRouter>
-      {linkProblem !== null && (
+      {linkShown !== null && (
         <div className="page page-alert">
           <p className="notice notice-error" role="alert">
-            {linkProblem} You are still signed in.
+            {linkShown} You are still signed in.
           </p>
-          <button className="link-button" type="button" onClick={onLinkProblemSeen}>
+          <button className="link-button" type="button" onClick={() => setLinkShown(null)}>
             Hide this
           </button>
         </div>
@@ -261,10 +340,7 @@ function Kitchen({
         }}
         onLogUpdated={(log) => changeLogs((previous) => previous.map((other) => (other.id === log.id ? log : other)))}
         onLogDeleted={(id) => changeLogs((previous) => previous.filter((other) => other.id !== id))}
-        onChefSaved={(saved) => {
-          writes.current += 1
-          setChef(saved)
-        }}
+        onChefSaved={chefSaved}
         onShopChange={changeShop}
         onSignOut={onSignOut}
       />
@@ -304,6 +380,8 @@ function Pages({
   // that already placed focus keeps it: the link that was tapped is still
   // there (Next step in cook mode), or a full-screen moment took it.
   useEffect(() => {
+    // A focus target named on the screen just left must not pull focus here.
+    clearFocusTarget()
     if (navigationType === 'POP') return
     window.scrollTo(0, 0)
     if (document.activeElement !== null && document.activeElement !== document.body) return

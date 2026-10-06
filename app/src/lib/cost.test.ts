@@ -26,7 +26,7 @@ const content: RecipeContent = {
     { ingredientId: 'butter', qty: 2, prep: null },
   ],
   steps: [{ text: 'Cook.', why: null, timer: null }],
-  delivery: { label: 'Eggs', menuPriceCents: 1000 },
+  delivery: { label: 'Eggs', menuPriceCents: 1000, side: false },
   pairing: { wine: 'Cava', principle: 'Bubbles cut richness', why: '' },
 }
 
@@ -48,6 +48,15 @@ describe('cost', () => {
   it('prices an order as every serving plus fees, tip and one delivery fee', () => {
     expect(orderCostCents(content)).toBe(Math.round(2000 * (1 + SERVICE_FEE_RATE + TIP_RATE)) + DELIVERY_FEE_CENTS)
     expect(keptPerCookCents(content, ESTIMATES)).toBe(orderCostCents(content) - cookCostCents(content, ESTIMATES))
+  })
+
+  it('prices a side as every serving plus fees and tip, with no delivery fee: it rides on another order', () => {
+    const side: RecipeContent = { ...content, delivery: { ...content.delivery, side: true } }
+    expect(orderCostCents(side)).toBe(Math.round(2000 * (1 + SERVICE_FEE_RATE + TIP_RATE)))
+    expect(orderCostCents(side)).toBe(orderCostCents(content) - DELIVERY_FEE_CENTS)
+    expect(keptPerCookCents(side, ESTIMATES)).toBe(orderCostCents(side) - cookCostCents(side, ESTIMATES))
+    expect(recipeById('chopped-salad').content.delivery.side).toBe(true)
+    expect(recipeById('oven-fries-aioli').content.delivery.side).toBe(true)
   })
 
   it('counts at most two servings as meals not ordered, against their share of the cook', () => {

@@ -7,7 +7,12 @@ import { DISCIPLINES, TECHNIQUES, type DisciplineId, type TechniqueId } from '..
 import type { Tier } from '../curriculum/types'
 import { learnedTechniques, recipeState, type CookLog, type Rating } from './progress'
 
-/** Only a recipe's first few cooks earn XP, so nobody levels up on grilled cheese alone. */
+/**
+ * Only a recipe's best few cooks earn XP, so nobody levels up on grilled
+ * cheese alone. The best, not the first: a cook who gets better at a dish is
+ * paid for it (Rowan's call, October 6, 2026; until then the first five
+ * counted, and almost nobody could reach executive chef).
+ */
 export const XP_COOKS_PER_RECIPE = 5
 export const XP_PER_SKILL = 50
 export const XP_PER_MASTERY = 100
@@ -20,8 +25,12 @@ export function cookXp(tier: Tier, rating: Rating): number {
 export function totalXp(logs: readonly CookLog[]): number {
   let xp = learnedTechniques(logs).size * XP_PER_SKILL
   for (const recipe of RECIPES) {
-    const counted = logs.filter((log) => log.recipeId === recipe.id).slice(0, XP_COOKS_PER_RECIPE)
-    for (const log of counted) xp += cookXp(recipe.tier, log.rating)
+    const best = logs
+      .filter((log) => log.recipeId === recipe.id)
+      .map((log) => log.rating)
+      .sort((a, b) => b - a)
+      .slice(0, XP_COOKS_PER_RECIPE)
+    for (const rating of best) xp += cookXp(recipe.tier, rating)
     if (recipeState(recipe, logs) === 'mastered') xp += XP_PER_MASTERY
   }
   return xp

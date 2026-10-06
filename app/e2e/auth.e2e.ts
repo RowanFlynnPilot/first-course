@@ -142,6 +142,31 @@ test.describe('signing in and creating a chef', () => {
     await expect(page.getByText('Cook this next')).toBeVisible()
   })
 
+  test('a link error left showing above the menu does not come back after a sign-out', async ({ page, kitchen }) => {
+    await kitchen.open('./#error=access_denied&error_code=otp_expired&error_description=x', FRESH)
+    await expect(page.getByRole('alert')).toHaveText('That email link has expired. You are still signed in.')
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+
+  test('a link for another account asks before switching, and staying keeps this one', async ({ page, kitchen }) => {
+    await kitchen.open(`./${kitchen.backend.strangerHash()}`, FRESH)
+    await expect(page.getByRole('heading', { name: 'Switch accounts?' })).toBeVisible()
+    await expect(page.getByText(`This email link signs in as someone.else@example.test. You are signed in here as ${EMAIL}.`)).toBeVisible()
+    await page.getByRole('button', { name: `Stay signed in as ${EMAIL}` }).click()
+    await expect(page.getByRole('link', { name: /Remy/ })).toBeVisible()
+    // No new password is asked for: the reset was for the other account.
+    await expect(page.getByRole('heading', { name: 'Set a new password' })).toHaveCount(0)
+  })
+
+  test('a link for another account can be followed when the cook chooses it', async ({ page, kitchen }) => {
+    await kitchen.open(`./${kitchen.backend.strangerHash()}`, FRESH)
+    await page.getByRole('button', { name: 'Switch to someone.else@example.test' }).click()
+    await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+    await expect(page.getByText('someone.else@example.test')).toBeVisible()
+  })
+
   test('a sign-out the server never heard says so', async ({ page, kitchen }) => {
     await kitchen.open('./', FRESH)
     kitchen.backend.failNext('auth/logout', 'POST', 'The server is away')
@@ -166,13 +191,13 @@ test.describe('signing in and creating a chef', () => {
 
   test('keeps everything after signing out and back in', async ({ page, kitchen }) => {
     await kitchen.open('./', { logs: [{ recipe: 'chopped-salad', rating: 2 }] })
-    await expect(page.getByText('$27.40')).toBeVisible()
+    await expect(page.getByText('$16.76')).toBeVisible()
     await page.getByRole('button', { name: 'Sign out' }).click()
     await page.getByLabel('Email').fill(EMAIL)
     await page.getByLabel('Password').fill(PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
-    await expect(page.getByText('$27.40')).toBeVisible()
+    await expect(page.getByText('$16.76')).toBeVisible()
   })
 
   test('Back after a reset link never lands on the link, or keeps its tokens in history', async ({ page, kitchen }) => {

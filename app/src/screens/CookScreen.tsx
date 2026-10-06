@@ -13,7 +13,6 @@ import { INGREDIENTS } from '../curriculum/ingredients'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 import { formatClock } from '../lib/format'
 import { cookable, lastNote, type CookLog } from '../lib/progress'
-import { clearTimers } from '../lib/timers'
 
 export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: ReadonlySet<EquipmentId> }) {
   const params = useParams()
@@ -40,7 +39,8 @@ function CookMode({
   // Step 0 is "get everything out"; steps 1..n are the method.
   const step = Number(stepParam)
   const last = content.steps.length
-  if (!Number.isInteger(step) || step < 0 || step > last) throw new Error(`${recipe.title} has no step ${stepParam}`)
+  // The step comes from the address bar, so the message does not repeat it.
+  if (!Number.isInteger(step) || step < 0 || step > last) throw new Error(`That step is not in ${recipe.title}.`)
 
   // Timers belong to the whole cook, not to one step, so a timer started on
   // step 3 keeps running while you read step 4, and through a reload.
@@ -55,7 +55,7 @@ function CookMode({
         event.preventDefault()
         return
       }
-      clearTimers(sessionStorage, recipe.id)
+      timers.end()
     }
   }
 
@@ -64,11 +64,12 @@ function CookMode({
   const timer = current === null ? null : current.timer
   const note = lastNote(recipe.id, logs)
   const elsewhere = timers.labels.filter((label) => label !== timer?.label)
-  // Timers on steps already passed that were never started: the cook tapped
-  // on without one, and the recipe gives no other "when".
-  const skipped = content.steps
-    .slice(0, Math.max(0, step - 1))
-    .flatMap((earlier) => (earlier.timer === null || timers.started(earlier.timer.label) ? [] : [earlier.timer]))
+  // The step just passed had a timer that was never started: the cook tapped
+  // on without it, and the recipe gives no other "when". Offered on this step
+  // only, so a cook who judged by eye is not asked again on every step.
+  const previous = step >= 2 ? content.steps[step - 2] : undefined
+  const skipped =
+    previous === undefined || previous.timer === null || timers.started(previous.timer.label) ? [] : [previous.timer]
 
   // A running timer belongs to the step whose timer has its label.
   function stepOfTimer(label: string): number {

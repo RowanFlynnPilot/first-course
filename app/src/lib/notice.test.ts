@@ -16,7 +16,7 @@ describe('the after-cook notice', () => {
     expect(notice.xpBefore).toBe(0)
     expect(notice.lines).toEqual([
       'Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.',
-      'Kept $27.40 by not ordering.',
+      'Kept $16.76 by not ordering.',
       'Learned knife basics and seasoning to taste.',
     ])
     // What opened up is a list of recipes, so the menu can link each one.
@@ -58,8 +58,11 @@ describe('the after-cook notice', () => {
     const two = [log(eggs.id, 2), log(eggs.id, 2)]
     expect(cookNotice(eggs, two, log(eggs.id, 3), 'Remy', ESTIMATES).lines).toContain('Soft scrambled eggs on toast is mastered.')
     const five = [...two, log(eggs.id, 3), log(eggs.id, 3), log(eggs.id, 3)]
-    expect(cookNotice(eggs, five, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe(
-      'Soft scrambled eggs on toast: Nailed it. No XP this time. A recipe pays out for its first 5 cooks.',
+    // A Nailed it still beats one of the two Decents among the best five: tier 1, 30 for 20.
+    expect(cookNotice(eggs, five, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe('Soft scrambled eggs on toast: Nailed it. +10 XP.')
+    const nailedFive = Array.from({ length: 5 }, () => log(eggs.id, 3))
+    expect(cookNotice(eggs, nailedFive, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe(
+      "Soft scrambled eggs on toast: Nailed it. No XP this time: a recipe's best 5 cooks count, and this one did not beat them.",
     )
   })
 

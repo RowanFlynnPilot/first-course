@@ -225,6 +225,8 @@ describe('written recipes', () => {
   })
 
   it('list every tool a step names, so the kit is honest', () => {
+    // The verb, not the noun: "slice the garlic", never "a slice of bread".
+    const cuts = /\b(slice|chop|mince|dice|cut) (the|it|them|a|an|into|in|each|both|one|crosswise|thin)\b/i
     // Nouns only: "whisk" and "board" are left out because they are also verbs or too vague.
     const tools: readonly [RegExp, readonly EquipmentId[]][] = [
       [/paper towel/i, ['paper-towels']],
@@ -235,6 +237,8 @@ describe('written recipes', () => {
       [/\bthermometer\b/i, ['thermometer']],
       [/oven mitt/i, ['oven-mitts']],
       [/plastic wrap/i, ['plastic-wrap']],
+      // The verb: "wrap the rest for the fridge", "wrap it in the plastic wrap". Never "unwrap" or "the wrap".
+      [/\bwrap (?:the|it|them)\b/i, ['plastic-wrap']],
       [/\bparchment\b/i, ['parchment']],
       [/\bfoil\b/i, ['foil']],
       [/\bladle\b/i, ['ladle']],
@@ -247,8 +251,9 @@ describe('written recipes', () => {
       [/kitchen towel|folded towel/i, ['kitchen-towels']],
       [/\bsheet pan\b/i, ['sheet-pan']],
       [/\bsaucepan\b/i, ['small-saucepan', 'medium-saucepan']],
-      // The verb, not the noun: "slice the garlic", never "a slice of bread".
-      [/\b(slice|chop|mince|dice|cut) (the|it|them|a|an|into|in|each|both|one|crosswise|thin)\b/i, ['chefs-knife']],
+      // A cut needs the knife, and the board under it.
+      [cuts, ['chefs-knife']],
+      [cuts, ['cutting-board']],
       [/\bcutting board\b|\bthe board\b/i, ['cutting-board']],
       [/\bopen the can\b/i, ['can-opener']],
     ]

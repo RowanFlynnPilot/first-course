@@ -16,8 +16,10 @@
     <link rel="preload" href="/fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
-    <!-- Shown until the app's script runs, so a slow phone sees words, not a blank page. React replaces it. -->
-    <div id="root"><p style="padding: 3rem 1.25rem; text-align: center; color: #566074; font-family: system-ui, sans-serif">Loading…</p></div>
+    <!-- Shown until the app's script runs, so a slow phone sees words, not a blank page. React replaces it.
+         The built page links the stylesheet before the script, so .status is styled; no inline style, which the
+         content security policy would refuse. -->
+    <div id="root"><p class="status">Loading…</p></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

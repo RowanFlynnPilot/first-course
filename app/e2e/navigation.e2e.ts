@@ -101,7 +101,7 @@ test.describe('moving between screens', () => {
     await show('hidden')
     await page.clock.fastForward('11:00')
     await show('visible')
-    await expect(page.locator('.kept')).toHaveText('$27.40 kept by cooking')
+    await expect(page.locator('.kept')).toHaveText('$16.76 kept by cooking')
   })
 
   test('zoomed far in, no screen runs off the side', async ({ page, kitchen }) => {

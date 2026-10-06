@@ -1,3 +1,5 @@
+import { RECIPES, recipeById } from '../src/curriculum/recipes'
+import { pathTo } from '../src/lib/progress'
 import { expect, FRESH, SALAD_DONE, test } from './kitchen'
 
 // Knowing the next move, and keeping your place: the fourth review's
@@ -57,6 +59,29 @@ test.describe('the next move', () => {
     await expect(page.locator('.tab-kept')).toContainText('For 1 serving')
   })
 
+  test('the menu rests a dish cooked in the last week, and suggests something else', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-03T18:00:00-05:00') })
+    await kitchen.open('./', { logs: [{ recipe: 'chopped-salad', rating: 1, cookedOn: '2026-10-02' }] })
+    // A Rough salad yesterday: not the salad again tonight.
+    await expect(page.getByRole('heading', { name: 'Cook this next: Soft scrambled eggs on toast' })).toBeVisible()
+  })
+
+  test('once a dish of the usual is in reach, the menu suggests it first', async ({ page, kitchen }) => {
+    const burger = recipeById('double-smash-burger')
+    await kitchen.open('./', { logs: pathTo(burger, []).map((recipe) => ({ recipe: recipe.id, rating: 2 as const })) })
+    await expect(page.getByRole('heading', { name: 'Cook this next: Double smash burger with oven fries' })).toBeVisible()
+  })
+
+  test('with everything mastered, the menu still has a suggestion, and This week still has recipes', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-30T18:00:00-05:00') })
+    const everything = RECIPES.flatMap((recipe) => [2, 2, 3].map((rating) => ({ recipe: recipe.id, rating: rating as 2 | 3 })))
+    await kitchen.open('./', { logs: everything })
+    await expect(page.locator('.tray-body')).toContainText('Mastered, and not cooked since')
+    await expect(page.getByText('What you used to order. You have mastered every one of them.')).toBeVisible()
+    await page.getByRole('link', { name: 'This week' }).click()
+    await expect(page.getByRole('button', { name: /^Add .* to this week$/ })).toHaveCount(4)
+  })
+
   test('This week offers at most four recipes to add', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', {
       logs: [
@@ -78,6 +103,15 @@ test.describe('cook mode', () => {
     await chip.click()
     await expect(page.getByRole('link', { name: /^Potatoes: 1[45]:\d\d$/ })).toBeVisible()
     await expect(chip).toHaveCount(0)
+  })
+
+  test('a skipped timer is offered on the next step only, so judging by eye is not nagged', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
+    await page.getByRole('link', { name: 'Next step' }).click()
+    await expect(page.getByRole('button', { name: 'Potatoes: start 15:00' })).toBeVisible()
+    await page.getByRole('link', { name: 'Next step' }).click()
+    await expect(page.getByText(/^Step 5 of /)).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Potatoes: start/ })).toHaveCount(0)
   })
 
   test('a timer stopped on purpose does not come back as one to start', async ({ page, kitchen }) => {
@@ -125,3 +159,40 @@ test.describe('keeping your place', () => {
     await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeFocused()
   })
 })
+
+test.describe('limits and the page itself', () => {
+  test('a price over $1,000 is refused in plain words', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['chopped-salad'] })
+    await page.getByRole('button', { name: /correct the price of lemon/i }).click()
+    await page.getByLabel(/Lemon/).fill('1500')
+    await page.getByRole('button', { name: 'Save price' }).click()
+    await expect(page.getByRole('alert')).toHaveText('That is more than $1,000. Enter the price of one package, like 3.49.')
+    expect(kitchen.backend.table('price_overrides')).toEqual([])
+  })
+
+  test('notes stop at 2,000 characters, as the database does', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/chopped-salad/log', FRESH)
+    await expect(page.getByLabel('Notes for next time')).toHaveAttribute('maxlength', '2000')
+  })
+
+  test('a recipe page with cooks links to them from the top', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/chopped-salad', {
+      logs: [
+        { recipe: 'chopped-salad', rating: 2, cookedOn: '2026-09-20' },
+        // Logged later, for an earlier day: listed by the day it was cooked.
+        { recipe: 'chopped-salad', rating: 3, cookedOn: '2026-09-10' },
+      ],
+    })
+    await page.getByRole('button', { name: '2 cooks, last Sep 20, 2026' }).click()
+    await expect(page.getByRole('heading', { name: 'Your cooks' })).toBeFocused()
+    await expect(page.locator('.history .row-title')).toHaveText([/^Decent, Sep 20, 2026/, /^Nailed it, Sep 10, 2026/])
+  })
+
+  test('the page carries a content security policy that allows only itself and Supabase', async ({ page, kitchen }) => {
+    await kitchen.open('./', FRESH)
+    const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')
+    expect(policy).toContain("script-src 'self'")
+    expect(policy).toContain("connect-src 'self' https://e2e.supabase.test")
+  })
+})
+

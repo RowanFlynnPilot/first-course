@@ -12,7 +12,7 @@
 // and a timer that runs out first rings once at that tap.
 
 import { useEffect, useRef, useState } from 'react'
-import { dueTimers, loadTimers, saveTimers, shownTimers, stopped, type Timers } from '../lib/timers'
+import { clearTimers, dueTimers, loadTimers, saveTimers, shownTimers, stopped, type Timers } from '../lib/timers'
 
 const TICK_MS = 250
 const RING_EVERY_MS = 5000
@@ -70,9 +70,13 @@ export function useCookTimers(recipeId: string) {
   const lastRing = useRef(0)
   const ringingSince = useRef(new Map<string, number>())
 
+  // Once the cook is over (left, or logged), nothing is saved again: a ring's
+  // tap can still land after the timers were cleared, and must not bring them back.
+  const over = useRef(false)
+
   useEffect(() => {
     latest.current = timers
-    saveTimers(sessionStorage, recipeId, timers)
+    if (!over.current) saveTimers(sessionStorage, recipeId, timers)
   }, [recipeId, timers])
 
   useEffect(() => {
@@ -174,6 +178,11 @@ export function useCookTimers(recipeId: string) {
       setSoundOn(true)
       ringingSince.current.delete(label)
       setTimers((previous) => ({ ...previous, [label]: { endsAt: Date.now() + seconds * 1000, rang: false, stopped: false } }))
+    },
+    /** The cook is over: every timer for the recipe goes, for good. */
+    end() {
+      over.current = true
+      clearTimers(sessionStorage, recipeId)
     },
     stop(label: string) {
       ringingSince.current.delete(label)

@@ -41,20 +41,20 @@ test.describe('cooking and logging', () => {
 
     await expect(noticeLines(page)).toHaveText([
       'Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.',
-      'Kept $27.40 by not ordering.',
+      'Kept $16.76 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
-      'You cooked with 7 things not ticked in your kit. Add them to your kit',
+      'You cooked with 8 things not ticked in your kit. Add them to your kit',
     ])
     // Focus is on what the cook earned, so a screen reader reads it first.
     await expect(page.getByRole('status')).toBeFocused()
     // The tools the cook plainly owns now go into the kit in one tap.
     await page.getByRole('button', { name: 'Add them to your kit' }).click()
-    await expect(page.getByText('Added 7 things to your kit.')).toBeFocused()
-    expect(kitchen.backend.table('kit_items')).toHaveLength(7)
+    await expect(page.getByText('Added 8 things to your kit.')).toBeFocused()
+    expect(kitchen.backend.table('kit_items')).toHaveLength(8)
     await expect(page.getByRole('status').getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
-    await expect(page.locator('.kept')).toHaveText('$27.40 kept by cooking')
+    await expect(page.locator('.kept')).toHaveText('$16.76 kept by cooking')
     // The yolk lands on the plate just cooked, and only there.
     await expect(page.locator('.plate-celebrate')).toHaveCount(1)
     await expect(page.getByRole('link', { name: /Chopped salad/ }).locator('.plate-celebrate')).toHaveCount(1)

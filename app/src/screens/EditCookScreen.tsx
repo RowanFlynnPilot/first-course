@@ -7,7 +7,7 @@ import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { recipeById } from '../curriculum/recipes'
-import { deleteCookLog, updateCookLog } from '../lib/cookLogs'
+import { deleteCookLog, NOTES_MAX, updateCookLog } from '../lib/cookLogs'
 import { checkCookedOn, listOf, localDateString, skillList } from '../lib/format'
 import { progressLost, type CookLog, type Rating } from '../lib/progress'
 
@@ -110,7 +110,7 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
         <RatingPicker value={rating} onChange={setRating} describedBy={saveWarning === null ? undefined : 'save-warning'} />
         <label className="field">
           Notes for next time
-          <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
+          <textarea maxLength={NOTES_MAX} rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
         </label>
         <label className="field">
           Cooked on

@@ -16,12 +16,13 @@ import { badgeById } from '../lib/badges'
 import { updateChef, type Chef } from '../lib/chefs'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents } from '../lib/cost'
 import { extraById, wornExtras, type ExtraId } from '../lib/extras'
-import { COURSE_NAMES, formatCents, formatMinutes, inSentence, listOf, localDateString, plural } from '../lib/format'
+import { COURSE_NAMES, formatCents, formatCookedOn, formatMinutes, inSentence, listOf, localDateString, plural } from '../lib/format'
 import { hasKit, kitByCourse, missingKit } from '../lib/kit'
 import { levelForXp, rankIndexForLevel, RANKS, totalXp, type RankIndex } from '../lib/leveling'
 import type { CookNotice } from '../lib/notice'
 import {
   goodCooks,
+  lastCooked,
   learnedTechniques,
   missingTechniques,
   nextRecipe,
@@ -68,7 +69,6 @@ export function MenuScreen({
   onSignOut: () => Promise<void>
 }) {
   usePageTitle(null)
-  const next = nextRecipe(logs, shop.plan, shop.shopped)
   const usual = RECIPES.filter((recipe) => recipe.tier === 5)
   const learned = learnedTechniques(logs)
   const xp = totalXp(logs)
@@ -76,6 +76,7 @@ export function MenuScreen({
   const rank = rankIndexForLevel(level)
   // The cook's local date, read once: the streak counts weeks where the cook is standing.
   const [today] = useState(() => localDateString(new Date()))
+  const next = nextRecipe(logs, shop.plan, shop.shopped, today)
   const streak = currentStreak(logs, today)
 
   // Each moment holds the screen until the cook moves on. The menu's own
@@ -150,7 +151,7 @@ export function MenuScreen({
 
         <UpNext
           recipe={next}
-          plan={next === null || !shop.plan.includes(next.id) ? null : shop.shopped.has(next.id) ? 'bought' : 'planned'}
+          plan={!shop.plan.includes(next.id) ? null : shop.shopped.has(next.id) ? 'bought' : 'planned'}
           logs={logs}
           shop={shop}
           onShopChange={onShopChange}
@@ -165,7 +166,11 @@ export function MenuScreen({
 
         <section className="section">
           <h2 className="section-title">{COURSE_NAMES[5]}</h2>
-          <p className="section-note">What you order now. Everything below builds toward cooking these.</p>
+          <p className="section-note">
+            {usual.every((recipe) => recipeState(recipe, logs) === 'mastered')
+              ? 'What you used to order. You have mastered every one of them.'
+              : 'What you order now. Everything below builds toward cooking these.'}
+          </p>
           <ul className="usual">
             {usual.map((recipe) => {
               const state = recipeState(recipe, logs)
@@ -417,7 +422,7 @@ function UpNext({
   shop,
   onShopChange,
 }: {
-  recipe: Recipe | null
+  recipe: Recipe
   /** Whether the suggestion is on this week's plan, and its groceries bought. */
   plan: 'bought' | 'planned' | null
   logs: readonly CookLog[]
@@ -425,17 +430,9 @@ function UpNext({
   onShopChange: ShopChange
 }) {
   const add = useWrite()
-  if (recipe === null) {
-    return (
-      <section className="tray">
-        <p className="tray-body">
-          You have mastered every recipe on the menu, the usual included. Nothing you order is out of reach.
-        </p>
-      </section>
-    )
-  }
   const { content } = recipe
   const state = recipeState(recipe, logs)
+  const last = lastCooked(recipe, logs)
   const label =
     plan === 'bought'
       ? 'Groceries bought'
@@ -464,6 +461,8 @@ function UpNext({
         <p className="tray-body">
           {formatMinutes(content.totalMinutes)}. {formatCents(cookCostPerServingCents(content, shop.prices))} a serving
           instead of {formatCents(orderCostPerServingCents(content))} delivered.
+          {/* Once it is all mastered, the suggestion is whatever has waited longest. */}
+          {state === 'mastered' && last !== null && ` Mastered, and not cooked since ${formatCookedOn(last)}.`}
         </p>
         <div className="actions">
           {plan === null && (

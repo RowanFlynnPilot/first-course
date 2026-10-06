@@ -11,6 +11,7 @@ import {
   totalXp,
   xpForLevel,
   XP_COOKS_PER_RECIPE,
+  XP_PER_MASTERY,
 } from './leveling'
 import type { CookLog, Rating } from './progress'
 
@@ -48,6 +49,16 @@ describe('xp', () => {
     const many = Array.from({ length: XP_COOKS_PER_RECIPE + 4 }, () => log('grilled-cheese', 3))
     const capped = many.slice(0, XP_COOKS_PER_RECIPE)
     expect(totalXp(many)).toBe(totalXp(capped))
+  })
+
+  it('pays for the best five cooks of a recipe, so getting better counts', () => {
+    // Five Decents, then a Nailed it: the Nailed it replaces a Decent among the five that count.
+    // (The Nailed it also masters the eggs.)
+    const decent = Array.from({ length: XP_COOKS_PER_RECIPE }, () => log('soft-scrambled-eggs', 2))
+    const better = [...decent, log('soft-scrambled-eggs', 3)]
+    expect(totalXp(better) - totalXp(decent)).toBe(cookXp(1, 3) - cookXp(1, 2) + XP_PER_MASTERY)
+    // A Rough after five good cooks changes nothing.
+    expect(totalXp([...better, log('soft-scrambled-eggs', 1)])).toBe(totalXp(better))
   })
 
   it('never goes down when a cook is added', () => {

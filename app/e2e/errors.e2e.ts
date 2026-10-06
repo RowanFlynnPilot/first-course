@@ -29,13 +29,14 @@ test.describe('error paths', () => {
   test('an unknown recipe id says so', async ({ page, kitchen }) => {
     kitchen.expectErrorScreen()
     await kitchen.open('#/recipe/beef-wellington', FRESH)
-    await expect(page.getByRole('alert')).toHaveText('Unknown recipe id: beef-wellington')
+    // The id came from the address bar, which anyone can write, so the message never repeats it.
+    await expect(page.getByRole('alert')).toHaveText('That recipe is not on the menu.')
   })
 
   test('a step past the end says so', async ({ page, kitchen }) => {
     kitchen.expectErrorScreen()
     await kitchen.open('#/cook/chopped-salad/99', FRESH)
-    await expect(page.getByRole('alert')).toHaveText('Chopped salad with lemon vinaigrette has no step 99')
+    await expect(page.getByRole('alert')).toHaveText('That step is not in Chopped salad with lemon vinaigrette.')
   })
 
   test('a cook log that cannot load says so, and trying again loads it', async ({ page, kitchen }) => {

@@ -26,8 +26,9 @@ describe('the kit', () => {
 
   it('says what a recipe still needs', () => {
     const salad = recipeById('chopped-salad')
-    expect(missingKit([salad], new Set())).toEqual(['chefs-knife', 'cutting-board', 'measuring-spoons', 'large-bowl', 'small-bowl', 'fork', 'paper-towels'])
-    expect(missingKit([salad], new Set<EquipmentId>(['chefs-knife', 'cutting-board', 'measuring-spoons', 'large-bowl', 'small-bowl', 'fork', 'paper-towels']))).toEqual([])
+    const all: EquipmentId[] = ['chefs-knife', 'cutting-board', 'measuring-spoons', 'large-bowl', 'small-bowl', 'fork', 'paper-towels', 'plastic-wrap']
+    expect(missingKit([salad], new Set())).toEqual(all)
+    expect(missingKit([salad], new Set<EquipmentId>(all))).toEqual([])
   })
 
   it('files each item under the first course that needs it, once', () => {

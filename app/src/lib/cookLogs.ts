@@ -4,6 +4,12 @@ import type { CookLog, Rating } from './progress'
 
 const COLUMNS = 'id, recipe_id, cooked_on, rating, notes'
 
+/** The longest note a cook can hold, as the database checks it (00008). The note fields stop there. */
+export const NOTES_MAX = 2000
+
+/** Rows per read. The Data API returns at most 1,000 at a time, and a keen cook passes that in a few years. */
+const PAGE = 1000
+
 interface CookLogRow {
   id: string
   recipe_id: string
@@ -32,9 +38,18 @@ function toCookLog(row: CookLogRow): CookLog {
 }
 
 export async function fetchCookLogs(): Promise<CookLog[]> {
-  const { data, error } = await supabase.from('cook_logs').select(COLUMNS).order('created_at')
-  if (error) throw new Error(`Could not load your cook log: ${error.message}`)
-  return (data as CookLogRow[]).map(toCookLog)
+  const rows: CookLogRow[] = []
+  for (;;) {
+    const { data, error } = await supabase
+      .from('cook_logs')
+      .select(COLUMNS)
+      .order('created_at')
+      .order('id')
+      .range(rows.length, rows.length + PAGE - 1)
+    if (error) throw new Error(`Could not load your cook log: ${error.message}`)
+    rows.push(...(data as CookLogRow[]))
+    if (data.length < PAGE) return rows.map(toCookLog)
+  }
 }
 
 /**

@@ -4,6 +4,7 @@
 // failed write says why under the row and leaves the box as it was.
 
 import type { ReactNode } from 'react'
+import { useFocusTarget } from './useFocusTarget'
 import { useWrite } from './useWrite'
 
 export function CheckRow({
@@ -13,6 +14,7 @@ export function CheckRow({
   note,
   aside,
   error: asideError,
+  focusTarget,
 }: {
   checked: boolean
   onChange: (checked: boolean) => Promise<void>
@@ -22,14 +24,23 @@ export function CheckRow({
   aside?: ReactNode
   /** Why a write from the aside failed, shown under the row like the box's own. */
   error?: string | null
+  /** The name a write uses to put focus on this box (see useFocusTarget). */
+  focusTarget?: string
 }) {
   const { busy, error, run } = useWrite()
+  const box = useFocusTarget<HTMLInputElement>(focusTarget ?? '')
   return (
     <li className={checked ? 'check check-on' : 'check'}>
       <div className="check-line">
         <label className="check-label">
           {/* aria-disabled, not disabled: a disabled box drops focus to the top of the page. useWrite ignores the tap. */}
-          <input type="checkbox" checked={checked} aria-disabled={busy} onChange={() => void run(() => onChange(!checked))} />
+          <input
+            ref={box}
+            type="checkbox"
+            checked={checked}
+            aria-disabled={busy}
+            onChange={() => void run(() => onChange(!checked))}
+          />
           <span>
             <span className="row-title">{label}</span>
             {busy ? <span className="row-note">Saving…</span> : note !== undefined && <span className="row-note">{note}</span>}

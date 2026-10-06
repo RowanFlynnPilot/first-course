@@ -35,7 +35,7 @@ test.describe('weak signal and other devices', () => {
     const readAgain = page.waitForRequest(isRead('cook_logs'))
     release()
     await readAgain
-    await expect(page.locator('.kept')).toHaveText('$27.40 kept by cooking')
+    await expect(page.locator('.kept')).toHaveText('$16.76 kept by cooking')
     await expect(page.locator('a.row').filter({ hasText: 'Chopped salad' })).toContainText('1 of 3 good cooks')
   })
 
@@ -139,7 +139,7 @@ test.describe('weak signal and other devices', () => {
     // What was on screen stays.
     await expect(page.locator('.kept')).toHaveText('$0.00 kept by cooking')
     await page.getByRole('button', { name: 'Try again' }).click()
-    await expect(page.locator('.kept')).toHaveText('$27.40 kept by cooking')
+    await expect(page.locator('.kept')).toHaveText('$16.76 kept by cooking')
     await expect(page.getByRole('alert')).toHaveCount(0)
   })
 
@@ -164,6 +164,29 @@ test.describe('weak signal and other devices', () => {
     await expect(page.getByRole('status')).toContainText('Kosher salt went into your pantry.')
     await expect(page.getByRole('status')).toBeFocused()
     expect(kitchen.backend.table('pantry_items').map((row) => row.ingredient_id)).toEqual(['kosher-salt'])
+  })
+
+  test('a second tap on Done shopping while the first is out asks nothing', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['chopped-salad'], checks: ['lemon'] })
+    const asked: string[] = []
+    page.on('dialog', (dialog) => {
+      asked.push(dialog.message())
+      void dialog.accept()
+    })
+    const release = kitchen.backend.holdNext('rpc/finish_shopping', 'POST')
+    const done = page.getByRole('button', { name: 'Done shopping' })
+    await done.click()
+    await expect(done).toHaveAttribute('aria-disabled', 'true')
+    await done.click({ force: true })
+    release()
+    await expect(page.getByRole('status')).toContainText('Done shopping.')
+    expect(asked).toHaveLength(1)
+  })
+
+  test('a log of more than a thousand cooks loads in full', async ({ page, kitchen }) => {
+    const many = Array.from({ length: 1005 }, (_, index) => ({ recipe: index % 2 === 0 ? 'chopped-salad' : 'soft-scrambled-eggs', rating: 2 as const }))
+    await kitchen.open('#/chef', { logs: many })
+    await expect(page.locator('.record')).toContainText('1005')
   })
 
   test('a cook dated a day ahead on another device still takes a change of notes', async ({ page, kitchen }) => {

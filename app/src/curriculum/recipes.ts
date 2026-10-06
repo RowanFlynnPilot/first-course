@@ -25,7 +25,7 @@ export const RECIPES: readonly Recipe[] = [
       servings: 2,
       activeMinutes: 15,
       totalMinutes: 15,
-      equipment: ['chefs-knife', 'cutting-board', 'large-bowl', 'small-bowl', 'fork', 'paper-towels', 'measuring-spoons'],
+      equipment: ['chefs-knife', 'cutting-board', 'large-bowl', 'small-bowl', 'fork', 'paper-towels', 'measuring-spoons', 'plastic-wrap'],
       ingredients: [
         { ingredientId: 'tomato', qty: 2, prep: 'cut into bite-size chunks' },
         { ingredientId: 'cucumber', qty: 1, prep: 'halved lengthwise, sliced into half-moons' },
@@ -78,7 +78,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Greek salad', menuPriceCents: 1200 },
+      delivery: { label: 'Side Greek salad', menuPriceCents: 950, side: true },
       pairing: {
         wine: 'Sauvignon Blanc',
         principle: 'Match acid with acid',
@@ -118,17 +118,17 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Put the skillet over medium-low heat and add 1 tablespoon of the butter. Wait until it melts and foams gently. If it sizzles loudly or starts to brown, put on an oven mitt and lift the pan off the burner by its handle for 20 seconds.',
-          why: 'Butter is your thermometer. A gentle foam means the pan is right for eggs. A handle can get hot on the burner, so keep the mitt on whenever you hold it.',
+          text: 'Put an oven mitt on the hand that holds the pan, and keep it on until the eggs are off the heat. Put the skillet over medium-low heat and add 1 tablespoon of the butter. Wait until it melts and foams gently. If it sizzles loudly or starts to brown, lift the pan off the burner by its handle for 20 seconds.',
+          why: 'Butter is your thermometer. A gentle foam means the pan is right for eggs. A handle can get hot on the burner, which is what the mitt is for.',
           timer: null,
         },
         {
           text: 'Pour in the eggs. Stir slowly and constantly with the spatula, scraping the bottom and sides, as soft curds form. This takes about 3 minutes.',
-          why: 'If curds form faster than you can stir, lift the pan off the heat with an oven mitt on the handle and keep stirring. Moving the pan is how you turn the heat down instantly.',
+          why: 'If curds form faster than you can stir, lift the pan off the heat, oven mitt still on, and keep stirring. Moving the pan is how you turn the heat down instantly.',
           timer: null,
         },
         {
-          text: 'Turn off the burner and, with an oven mitt on the handle, take the pan off it while the eggs still look slightly wet and glossy.',
+          text: 'Turn off the burner and, with the oven mitt, take the pan off it while the eggs still look slightly wet and glossy.',
           why: 'Eggs keep cooking from their own heat. If they look done in the pan, they will be overdone on the plate.',
           timer: null,
         },
@@ -138,7 +138,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Eggs and toast breakfast plate', menuPriceCents: 1100 },
+      delivery: { label: 'Eggs and toast breakfast plate', menuPriceCents: 1100, side: false },
       pairing: {
         wine: 'Cava or another dry sparkling wine',
         principle: 'Bubbles cut richness',
@@ -156,8 +156,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['knife-basics', 'heat-control'],
     content: {
       servings: 2,
-      activeMinutes: 20,
-      totalMinutes: 30,
+      activeMinutes: 25,
+      totalMinutes: 40,
       equipment: [
         'large-pot',
         'large-skillet',
@@ -181,7 +181,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Before any heat, peel the garlic. Pull 6 cloves off the head. Lay one on the board under the flat of the knife and press with the heel of your hand until the skin cracks. Peel it off and cut away the hard tip at the root end. Do the rest the same way.',
+          text: 'Before any heat, peel the garlic. Pull 6 cloves off the head. Lay one on the board under the flat of the knife and press gently with the heel of your hand, just until the skin cracks; a crushed clove will not slice thin. Peel it off and cut away the hard tip at the root end. Do the rest the same way.',
           why: 'Pressing cracks the papery skin, so it slips off. Keep the rest of the head somewhere cool and dry, not in the fridge.',
           timer: null,
         },
@@ -226,7 +226,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Spaghetti aglio e olio', menuPriceCents: 1600 },
+      delivery: { label: 'Spaghetti aglio e olio', menuPriceCents: 1600, side: false },
       pairing: {
         wine: 'Vermentino or Pinot Grigio',
         principle: 'What grows together goes together',
@@ -245,8 +245,8 @@ export const RECIPES: readonly Recipe[] = [
     content: {
       servings: 1,
       activeMinutes: 10,
-      totalMinutes: 12,
-      equipment: ['small-nonstick-skillet', 'skillet-lid', 'spatula', 'butter-knife', 'chefs-knife', 'cutting-board'],
+      totalMinutes: 30,
+      equipment: ['small-nonstick-skillet', 'skillet-lid', 'spatula', 'butter-knife', 'chefs-knife', 'cutting-board', 'plastic-wrap'],
       ingredients: [
         { ingredientId: 'sandwich-bread', qty: 2, prep: null },
         { ingredientId: 'butter', qty: 1, prep: 'softened' },
@@ -254,7 +254,12 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Slice a quarter of the cheddar block thin, and wrap the rest tightly for the fridge, where it keeps for weeks. Spread the butter over one side of each slice of bread, all the way to the edges.',
+          text: 'Set 1 tablespoon of butter and 2 slices of bread on the counter for 20 minutes, so the butter spreads and frozen bread thaws. Start the timer and go straight on to the next step.',
+          why: 'Cold butter tears the bread and leaves bare patches. Keep the rest of the loaf in the freezer.',
+          timer: { seconds: 1200, label: 'Softening' },
+        },
+        {
+          text: 'Cut 2 ounces off the cheddar, a quarter of a new 8-ounce block, and slice it thin. Wrap the rest tightly for the fridge, where it keeps for weeks. When the timer ends, spread the butter over one side of each slice of bread, all the way to the edges.',
           why: 'Bare spots stay pale or burn. Edge-to-edge fat means edge-to-edge browning.',
           timer: null,
         },
@@ -279,7 +284,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 60, label: 'Rest' },
         },
       ],
-      delivery: { label: 'Grilled cheese sandwich', menuPriceCents: 1000 },
+      delivery: { label: 'Grilled cheese sandwich', menuPriceCents: 1000, side: false },
       pairing: {
         wine: 'Beaujolais (Gamay)',
         principle: 'High acid and low tannin for rich, salty food',
@@ -299,7 +304,7 @@ export const RECIPES: readonly Recipe[] = [
       servings: 2,
       activeMinutes: 15,
       totalMinutes: 35,
-      equipment: ['small-saucepan', 'strainer', 'measuring-cups', 'small-nonstick-skillet', 'spatula', 'fork', 'measuring-spoons', 'chefs-knife'],
+      equipment: ['small-saucepan', 'strainer', 'measuring-cups', 'small-nonstick-skillet', 'spatula', 'fork', 'measuring-spoons', 'chefs-knife', 'cutting-board'],
       ingredients: [
         { ingredientId: 'jasmine-rice', qty: 1, prep: null },
         { ingredientId: 'eggs', qty: 2, prep: null },
@@ -340,7 +345,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Rice bowl with egg', menuPriceCents: 1000 },
+      delivery: { label: 'Rice bowl with egg', menuPriceCents: 1000, side: false },
       pairing: {
         wine: 'Off-dry Riesling',
         principle: 'A little sweetness for salty, savory food',
@@ -358,8 +363,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['knife-basics', 'seasoning'],
     content: {
       servings: 3,
-      activeMinutes: 15,
-      totalMinutes: 50,
+      activeMinutes: 25,
+      totalMinutes: 55,
       equipment: ['sheet-pan', 'oven-mitts', 'chefs-knife', 'cutting-board', 'large-bowl', 'spatula', 'fork', 'measuring-spoons'],
       ingredients: [
         { ingredientId: 'kielbasa', qty: 1, prep: 'sliced into ½-inch coins' },
@@ -413,7 +418,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Sausage and roasted vegetable plate', menuPriceCents: 1500 },
+      delivery: { label: 'Sausage and roasted vegetable plate', menuPriceCents: 1500, side: false },
       pairing: {
         wine: 'Côtes du Rhône',
         principle: 'Match weight with weight',
@@ -467,7 +472,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Lay each half flat side down and slice it thin from the cut end toward the root, stopping just short of the root so the slices stay joined. Slice across them to make pieces about the size of a pea, and throw the root end away. Slice the garlic thin.',
+          text: 'Lay each half flat side down and slice it thin from the cut end toward the root, stopping just short of the root so the slices stay joined. Slice across them to make pieces about the size of a pea, and throw the root end away. Slice the garlic thin. Open the can of tomatoes and set it by the stove.',
           why: 'Small pieces melt into the sauce; big ones stay crunchy.',
           timer: null,
         },
@@ -482,7 +487,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Open the can and pour in the tomatoes. Add ½ teaspoon of the salt. Turn the heat to medium-high until the sauce bubbles, then turn it down to low.',
+          text: 'Pour in the tomatoes and add ½ teaspoon of the salt. Turn the heat to medium-high until the sauce bubbles, then turn it down to low.',
           why: 'Cold tomatoes stop the cooking. Bring them up to a bubble first, then turn the heat down to hold a simmer.',
           timer: null,
         },
@@ -517,7 +522,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Spaghetti marinara', menuPriceCents: 1400 },
+      delivery: { label: 'Spaghetti marinara', menuPriceCents: 1400, side: false },
       pairing: {
         wine: 'Chianti (Sangiovese)',
         principle: 'Tomato sauce needs a high-acid wine',
@@ -604,7 +609,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Lemon butter pasta', menuPriceCents: 1500 },
+      delivery: { label: 'Lemon butter pasta', menuPriceCents: 1500, side: false },
       pairing: {
         wine: 'Chablis (unoaked Chardonnay)',
         principle: 'Pair with the sauce, not the pasta',
@@ -718,7 +723,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Grilled chicken plate with broccoli', menuPriceCents: 1700 },
+      delivery: { label: 'Grilled chicken plate with broccoli', menuPriceCents: 1700, side: false },
       pairing: {
         wine: 'Pinot Noir',
         principle: 'Browned chicken can take a light red',
@@ -805,7 +810,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Egg fried rice', menuPriceCents: 1200 },
+      delivery: { label: 'Egg fried rice', menuPriceCents: 1200, side: false },
       pairing: {
         wine: 'Alsace Pinot Gris',
         principle: 'Aromatic food, aromatic wine',
@@ -837,6 +842,7 @@ export const RECIPES: readonly Recipe[] = [
         'chefs-knife',
         'cutting-board',
         'measuring-spoons',
+        'plastic-wrap',
       ],
       ingredients: [
         { ingredientId: 'yellow-onion', qty: 3, prep: 'thinly sliced' },
@@ -848,7 +854,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Set 2 tablespoons of the butter on the counter to soften for the bread. Cut each onion in half through the root, peel it, and cut out the hard knob of root at the bottom of each half. Lay the halves flat side down and slice them about as thin as a coin, cutting from the root end to the tip.',
+          text: 'Set 2 tablespoons of the butter and 4 slices of bread on the counter, so the butter softens and frozen bread thaws. Cut each onion in half through the root, peel it, and cut out the hard knob of root at the bottom of each half. Lay the halves flat side down and slice them about as thin as a coin, cutting from the root end to the tip.',
           why: 'That is a lot of onion. It cooks down to about a quarter of the pile. Slices cut from root to tip hold their shape instead of turning to mush.',
           timer: null,
         },
@@ -873,7 +879,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Spread the softened butter over one side of each slice of bread, all the way to the edges.',
+          text: 'Slice 4 ounces of the cheddar thin, half a new 8-ounce block, and wrap the rest for the fridge. Spread the softened butter over one side of each slice of bread, all the way to the edges.',
           why: 'Same as grilled cheese: edge-to-edge butter, edge-to-edge browning.',
           timer: null,
         },
@@ -898,7 +904,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 60, label: 'Rest' },
         },
       ],
-      delivery: { label: 'Grilled cheese with caramelized onions', menuPriceCents: 1300 },
+      delivery: { label: 'Grilled cheese with caramelized onions', menuPriceCents: 1300, side: false },
       pairing: {
         wine: 'Vouvray demi-sec (Chenin Blanc)',
         principle: 'Sweet flavors want a touch of sweetness in the glass',
@@ -979,7 +985,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 1200, label: 'Lentils' },
         },
         {
-          text: 'Stir in the remaining 1 teaspoon of salt, turn off the burner, and cover the pot.',
+          text: 'Stir in the remaining 1 teaspoon of salt and turn off the burner. Leave the lid off, so the tadka can go straight in.',
           why: null,
           timer: null,
         },
@@ -994,7 +1000,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Dal tadka with rice', menuPriceCents: 1500 },
+      delivery: { label: 'Dal tadka with rice', menuPriceCents: 1500, side: false },
       pairing: {
         wine: 'Grüner Veltliner',
         principle: 'Echo a flavor in the dish',
@@ -1053,7 +1059,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Put the sticks in the large bowl and cover them with hot tap water to soak. Meanwhile, peel the garlic clove: press it under the flat of the knife until the skin cracks, and peel it off. Grate it on the fine side of the grater. Squeeze the half lemon into a small bowl through your fingers, which catch the seeds.',
+          text: 'Put the sticks in the large bowl and cover them with hot tap water to soak. Meanwhile, lay the garlic clove under the flat of the knife and press gently with the heel of your hand, just until the skin cracks. Peel it, cut off the hard root tip, and grate it on the fine side of the grater.',
           why: 'Soaking rinses off the loose starch on the surface, which makes fries gummy and sticky. Rinsed fries crisp.',
           timer: { seconds: 600, label: 'Soak' },
         },
@@ -1073,7 +1079,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 1200, label: 'Fries' },
         },
         {
-          text: 'While they roast, make the aioli. Wet a second kitchen towel, wring it out, twist it into a ring on the counter, and set the medium bowl in it so the bowl cannot spin.',
+          text: 'While they roast, make the aioli. Squeeze the half lemon into a small bowl through your fingers, which catch the seeds. Wet a second kitchen towel, wring it out, twist it into a ring on the counter, and set the medium bowl in it so the bowl cannot spin.',
           why: 'You need one hand to whisk and one to pour.',
           timer: null,
         },
@@ -1103,7 +1109,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Side of fries with garlic aioli', menuPriceCents: 550 },
+      delivery: { label: 'Side of fries with garlic aioli', menuPriceCents: 550, side: true },
       pairing: {
         wine: 'Crémant or another dry sparkling wine',
         principle: 'Crisp food, crisp wine',
@@ -1164,13 +1170,13 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Halve the potatoes. On the sheet pan, toss them with the olive oil and ½ teaspoon of the salt and turn each one cut side down. Leave them there until the oven is hot. Peel 2 garlic cloves: press each under the flat of the knife until the skin cracks, and peel it off.',
+          text: 'Halve the potatoes. On the sheet pan, toss them with the olive oil and ½ teaspoon of the salt and turn each one cut side down. Leave them there until the oven is hot. Peel 2 garlic cloves: lay each under the flat of the knife and press gently with the heel of your hand, just until the skin cracks. Peel it off and cut away the hard root tip.',
           why: null,
           timer: null,
         },
         {
           text: 'Get the sauce ready while the oven heats. Mince the garlic: slice it thin, then chop the slices until the pieces are tiny. Chop the parsley leaves. Squeeze the lemon into a small bowl through your fingers, which catch the seeds. Measure the broth into the measuring cup. Cut the cold butter in two and put it back in the fridge.',
-          why: 'A pan sauce takes 4 minutes from start to finish. There is no time to chop once it starts. Keep the rest of the can of broth in a lidded jar: 4 days in the fridge, or 3 months frozen.',
+          why: 'A pan sauce takes 4 minutes from start to finish. There is no time to chop once it starts. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
           timer: null,
         },
         {
@@ -1239,7 +1245,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Lemon chicken with roasted potatoes', menuPriceCents: 1900 },
+      delivery: { label: 'Lemon chicken with roasted potatoes', menuPriceCents: 1900, side: false },
       pairing: {
         wine: 'Albariño',
         principle: 'Match the loudest flavor on the plate',
@@ -1271,6 +1277,7 @@ export const RECIPES: readonly Recipe[] = [
         'chefs-knife',
         'cutting-board',
         'measuring-spoons',
+        'plastic-wrap',
       ],
       ingredients: [
         { ingredientId: 'ground-beef', qty: 1, prep: 'cold from the fridge; makes 4 burgers' },
@@ -1305,7 +1312,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Put 2 beef balls at opposite edges of the pan. Lay a parchment square on one, set the spatula on it, and press down hard, pushing on the blade with your other hand through a folded towel, until the patty is about 5 inches across. Peel off the paper. Smash the second the same way. Sprinkle each with a quarter of the salt and pepper from the bowl.',
+          text: 'Put 2 beef balls on opposite sides of the pan, each halfway between the middle and the edge. Lay a parchment square on one, set the spatula on it, and push down hard on the blade through a folded towel until the patty is about 5 inches across. Peel off the paper and smash the second. Season each with a quarter of the salt and pepper from the bowl.',
           why: 'Smash in the first 30 seconds, while the beef is still cold and soft. After that, never press again: it only squeezes out the juice. Two 5-inch patties just fit the pan, and they shrink as they cook. The towel keeps your hand off the hot blade.',
           timer: null,
         },
@@ -1330,12 +1337,12 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Top each burger with onion, 3 pickle chips and a tablespoon of ketchup on the top bun, and close it. Then wash the raw-beef plate, the salt bowl, the spatula and the thermometer probe in hot, soapy water.',
+          text: 'Top each burger with onion, 3 pickle chips and a tablespoon of ketchup on the top bun, and close it. Then wash the raw-beef plate, the salt bowl, the spatula and the thermometer probe in hot, soapy water, and put the towel you pressed with in the laundry.',
           why: null,
           timer: null,
         },
       ],
-      delivery: { label: 'Two cheeseburgers', menuPriceCents: 1350 },
+      delivery: { label: 'Two cheeseburgers', menuPriceCents: 1350, side: false },
       pairing: {
         wine: 'Zinfandel',
         principle: 'Char and fat want ripe fruit',
@@ -1391,7 +1398,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Before the meat comes out, finely chop the onion and slice the garlic thin. Measure 1 teaspoon of the salt and the black pepper into the small bowl.',
+          text: 'Before the meat comes out, finely chop the onion and slice the garlic thin. Measure 1 teaspoon of the salt and the black pepper into the small bowl. Open the can of tomatoes and set it by the stove.',
           why: 'Vegetables first, raw meat second, so nothing raw touches the vegetables. The salt waits in a bowl so hands that touched raw beef never touch the salt box.',
           timer: null,
         },
@@ -1431,12 +1438,12 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn off the burner. With an oven mitt on the skillet handle, scrape everything into the medium saucepan with the spatula, getting the brown bits too. Set the saucepan on the burner over medium heat and move the skillet to a cool burner.',
+          text: 'Turn off the burner. With an oven mitt on the handle, move the skillet to a cool burner, and set the medium saucepan on the one you just used. Keeping the mitt on the skillet handle, scrape everything into the saucepan with the spatula, getting the brown bits too. Turn the saucepan’s burner to medium.',
           why: 'Tomatoes simmered for 20 minutes or more in cast iron strip its seasoning and taste of metal. A saucepan does not mind.',
           timer: null,
         },
         {
-          text: 'Open the can and pour the tomatoes into the saucepan, add ½ teaspoon of the salt, and scrape the bottom. Bring to a bubble, then turn the heat to low and simmer uncovered, stirring every 5 minutes. It is fine to let it go longer than the timer while the pasta cooks; keep stirring it every 5 minutes.',
+          text: 'Pour the tomatoes into the saucepan, add ½ teaspoon of the salt, and scrape the bottom. Bring to a bubble, then turn the heat to low and simmer uncovered, stirring every 5 minutes. It is fine to let it go longer than the timer while the pasta cooks; keep stirring it every 5 minutes.',
           why: 'Twenty minutes of simmering is the short version of the three-hour ragù you are working toward.',
           timer: { seconds: 1200, label: 'Sauce' },
         },
@@ -1466,7 +1473,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Spaghetti with meat sauce', menuPriceCents: 1700 },
+      delivery: { label: 'Spaghetti with meat sauce', menuPriceCents: 1700, side: false },
       pairing: {
         wine: 'Montepulciano d’Abruzzo',
         principle: 'Fat softens a firm red',
@@ -1484,8 +1491,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['stir-frying', 'steaming-rice', 'doneness'],
     content: {
       servings: 3,
-      activeMinutes: 35,
-      totalMinutes: 45,
+      activeMinutes: 45,
+      totalMinutes: 55,
       equipment: [
         'medium-saucepan',
         'strainer',
@@ -1524,11 +1531,11 @@ export const RECIPES: readonly Recipe[] = [
       steps: [
         {
           text: 'Start the rice: rinse it in the strainer, then bring it to a boil with 2½ cups of water in the saucepan over high heat. Stir once, cover, turn the heat to its lowest setting, and cook without lifting the lid. When the timer ends, turn off the burner and leave the lid on.',
-          why: 'This makes more than you need, on purpose. Leftover rice keeps 4 days in the fridge and is exactly what egg fried rice wants. Spread the leftover rice in a lidded container and get it into the fridge within an hour.',
+          why: 'This makes more than you need, on purpose: the leftovers are for egg fried rice.',
           timer: { seconds: 900, label: 'Rice' },
         },
         {
-          text: 'Make the sauce: in the medium bowl, whisk the broth, soy sauce, oyster sauce, sugar, cornstarch and sesame oil until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded jar: 4 days in the fridge, or 3 months frozen.',
+          text: 'Make the sauce: in the medium bowl, whisk the broth, soy sauce, oyster sauce, sugar, cornstarch and sesame oil until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
           why: 'Mixed ahead, the sauce goes in with one pour. The cornstarch is what thickens it in the pan.',
           timer: null,
         },
@@ -1538,7 +1545,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Now the chicken: open it onto the cutting board, throw the package away, and cut the thighs into 1-inch pieces, trimming off any big pieces of fat. Put them in the large bowl, sprinkle on the salt from the small bowl, and toss with your hands. Then wash the board and the knife in hot, soapy water, and wash your hands with soap for 20 seconds.',
+          text: 'Now the chicken: open it onto the cutting board, throw the package away, and cut the thighs into 1-inch pieces, trimming off any big pieces of fat. Put them in the large bowl, sprinkle on the salt from the small bowl, and toss with your hands. Then wash the board, knife and salt bowl in hot, soapy water, and wash your hands with soap for 20 seconds.',
           why: 'Small, even pieces cook through in a few minutes.',
           timer: null,
         },
@@ -1558,17 +1565,17 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Check the biggest piece: push the thermometer in from the side, keeping the tip off the pan, and wait until the number stops climbing. It must read at least 165°F. If it is lower, cook 1 more minute and check again. Wash the spatula in hot, soapy water, then use it to move this batch onto the broccoli.',
-          why: 'Each batch is fully cooked before it touches the broccoli. The spatula touched raw chicken when it spread the batch out; washed, it is safe for cooked chicken.',
+          text: 'Check the biggest piece: push the thermometer in from the side, keeping the tip off the pan, and wait until the number stops climbing. It must read at least 165°F. If it is lower, cook 1 more minute and check again. Turn the heat to low. Wash the spatula in hot, soapy water and dry it, then use it to move this batch onto the broccoli.',
+          why: 'Each batch is fully cooked before it touches the broccoli. The spatula touched raw chicken when it spread the batch out; washed, it is safe for cooked chicken. Low heat keeps the pan from scorching while you are at the sink, and a dry spatula keeps hot oil from spitting.',
           timer: null,
         },
         {
-          text: 'Cook the rest of the chicken the same way with the last tablespoon of oil, and check the biggest piece: at least 165°F. Turn the heat to medium, leave the chicken in the pan, and wash the spatula again.',
+          text: 'Turn the heat back to medium-high and add the last tablespoon of oil. When it shimmers, cook the rest of the chicken the same way, and check the biggest piece: at least 165°F. Turn the heat to low, leave the chicken in the pan, and wash and dry the spatula again.',
           why: null,
           timer: null,
         },
         {
-          text: 'Push the chicken to the sides, add the garlic and ginger to the middle, and stir them for 30 seconds until fragrant.',
+          text: 'Turn the heat to medium. Push the chicken to the sides, add the garlic and ginger to the middle, and stir them for 30 seconds until fragrant.',
           why: null,
           timer: null,
         },
@@ -1579,11 +1586,11 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Turn off the burner and scatter on the scallions. Taste a piece of broccoli with sauce on it, and add a few drops of soy sauce if it needs salt. Serve over the rice. Wash the bowl that held the raw chicken and the thermometer probe in hot, soapy water.',
-          why: null,
+          why: 'Spread the leftover rice in a lidded container and get it into the fridge within an hour. It keeps 4 days, and it is exactly what egg fried rice wants.',
           timer: null,
         },
       ],
-      delivery: { label: 'Chicken and broccoli with white rice', menuPriceCents: 1600 },
+      delivery: { label: 'Chicken and broccoli with white rice', menuPriceCents: 1600, side: false },
       pairing: {
         wine: 'Dry rosé',
         principle: 'Rosé fits food that sits between red and white',
@@ -1637,7 +1644,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Finely chop the onion. Mince the garlic: slice it thin, then chop the slices until the pieces are tiny. Scrape the skin off the ginger with the edge of a spoon and grate it on the fine side of the grater. Open the chickpeas, drain them in the colander and rinse them. Measure the coriander, garam masala, turmeric and pepper flakes into the small bowl.',
+          text: 'Finely chop the onion and mince the garlic, as in the dal. Scrape the skin off the ginger with the edge of a spoon and grate it on the fine side of the grater. Open both cans: drain and rinse the chickpeas in the colander, and set the tomatoes by the stove. Measure the coriander, garam masala, turmeric and pepper flakes into the small bowl.',
           why: 'The ground spices go in together, so they share a bowl. The cumin seeds go in on their own, first.',
           timer: null,
         },
@@ -1662,7 +1669,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Open the tomatoes and pour in half the can. Keep the rest in a lidded container: a week in the fridge, 3 months frozen. Add ½ teaspoon of the salt. Cook, stirring often and scraping the bottom, until the mixture thickens into a paste, turns deep brick red, and small pools of oil shine at its edges, 8 to 10 minutes.',
+          text: 'Pour in half the can of tomatoes and add ½ teaspoon of the salt. Cook, stirring often and scraping the bottom, until the mixture thickens into a paste, turns deep brick red, and small pools of oil shine at its edges, 8 to 10 minutes.',
           why: 'This is the masala base. When the oil separates, the water has cooked off and the raw taste of the tomato and spices is gone. Rushing it leaves the curry sharp and thin.',
           timer: null,
         },
@@ -1673,7 +1680,7 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'When the masala is ready, add the chickpeas, 1 cup of water and the last ½ teaspoon of salt. Bring to a bubble, then turn the heat to low and simmer, stirring now and then. Halfway through, press a spoonful of chickpeas against the side of the pot to mash them.',
-          why: 'The mashed chickpeas thicken the sauce.',
+          why: 'The mashed chickpeas thicken the sauce. While it simmers, put the rest of the tomatoes in a lidded container: they keep a week in the fridge, or 3 months frozen.',
           timer: { seconds: 900, label: 'Chickpeas' },
         },
         {
@@ -1682,7 +1689,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Chana masala with rice', menuPriceCents: 1500 },
+      delivery: { label: 'Chana masala with rice', menuPriceCents: 1500, side: false },
       pairing: {
         wine: 'Gewürztraminer',
         principle: 'Spice wants fruit, not oak or tannin',
@@ -1774,13 +1781,13 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 3600, label: 'First rise' },
         },
         {
-          text: 'While the dough rises, make the sauce. Mince the garlic: slice it thin, then chop the slices until the pieces are tiny. Put the remaining 2 tablespoons of olive oil, the garlic and the pepper flakes in the saucepan over medium-low heat. Stir for 1 to 2 minutes, until the garlic smells sweet but has not browned.',
+          text: 'While the dough rises, make the sauce. Mince the garlic: slice it thin, then chop the slices until the pieces are tiny. Open the can of tomatoes. Put the remaining 2 tablespoons of olive oil, the garlic and the pepper flakes in the saucepan over medium-low heat. Stir for 1 to 2 minutes, until the garlic smells sweet but has not browned.',
           why: null,
           timer: null,
         },
         {
-          text: 'Open the can and pour in half the tomatoes, about 1¾ cups. Keep the rest in a lidded container: a week in the fridge, 3 months frozen. Add ½ teaspoon of the salt. Turn the heat to medium-high until it bubbles, then turn it to low and simmer uncovered, stirring every 5 minutes and scraping the bottom.',
-          why: 'Pizza sauce has to be much thicker than pasta sauce. A wet sauce soaks into the dough, and the middle of the pizza turns soggy.',
+          text: 'Pour in half the tomatoes, about 1¾ cups, and add ½ teaspoon of the salt. Turn the heat to medium-high until it bubbles, then turn it to low and simmer uncovered, stirring every 5 minutes and scraping the bottom.',
+          why: 'Pizza sauce has to be much thicker than pasta sauce. A wet sauce soaks into the dough, and the middle of the pizza turns soggy. While it simmers, put the rest of the tomatoes in a lidded container: they keep a week in the fridge, or 3 months frozen.',
           timer: { seconds: 1200, label: 'Sauce' },
         },
         {
@@ -1824,7 +1831,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 120, label: 'Rest' },
         },
       ],
-      delivery: { label: 'Medium cheese pan pizza', menuPriceCents: 800 },
+      delivery: { label: 'Medium cheese pan pizza', menuPriceCents: 800, side: false },
       pairing: {
         wine: 'Lambrusco (dry)',
         principle: 'Bubbles and acid cut melted cheese',
@@ -1941,7 +1948,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Breaded chicken cutlets with lemon', menuPriceCents: 1600 },
+      delivery: { label: 'Breaded chicken cutlets with lemon', menuPriceCents: 1600, side: false },
       pairing: {
         wine: 'Soave',
         principle: 'Acid cuts oil',
@@ -2079,7 +2086,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Chicken tikka with rice and raita', menuPriceCents: 1700 },
+      delivery: { label: 'Chicken tikka with rice and raita', menuPriceCents: 1700, side: false },
       pairing: {
         wine: 'Valpolicella',
         principle: 'With spice, serve a light red a little cool',
@@ -2101,7 +2108,7 @@ export const RECIPES: readonly Recipe[] = [
     content: {
       servings: 2,
       activeMinutes: 30,
-      totalMinutes: 35,
+      totalMinutes: 40,
       equipment: [
         'large-pot',
         'large-skillet',
@@ -2192,7 +2199,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Spaghetti carbonara', menuPriceCents: 1800 },
+      delivery: { label: 'Spaghetti carbonara', menuPriceCents: 1800, side: false },
       pairing: {
         wine: 'Verdicchio',
         principle: 'A rich dish can take a rich white, if it has acid',
@@ -2257,7 +2264,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Pick the leaves off half the basil. Cut the limes in half and squeeze them into the small bowl through your fingers. Open the can of broth and measure out ¾ cup. Keep the rest of the can in a lidded jar: 4 days in the fridge, or 3 months frozen.',
+          text: 'Pick the leaves off half the basil. Cut the limes in half and squeeze them into the small bowl through your fingers. Open the can of broth and measure out ¾ cup; keep the rest in a lidded container, 4 days in the fridge or 3 months frozen. Open the coconut milk and stir it well in the can.',
           why: null,
           timer: null,
         },
@@ -2272,7 +2279,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Open the coconut milk, stir it in the can, and pour about a third of it into the skillet. Stir until it bubbles and small beads of green oil shine on the surface, about 2 minutes. Many brands never show the oil; after 3 minutes, move on either way. If the paste starts to stick and scorch, turn the heat down.',
+          text: 'Pour about a third of the coconut milk into the skillet. Stir until it bubbles and small beads of green oil shine on the surface, about 2 minutes. Many brands never show the oil; after 3 minutes, move on either way. If the paste starts to stick and scorch, turn the heat down.',
           why: 'Oil separating from the coconut milk is the sign the paste has cooked and its flavor has spread through the fat. It is the same sign you waited for at the edges of the chana masala.',
           timer: null,
         },
@@ -2312,7 +2319,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Green curry with chicken and rice', menuPriceCents: 1600 },
+      delivery: { label: 'Green curry with chicken and rice', menuPriceCents: 1600, side: false },
       pairing: {
         wine: 'Vinho Verde',
         principle: 'Chili heat wants low alcohol',
@@ -2374,11 +2381,11 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Start the rice: rinse it in the strainer, then bring it to a boil with 2½ cups of water in the saucepan over high heat. Stir once, cover, turn the heat to its lowest setting, and cook without lifting the lid. When the timer ends, turn off the burner and leave the lid on.',
-          why: 'Leftover rice keeps 4 days in the fridge and is exactly what egg fried rice wants. Spread the leftover rice in a lidded container and get it into the fridge within an hour.',
+          why: 'This makes more than you need, on purpose: the leftovers are for egg fried rice.',
           timer: { seconds: 900, label: 'Rice' },
         },
         {
-          text: 'Make the sauce: in the medium bowl, stir the broth, 2 tablespoons of the soy sauce, the oyster sauce, the sugar, 1 tablespoon of the cornstarch and the sesame oil with the fork until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded jar: 4 days in the fridge, or 3 months frozen.',
+          text: 'Make the sauce: in the medium bowl, stir the broth, 2 tablespoons of the soy sauce, the oyster sauce, the sugar, 1 tablespoon of the cornstarch and the sesame oil with the fork until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
           why: 'The same method as the chicken stir-fry: mixed ahead, poured in at the end, thickened by the cornstarch.',
           timer: null,
         },
@@ -2413,27 +2420,27 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 120, label: 'Broccoli' },
         },
         {
-          text: 'Uncover and stir until the water has cooked off and the broccoli is bright green and just tender, about 1 minute. Lift it onto a plate with the spatula.',
-          why: null,
+          text: 'Uncover and stir until the water has cooked off and the broccoli is bright green and just tender, about 1 minute. Lift it onto a plate with the spatula and turn off the burner.',
+          why: 'The beef needs about 10 more minutes in the fridge. An empty pan left on the heat that long only scorches.',
           timer: null,
         },
         {
-          text: 'When the beef’s timer ends, take the bowl of beef from the fridge. Add 1 tablespoon of oil and turn the heat to high, or keep it at medium-high if your skillet is nonstick. When the oil shimmers, tip half the beef into the pan and spread it into one layer with the spatula. Leave it for 1 minute to brown, then stir and cook 1 minute more.',
+          text: 'When the beef’s timer ends, take the bowl of beef from the fridge. Add 1 tablespoon of oil to the skillet and turn the burner to high, or medium-high if your skillet is nonstick. When the oil shimmers, tip half the beef into the pan and spread it into one layer with the spatula. Leave it for 1 minute to brown, then stir and cook 1 minute more.',
           why: 'Thin, coated beef browns in a minute. Two batches, because a crowded pan steams the beef grey.',
           timer: null,
         },
         {
-          text: 'Push the slices into a pile in the middle of the pan and push the thermometer into the center of the pile, keeping the tip off the pan. Wait until the number stops climbing. It must read at least 145°F. If it is lower, cook 30 seconds more and check again. Wash the spatula in hot, soapy water, then use it to move this batch onto the broccoli.',
-          why: 'Slices this thin heat through in seconds, so when the middle of the pile reads 145°F, every slice is safe. A whole cut is safe lower than ground beef’s 160°F. Velveted beef stays tender even cooked through.',
+          text: 'Pile the slices in the middle of the pan and push the thermometer into its center, keeping the tip off the pan. Wait until the number stops climbing. It must read at least 145°F. If it is lower, cook 30 seconds more and check again. Turn the heat to low. Wash the spatula in hot, soapy water and dry it, then use it to move this batch onto the broccoli.',
+          why: 'Slices this thin heat through in seconds, so when the middle of the pile reads 145°F, every slice is safe. A whole cut is safe lower than ground beef’s 160°F. Low heat holds the pan while you are at the sink, and a dry spatula keeps hot oil from spitting.',
           timer: null,
         },
         {
-          text: 'Cook the rest of the beef the same way with the last tablespoon of oil, and check it: at least 145°F. Turn the heat to medium and leave the beef in the pan. Wash the spatula again, and put the bowl that held the raw beef in hot, soapy water.',
-          why: 'The spatula touched raw beef when it spread each batch out. Washed, it is safe for the cooked beef.',
+          text: 'Turn the heat back to high, or medium-high if nonstick, and add the last tablespoon of oil. When it shimmers, cook the rest of the beef the same way and check it: at least 145°F. Turn the heat to low, leave the beef in the pan, and wash and dry the spatula. Put the bowl that held the raw beef in hot, soapy water.',
+          why: 'The spatula touched raw beef when it spread each batch out. Washed, it is safe for the cooked beef. Velveted beef stays tender even cooked through.',
           timer: null,
         },
         {
-          text: 'Push the beef to the sides, add the garlic and ginger to the middle, and stir them for 30 seconds until fragrant.',
+          text: 'Turn the heat to medium. Push the beef to the sides, add the garlic and ginger to the middle, and stir them for 30 seconds until fragrant.',
           why: null,
           timer: null,
         },
@@ -2444,11 +2451,11 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Turn off the burner. Taste a piece of broccoli with sauce on it, and add a few drops of soy sauce if it needs salt. Fluff the rice with the fork and serve. Wash the thermometer probe in hot, soapy water.',
-          why: null,
+          why: 'Spread the leftover rice in a lidded container and get it into the fridge within an hour. It keeps 4 days, and it is exactly what egg fried rice wants.',
           timer: null,
         },
       ],
-      delivery: { label: 'Beef and broccoli with white rice', menuPriceCents: 1750 },
+      delivery: { label: 'Beef and broccoli with white rice', menuPriceCents: 1750, side: false },
       pairing: {
         wine: 'Merlot',
         principle: 'Umami makes tannin taste harsher',
@@ -2576,7 +2583,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 600, label: 'Fries, flipped' },
         },
         {
-          text: 'Toast the buns: melt the remaining 1 tablespoon of butter in the skillet over medium heat and lay in the 4 bun halves, cut side down, until golden, 1 to 2 minutes. Set them on a plate cut side up and spread a spoonful of the sauce on each half. Turn off the burner and wipe the skillet out with a paper towel held in the tongs.',
+          text: 'With an oven mitt on the handle, move the skillet back onto its burner over medium heat. Melt the last tablespoon of butter in it and toast the 4 bun halves cut side down until golden, 1 to 2 minutes. Set them cut side up on a plate and spread a spoonful of sauce on each. Turn off the burner and wipe the skillet out with a paper towel held in the tongs.',
           why: null,
           timer: null,
         },
@@ -2596,7 +2603,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Put 2 beef balls at opposite edges of the pan. Lay a parchment square on one, set the metal spatula on it, and press down hard, pushing on the blade through a folded towel, until it is about 5 inches across. Peel off the paper. Smash the second the same way. Sprinkle each with a quarter of the salt and pepper.',
+          text: 'Put 2 beef balls on opposite sides of the pan, each halfway between the middle and the edge. Lay a parchment square on one, set the metal spatula on it, and press down hard, pushing on the blade through a folded towel, until it is about 5 inches across. Peel off the paper. Smash the second the same way. Sprinkle each with a quarter of the salt and pepper.',
           why: 'Smash in the first 30 seconds, while the beef is cold and soft, and never press again. Two 5-inch patties just fit the pan, and they shrink as they cook.',
           timer: null,
         },
@@ -2631,7 +2638,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Double smash burger with fries', menuPriceCents: 1750 },
+      delivery: { label: 'Double smash burger with fries', menuPriceCents: 1750, side: false },
       pairing: {
         wine: 'Malbec',
         principle: 'Pair with the toppings, not just the meat',
@@ -2775,7 +2782,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Crispy chicken sandwich', menuPriceCents: 1200 },
+      delivery: { label: 'Crispy chicken sandwich', menuPriceCents: 1200, side: false },
       pairing: {
         wine: 'Picpoul de Pinet',
         principle: 'Salt makes a sharp wine taste rounder',
@@ -2866,13 +2873,13 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 3600, label: 'Rise' },
         },
         {
-          text: 'While the dough rises, make the sauce. Mince the garlic. Put 2 tablespoons of the olive oil and the garlic in the saucepan over medium-low heat and stir for 1 minute, until it smells sweet but has not browned. Open the can, pour in half the tomatoes and add ½ teaspoon of the salt. Keep the rest in a lidded container: a week in the fridge, 3 months frozen.',
+          text: 'While the dough rises, make the sauce. Mince the garlic, then open the can of tomatoes and set it by the stove. Put 2 tablespoons of the olive oil and the garlic in the saucepan over medium-low heat and stir for 1 minute, until it smells sweet but has not browned. Pour in half the tomatoes and add ½ teaspoon of the salt.',
           why: null,
           timer: null,
         },
         {
           text: 'Turn the heat to medium-high until it bubbles, then to low. Simmer uncovered, stirring every 5 minutes, until a spoon dragged across the bottom leaves a path that stays open for a second, about 20 minutes. Taste, add a pinch of salt if it is flat, then turn off the burner and let it cool.',
-          why: 'A thick sauce keeps the thin middle of the pizza from turning soggy.',
+          why: 'A thick sauce keeps the thin middle of the pizza from turning soggy. While it simmers, put the rest of the tomatoes in a lidded container: they keep a week in the fridge, or 3 months frozen.',
           timer: null,
         },
         {
@@ -2926,7 +2933,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Margherita pizza', menuPriceCents: 1000 },
+      delivery: { label: 'Margherita pizza', menuPriceCents: 1000, side: false },
       pairing: {
         wine: 'Falanghina',
         principle: 'Tomato does not require a red',
@@ -2944,8 +2951,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['browning-meat', 'pan-sauce', 'pan-emulsion'],
     content: {
       servings: 6,
-      activeMinutes: 60,
-      totalMinutes: 210,
+      activeMinutes: 75,
+      totalMinutes: 225,
       equipment: [
         'chefs-knife',
         'cutting-board',
@@ -2974,7 +2981,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       ingredients: [
         { ingredientId: 'ground-beef', qty: 1, prep: null },
-        { ingredientId: 'bacon', qty: 4, prep: '3 slices, finely chopped' },
+        { ingredientId: 'bacon', qty: 4.5, prep: '3 slices, finely chopped' },
         { ingredientId: 'yellow-onion', qty: 1, prep: 'finely chopped' },
         { ingredientId: 'carrot', qty: 2, prep: 'finely chopped' },
         { ingredientId: 'garlic', qty: 2, prep: 'minced' },
@@ -3045,18 +3052,18 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Set the saucepan over medium-high heat until it bubbles, then turn it to the lowest setting and set the lid on slightly open. It simmers 2½ hours in all: this timer is the first 2 hours. Stir every 15 minutes, scraping the bottom. Whenever it gets thicker than oatmeal, stir in ¼ cup of water. When the timer goes, go on to the next step.',
+          text: 'Set the saucepan over medium-high heat until it bubbles, then turn it to the lowest setting and set the lid on slightly open. It simmers 2½ hours in all: this timer is the first 2¼ hours. Stir every 15 minutes, scraping the bottom. Whenever it gets thicker than oatmeal, stir in ¼ cup of water. When the timer goes, go on to the next step.',
           why: 'A lazy bubble every few seconds is right; any more and the bottom scorches. If it bubbles harder than that on the lowest setting, set the lid on fully. Over the hours the beef turns tender and the flavors run together.',
-          timer: { seconds: 7200, label: 'Ragù' },
+          timer: { seconds: 8100, label: 'Ragù' },
         },
         {
-          text: 'Start this timer for the last 30 minutes of the simmer, and keep stirring the ragù every 15 minutes. While it simmers, fill the large pot with 4 quarts of water, cover it, and bring it to a rolling boil over high heat. Grate the parmesan while you wait.',
-          why: 'The pasta water takes about 15 minutes to boil, so it is ready when the ragù is.',
-          timer: { seconds: 1800, label: 'Ragù, last 30' },
+          text: 'Start this timer for the last 15 minutes of the simmer. Fill the large pot with 4 quarts of water, cover it, and bring it to a rolling boil over high heat. While it heats, grate the parmesan, and stir the ragù once, scraping the bottom.',
+          why: 'Pasta water takes about 15 minutes to boil, so it is boiling by the time the cream is in. Leave it covered on high until the pasta goes in.',
+          timer: { seconds: 900, label: 'Ragù, last 15' },
         },
         {
           text: 'When the timer ends, stir the cream into the ragù and simmer 5 minutes more. Taste, and add a pinch of salt if it is flat. Turn off the burner and cover the pan.',
-          why: 'Cream softens the sharp edge of the tomato and makes the ragù silky.',
+          why: 'Cream softens the sharp edge of the tomato and makes the ragù silky. The rest of the cream keeps about a week in the fridge.',
           timer: null,
         },
         {
@@ -3070,7 +3077,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Put the pasta back in its pot over low heat with the butter, about two-thirds of the ragù and a splash of pasta water. Toss gently with the tongs for 1 to 2 minutes, until every ribbon is coated and glossy and nothing pools at the bottom. Add more pasta water if it looks dry.',
+          text: 'Put the pasta back in its pot, on its burner over low heat, with the butter, about two-thirds of the ragù and a splash of pasta water. Toss gently with the tongs for 1 to 2 minutes, until every ribbon is coated and glossy and nothing pools at the bottom. Add more pasta water if it looks dry.',
           why: 'As in the pasta al limone, starchy water and butter bind the sauce to the pasta. In Bologna, ragù coats the pasta; it does not sit on top in a heap.',
           timer: null,
         },
@@ -3080,7 +3087,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Tagliatelle bolognese', menuPriceCents: 2100 },
+      delivery: { label: 'Tagliatelle bolognese', menuPriceCents: 2100, side: false },
       pairing: {
         wine: 'Barbera d’Asti',
         principle: 'Cream wants acid more than tannin',
@@ -3171,12 +3178,12 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Check the biggest piece: lift it onto the spatula and push the thermometer in from the side, keeping the tip in the middle of the meat, off the spatula. Wait until the number stops climbing. It must read at least 165°F. If it is lower, cook 1 more minute and check again. Wash the probe and the spatula in hot, soapy water.',
-          why: 'The spatula touched raw chicken when it spread it out, so it gets washed before it touches cooked chicken.',
+          text: 'Lift the biggest piece onto the spatula and push the thermometer in from the side, keeping the tip in the middle of the meat, off the spatula. Wait until the number stops climbing. It must read at least 165°F. If it is lower, cook 1 more minute and check again. Turn the heat to low. Wash the probe and the spatula in hot, soapy water, and dry the spatula.',
+          why: 'The spatula touched raw chicken when it spread it out, so it gets washed before it touches cooked chicken. Low heat holds the pan while you are at the sink, and a dry spatula keeps hot oil from spitting.',
           timer: null,
         },
         {
-          text: 'Use the clean spatula to move the chicken to a clean plate. Add the remaining 2 tablespoons of oil and the garlic and stir for 15 seconds. Add the noodles and toss them with the tongs for 1 minute, until they start to turn glossy and soft at the edges.',
+          text: 'Use the clean spatula to move the chicken to a clean plate. Turn the heat back to medium-high and add the remaining 2 tablespoons of oil. When it shimmers, add the garlic and stir for 15 seconds. Add the noodles and toss with the tongs for 1 minute, until they turn glossy and soft at the edges.',
           why: 'Lift and turn the noodles with the tongs rather than stirring, so they do not break.',
           timer: null,
         },
@@ -3201,7 +3208,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Pad thai with chicken', menuPriceCents: 1550 },
+      delivery: { label: 'Pad thai with chicken', menuPriceCents: 1550, side: false },
       pairing: {
         wine: 'Dry Riesling from Australia',
         principle: 'Oak clashes with fish sauce and lime',
@@ -3265,7 +3272,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Make the sauce: in the medium bowl, stir the broth, 3 tablespoons of the soy sauce, the vinegar, the sugar, 1 tablespoon of the cornstarch and the sesame oil with the fork until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded jar: 4 days in the fridge, or 3 months frozen.',
+          text: 'Make the sauce: in the medium bowl, stir the broth, 3 tablespoons of the soy sauce, the vinegar, the sugar, 1 tablespoon of the cornstarch and the sesame oil with the fork until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
           why: 'The same method as every stir-fry sauce you have made: mixed ahead, thickened at the end. The vinegar is what makes it sweet and sour.',
           timer: null,
         },
@@ -3335,7 +3342,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'General Tso’s chicken with white rice', menuPriceCents: 1600 },
+      delivery: { label: 'General Tso’s chicken with white rice', menuPriceCents: 1600, side: false },
       pairing: {
         wine: 'Off-dry Chenin Blanc from South Africa',
         principle: 'A busy dish wants a simple wine',
@@ -3354,7 +3361,7 @@ export const RECIPES: readonly Recipe[] = [
     content: {
       servings: 4,
       activeMinutes: 70,
-      totalMinutes: 150,
+      totalMinutes: 120,
       equipment: [
         'small-nonstick-skillet',
         'silicone-spatula',
@@ -3365,10 +3372,10 @@ export const RECIPES: readonly Recipe[] = [
         'plastic-wrap',
         'chefs-knife',
         'cutting-board',
-        'large-skillet',
+        'medium-saucepan',
         'wooden-spoon',
         'can-opener',
-        'medium-saucepan',
+        'small-saucepan',
         'strainer',
         'measuring-cups',
         'liquid-measuring-cup',
@@ -3435,13 +3442,13 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 3600, label: 'Marinade' },
         },
         {
-          text: 'Now the masala. Finely chop the onion. Mince the other 4 garlic cloves and grate the rest of the ginger. Measure the rest of the garam masala, paprika, coriander, turmeric and pepper flakes into the small bowl.',
+          text: 'Now the masala. Finely chop the onion. Mince the other 4 garlic cloves and grate the rest of the ginger. Measure the rest of the garam masala, paprika, coriander, turmeric and pepper flakes into the small bowl. Open the can of tomatoes and set it by the stove.',
           why: 'The ground spices go in together, so they share a bowl. The cumin seeds go in on their own, first.',
           timer: null,
         },
         {
-          text: 'Put 3 tablespoons of the oil in the large skillet over medium heat and drop in one cumin seed. When it sizzles right away, add the rest of the seeds and let them sizzle for 20 to 30 seconds, until a shade darker and toasty-smelling.',
-          why: null,
+          text: 'Put 3 tablespoons of the oil in the medium saucepan over medium heat and drop in one cumin seed. When it sizzles right away, add the rest of the seeds and let them sizzle for 20 to 30 seconds, until a shade darker and toasty-smelling.',
+          why: 'The masala waits about an hour for the chicken. Tomato left that long in a cast-iron skillet strips its seasoning and tastes of metal, so it cooks in the saucepan, as the chana masala does.',
           timer: null,
         },
         {
@@ -3450,17 +3457,17 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Open the can and pour in half the tomatoes with the remaining ½ teaspoon of salt. Keep the rest in a lidded container: a week in the fridge, 3 months frozen. Cook, stirring and scraping, until the mixture is a thick, deep brick-red paste with small pools of oil at its edges, 8 to 10 minutes.',
+          text: 'Pour in half the tomatoes with the remaining ½ teaspoon of salt. Cook, stirring and scraping, until the mixture is a thick, deep brick-red paste with small pools of oil at its edges, 8 to 10 minutes.',
           why: 'The masala base, as in the chana masala. When the oil separates, the raw taste of the tomato and spices is gone.',
           timer: null,
         },
         {
-          text: 'Turn off the burner and leave the masala in the skillet until the chicken is ready.',
+          text: 'Turn off the burner and leave the masala in the saucepan until the chicken is ready. Put the rest of the tomatoes in a lidded container: a week in the fridge, 3 months frozen.',
           why: 'It waits happily. The water, cream and chicken go in at the end.',
           timer: null,
         },
         {
-          text: 'When the marinade timer ends, start the rice: rinse it in the strainer, then bring it to a boil with 2½ cups of water in the saucepan over high heat. Stir once, cover, turn the heat to its lowest setting, and cook without lifting the lid. When the timer ends, turn off the burner and leave the lid on.',
+          text: 'When the marinade timer ends, start the rice: rinse it in the strainer, then bring it to a boil with 2½ cups of water in the small saucepan over high heat. Stir once, cover, turn the heat to its lowest setting, and cook without lifting the lid. When the timer ends, turn off the burner and leave the lid on.',
           why: 'The rice cooks and rests while the chicken broils.',
           timer: { seconds: 900, label: 'Rice' },
         },
@@ -3496,7 +3503,7 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Cut the chicken into bite-size pieces on the cutting board. Add 1 cup of water to the masala and bring it to a bubble over medium heat, scraping the bottom. Stir in the cream and butter, then the chicken and any juices from the plate. Simmer gently for 5 minutes, stirring now and then.',
-          why: 'The chicken is already cooked; it only needs to heat through and soak up the sauce. Cream and butter turn the sharp masala into the mellow orange sauce you order.',
+          why: 'The chicken is already cooked; it only needs to heat through and soak up the sauce. Cream and butter turn the sharp masala into the mellow orange sauce you order. The rest of the cream keeps about a week in the fridge.',
           timer: null,
         },
         {
@@ -3505,7 +3512,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Chicken tikka masala with rice', menuPriceCents: 1800 },
+      delivery: { label: 'Chicken tikka masala with rice', menuPriceCents: 1800, side: false },
       pairing: {
         wine: 'Off-dry Riesling',
         principle: 'A touch of sweetness tames chili heat',

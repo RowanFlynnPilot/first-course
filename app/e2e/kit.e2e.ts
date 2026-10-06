@@ -26,6 +26,7 @@ const FIRST_COURSE_KIT = [
   'mug',
   'fork',
   'paper-towels',
+  'plastic-wrap',
 ]
 
 test.describe('the kit', () => {
@@ -49,7 +50,7 @@ test.describe('the kit', () => {
     expect(kitchen.backend.table('kit_items')).toMatchObject([{ equipment_id: 'chefs-knife' }])
 
     await page.goBack()
-    await expect(equipment.getByText('Not in your kit yet')).toHaveCount(6)
+    await expect(equipment.getByText('Not in your kit yet')).toHaveCount(7)
   })
 
   test('the menu says how much kit each course still needs', async ({ page, kitchen }) => {
@@ -58,7 +59,7 @@ test.describe('the kit', () => {
     await expect(course('First course').getByRole('link', { name: /Kit:/ })).toHaveCount(0)
     await expect(course('Second course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 11 new things to get')
     // The same count the kit screen gives under “New for the third course”.
-    await expect(course('Third course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 9 new things to get')
+    await expect(course('Third course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 8 new things to get')
     await expect(course('Fourth course').getByRole('link', { name: /Kit:/ })).toHaveCount(0)
   })
 
@@ -85,6 +86,6 @@ test.describe('the kit', () => {
   test('cook mode lists the equipment and marks what is missing', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/chopped-salad/0', { kit: ['chefs-knife', 'cutting-board', 'large-bowl', 'fork'] })
     await expect(page.getByText('Measuring spoons')).toBeVisible()
-    await expect(page.getByText('Not in your kit yet')).toHaveCount(3)
+    await expect(page.getByText('Not in your kit yet')).toHaveCount(4)
   })
 })

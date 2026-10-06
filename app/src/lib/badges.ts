@@ -62,6 +62,21 @@ const course = (tier: Exclude<Tier, 5>): Omit<Badge, 'id'> => {
   }
 }
 
+/**
+ * One per course, and one for the usual: every recipe in it mastered. The
+ * second half of a year of cooking, when the skills are all learned
+ * (October 6, 2026: a regular cook had earned every other badge by about
+ * week 21).
+ */
+const courseMastered = (tier: Tier): Omit<Badge, 'id'> => {
+  const name = COURSE_NAMES[tier]
+  return {
+    name: `${name} mastered`,
+    how: tier === 5 ? 'Master every dish of the usual.' : `Master every recipe in the ${name.toLowerCase()}.`,
+    earned: (logs) => RECIPES.filter((recipe) => recipe.tier === tier).every((recipe) => recipeState(recipe, logs) === 'mastered'),
+  }
+}
+
 /** One per discipline: every skill of that kind is learned. */
 const discipline = (id: DisciplineId): Omit<Badge, 'id'> => {
   const { name } = DISCIPLINES[id]
@@ -99,6 +114,11 @@ const DEFINITIONS = {
   'course-2': course(2),
   'course-3': course(3),
   'course-4': course(4),
+  'course-1-mastered': courseMastered(1),
+  'course-2-mastered': courseMastered(2),
+  'course-3-mastered': courseMastered(3),
+  'course-4-mastered': courseMastered(4),
+  'the-usual-mastered': courseMastered(5),
   'prep-specialist': discipline('prep'),
   'pan-specialist': discipline('pan'),
   'pot-specialist': discipline('pot'),

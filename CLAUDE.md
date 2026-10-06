@@ -95,7 +95,9 @@ Actions to GitHub Pages at `/first-course/`.
 ```
 CLAUDE.md
 README.md                      bring-up, definition of done, publishing
-.github/workflows/deploy.yml   lint, test, e2e, build, deploy
+.github/workflows/deploy.yml   build job (lint, test, e2e, build; read-only), deploy job (Pages);
+                               a pull request runs the checks only. Actions pinned to commits.
+.github/dependabot.yml         weekly updates for npm and the actions
 supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                00002_chef.sql (chefs: one named chef per account)
                                00003_chef_look.sql (skin, hair, and editing the chef)
@@ -107,6 +109,8 @@ supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                  shopped; saving a cook takes its recipe off)
                                00007_shop_what_you_saw.sql (Done shopping changes only
                                  the recipes and ticks this device showed)
+                               00008_grants_and_limits.sql (the grants the migrations
+                                 meant, and limits on notes, ids, prices and dates)
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
@@ -131,7 +135,7 @@ app/
       progress.ts              the rules: learned, state, mastery, next, cookable, progressLost
       leveling.ts              the chef: XP, level, rank (and its costume), discipline stats
       streak.ts                weeks in a row with a cook, from cooked_on
-      badges.ts                the 26 badges and the rule for each, read off the log
+      badges.ts                the 31 badges and the rule for each, read off the log
       notice.ts                what one cook earned: lines, level-up, promotion, badges, the usual
       timers.ts                cook-mode timers in sessionStorage, keyed by label
       cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
@@ -356,9 +360,28 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   months frozen; bacon keeps a week or freezes; the loaf lives in the
   freezer. Leftover rice is spread in a lidded container and in the fridge
   within an hour.
-- A side dish is compared with ordering it as a side (the oven fries, $5.50
-  a serving), and a dish that is dinner with dinner (the salad is an entrée
-  Greek salad at $12). Until October 6, 2026 the salad was a $9.50 side.
+- A side dish (`delivery.side: true`: the chopped salad, the oven fries) is
+  compared with adding it to an order you would place anyway: its menu
+  price, fees and tip, and no delivery fee of its own. On October 6, 2026
+  the salad was briefly a $12 entrée; Rowan chose sides that ride on an
+  order instead.
+- Open cans during prep, before any heat: never while garlic or ground
+  spices sit in hot oil. "Keep the rest" notes go on a calm step (a simmer,
+  or its why), never the time-critical one.
+- When the cook steps away from a hot pan (washing a tool, waiting on a
+  timer), the step turns the burner to low or off and says where it comes
+  back up; a washed tool is dried before it goes near hot oil. A pan moved
+  off its burner is moved back, with an oven mitt, before it heats again.
+- An ingredient listed as softened needs a step that softens it, and bread
+  from the freezer a step that thaws it. Part of a staple is measured by
+  weight with a picture ("2 ounces, a quarter of a new 8-ounce block"),
+  never as a fraction of the package, which may be part used.
+- A cloth that touched raw meat (the towel pressed on a smash patty) goes in
+  the laundry. Tomato that sits in a pan for half an hour, not only one that
+  simmers, goes in a saucepan. Start pasta water no sooner than it takes to
+  boil. Say "a lidded container", always.
+- "Wrap the rest" lists `plastic-wrap`, and a step that cuts lists the
+  cutting board as well as the knife (`curriculum.test.ts` checks both).
 
 ## The rules, precisely
 
@@ -368,12 +391,21 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - `recipeState(recipe, logs)`: `locked` if any required skill is unlearned;
   else `ready` with no cooks; else `mastered` at 3 good cooks including a
   "Nailed it"; else `cooked`.
-- `nextRecipe(logs, plan, shopped)`: the first unlocked recipe on this
-  week's plan, groceries bought before groceries still to buy, each in the
-  order added (the menu labels it "Groceries bought" or "On this week's
-  plan"); else, in menu order, the first unlocked recipe without a good cook
-  (so a Rough cook is suggested again before anything new), else the first
-  not yet mastered.
+- `nextRecipe(logs, plan, shopped, today)`: the first unlocked recipe on
+  this week's plan, groceries bought before groceries still to buy, each in
+  the order added (the menu labels it "Groceries bought" or "On this week's
+  plan"); else the first in suggestion order, which `readyToPlan` shares: a
+  dish of the usual that has come into reach without a good cook yet (what
+  everything builds toward), then, in menu order, recipes without a good
+  cook (so a Rough cook comes back before anything new), then those not yet
+  mastered, then mastered ones, the longest uncooked first, the usual's
+  before the courses'. A recipe cooked in the last `REST_DAYS` (7) goes to
+  the back, so the suggestion is never what was cooked yesterday. There is
+  always a suggestion: once everything is mastered, the card says "Mastered,
+  and not cooked since …". (Rowan's call, October 6, 2026: a year-long
+  simulation found the menu running dry for the keen cook, re-suggesting the
+  dish just made, and a once-a-week cook first reaching a dish of the usual
+  around week 46.)
 - `teacherOf(technique)`: the one recipe that teaches a skill. A locked
   recipe page names it, with a link: "Locked. Learn heat control from Soft
   scrambled eggs on toast."
@@ -390,7 +422,11 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 `lib/leveling.ts`:
 
 - Cook XP = `tier * 10 * rating`. Tier 1 Rough is 10; tier 5 Nailed it is 150.
-- Only a recipe's first 5 cooks earn XP (`XP_COOKS_PER_RECIPE`).
+- Only a recipe's best 5 cooks earn XP (`XP_COOKS_PER_RECIPE`), so a better
+  cook replaces a weaker one and getting better pays. (Rowan's call, October
+  6, 2026. With the first five counting, a cook who rated each recipe Decent
+  four times and Nailed it once topped out at 14,510 XP, level 17, short of
+  executive chef at 15,300, and the keen cook's XP stopped by week 40.)
 - +50 per skill learned, +100 per recipe mastered.
 - Level `n` needs `50 * n * (n - 1)` total XP: 100, 300, 600, 1000, ...
 - Ranks by level: dishwasher 1, prep cook 3, line cook 6, sous chef 10, head
@@ -398,10 +434,15 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - Pacing this was tuned for: the first good cook reaches level 2. Mastering
   the First course lands near line cook. Executive chef needs close to five
   strong cooks of everything (a perfect run tops out at 18,150 XP, level 19).
-- Pacing as simulated in October 2026, at 2 to 3 cooks a week, mostly
-  Decent: line cook around week 8, sous chef around week 21, head chef
-  around week 40. The usual starts coming into reach around line cook, well
-  before head chef (an earlier version of this file said otherwise).
+- Pacing as simulated on October 6, 2026 over a year, five seeds each:
+  - At 2 to 3 cooks a week (about a third Nailed it): line cook in weeks 8
+    to 11, sous chef in weeks 22 to 31, head chef in weeks 43 to 50. A
+    stricter rater (a fifth Nailed it) reaches sous chef around week 31 and
+    no head chef in the year.
+  - About once a week: prep cook by week 10, line cook by week 52.
+  - 4 to 5 a week: head chef by week 26; with best-five XP, executive chef
+    in weeks 40 to 47.
+  - The usual starts coming into reach around line cook.
 
 `lib/cost.ts`:
 
@@ -410,7 +451,10 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   (`COUNTED_SERVINGS`). A cook is dinner for one or two; leftovers count for
   nothing, neither as meals kept nor as cost.
 - Order cost = `menuPrice * counted servings * (1 + 0.15 fees + 0.18 tip)`
-  plus one `$3.99` delivery fee. The constants are at the top of the file.
+  plus one `$3.99` delivery fee, except for a side (`delivery.side`), which
+  rides on another order and pays no delivery fee. The constants are at the
+  top of the file. The recipe page's "You keep" says how many servings it
+  counts.
 - Kept per cook = order cost minus the counted servings' share of the cook
   cost. Total kept sums it over every cook, including Rough ones (you still
   did not order).
@@ -431,15 +475,17 @@ makes more than two servings.
 
 `lib/badges.ts` (derived, never stored, so editing a cook can take one away):
 
-- 26 since October 5, 2026: First cook, Nailed it (any cook rated 3),
+- 31 since October 6, 2026: First cook, Nailed it (any cook rated 3),
   Mastered (any recipe mastered), one per course cleared (every skill that
-  course teaches, I to IV), one per discipline (every prep, pan, pot, oven,
-  sauce or palate skill), $100, $500, $1,000 and $2,500 kept (at today's
-  prices), Four weeks running (longest streak 4 or more), The whole menu
-  (every recipe cooked once, the usual included), and one per dish of the
-  usual for a good cook of it. The fifteen before then all arrived by about
-  week 8 and then nothing came for months; the course, discipline and money
-  badges spread the rest out.
+  course teaches, I to IV, white numerals), one per course mastered (every
+  recipe in it mastered, yolk numerals) and The usual mastered (a plate with
+  the yolk ring), one per discipline (every prep, pan, pot, oven, sauce or
+  palate skill), $100, $500, $1,000 and $2,500 kept (at today's prices),
+  Four weeks running (longest streak 4 or more), The whole menu (every
+  recipe cooked once, the usual included), and one per dish of the usual for
+  a good cook of it. The fifteen before October 5 all arrived by about week
+  8; the 26 after it by about week 21 for a regular cook; the five mastery
+  badges land in weeks 22 to 52.
 - The after-cook notice shows the badges that cook earned
   (`earnedBadges(after)` minus `earnedBadges(before)`) as their art, whose
   label names them; the notice's lines do not repeat them.
@@ -627,10 +673,13 @@ build; a failed run keeps its traces as an artifact.
   play sound, and the prompt goes only once the sound is actually on. A
   timer finished more than 30 minutes ago, or stopped, is hidden
   (`STALE_AFTER_MS`, `shownTimers`) but stays stored until the cook is
-  over, so cook mode knows which timers were never started: on a later
-  step, a timer the cook passed by shows as a dashed chip, "Potatoes:
-  start 15:00", that starts it. "Leave cook mode" (which asks first if one
-  is running) and saving the cook both clear the recipe's timers.
+  over, so cook mode knows which timers were never started: on the step
+  right after one the cook passed by, it shows as a dashed chip, "Potatoes:
+  start 15:00", that starts it (only there, so a cook who judged by eye is
+  not asked again on every step). "Leave cook mode" (which asks first if
+  one is running) and saving the cook both clear the recipe's timers, and
+  `end()` stops cook mode saving them again, so a ring's late tap cannot
+  bring them back.
 - **Install to the home screen.** `public/manifest.webmanifest` (standalone,
   start and scope `./`, so it opens at the menu under `/first-course/`), the
   plate as `icon-192.png`, `icon-512.png` (also maskable: the plate sits in
@@ -717,9 +766,12 @@ build; a failed run keeps its traces as an artifact.
   notice offers to add the tools it used that the kit does not have ticked.
 - **Focus follows the change.** A control that a write takes away hands
   focus to what replaced it (`focusAfter` and `useFocusTarget`): "Add"
-  under Ready to cook to the recipe on the plan, "I have all of these" to
-  "You have all of it.", "Wear it" to "Wearing it.", Done shopping to its
-  message. The after-cook notice takes focus once the moments are over. A
+  under Ready to cook to the recipe on the plan, "Have it" to the next line
+  of the list (not the top of a long one), "I have all of these" to "You
+  have all of it.", "Wear it" to "Wearing it.", Done shopping to its
+  message. The target is named only after the write succeeds (a failed one
+  leaves focus on its button), only if the cook is still on the same
+  screen, and only for 1.5 seconds; navigating clears it. The after-cook notice takes focus once the moments are over. A
   button busy with its write says so with `aria-disabled` rather than
   `disabled`, which would drop focus to the top of the page, and
   `useWrite` ignores a second tap. Tapping a price puts the cursor in it,
@@ -736,7 +788,15 @@ build; a failed run keeps its traces as an artifact.
   recipe never does. Because progress is derived, the screen first says what
   a change or a delete would take away (`progressLost` in `progress.ts`:
   skills unlearned, recipes locked again, masteries undone), and the delete
-  asks to confirm.
+  asks to confirm. "Your cooks" lists the newest cooking day first, and a
+  line under the blurb ("13 cooks, last Oct 2, 2026") jumps to it, past a
+  long method. The log is read 1,000 rows at a time (the Data API's
+  limit), so a long history loads in full.
+- **Sign-out says what happened.** supabase-js signs the phone out even
+  when the server never hears it, except when the session cannot even be
+  loaded (no signal and a token past its hour): then nothing changed, and
+  the menu says "Could not sign out … Try again with signal." The app tells
+  the two apart by the `SIGNED_OUT` event.
 - **React Router navigates inside a transition.** A screen that removes the
   thing it is showing (deleting a cook) must make both changes in one
   `startTransition`, or React draws the screen once without its data and
@@ -758,10 +818,26 @@ build; a failed run keeps its traces as an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **All seven migrations are applied to the live project** (00001 to
-  00005 on October 4, 2026, 00006 and 00007 on October 5). Rowan pushed
-  each one before the app code that needs it deployed: a migration always
-  goes first. `00007` was checked on a throwaway stack (14 checks: only the listed
+- **Migrations 00001 to 00007 are applied to the live project** (00001 to
+  00005 on October 4, 2026, 00006 and 00007 on October 5).
+  `00008_grants_and_limits.sql` waits for Rowan to run `npx supabase db
+  push`. It fixes what a read-only schema dump of the live project showed
+  on October 6: the project was made with the dashboard's default of
+  exposing new tables, which granted everything (truncate included) on
+  every table to `anon` and `authenticated`, so none of the column grants
+  in 00001 to 00006 held live (a cook's recipe could be changed through the
+  API). Row-level security kept every cook to their own rows throughout.
+  00008 revokes everything from `anon` and `authenticated`, grants again
+  exactly what the app uses, stops new tables and functions being exposed by
+  default, and adds limits: notes at most 2,000 characters, ids in the
+  curriculum's shape (`ids.test.ts` checks every id fits), four-digit years,
+  prices at most $1,000, and extras as ids. It was checked on a throwaway
+  stack left at the exposing default, as the live project is (26 checks
+  before it, showing the recipe change getting through; 36 after: every
+  call the app makes still works, the recipe, `created_at` and `added_at`
+  updates are refused, anon is refused, every limit holds, and a new table
+  is exposed to nobody). Rowan pushes each migration before the app code
+  that needs it deploys: a migration always goes first. `00007` was checked on a throwaway stack (14 checks: only the listed
   recipes are marked shopped and only the seen ticks cleared, a recipe and
   a tick added elsewhere survive, the one-argument function is gone, anon
   refused, the 00006 trigger still fires, and a cook can carry its own id,
@@ -803,6 +879,32 @@ build; a failed run keeps its traces as an artifact.
   a new one. The e2e fake does this with `confirmEmail: true` (and
   `unconfirmed: true` for the seeded account) in the seed and otherwise
   behaves like development (confirmation off).
+- **Security, as reviewed on October 6, 2026.**
+  - The app is served from `rowanflynnpilot.github.io`, an origin it shares
+    with about 40 of Rowan's other Pages sites, some loading third-party
+    scripts. localStorage, and so the session, is per origin: a compromised
+    script on any of them could read the refresh token. The fix is an
+    origin of its own (a dedicated GitHub organization, whose `*.github.io`
+    is a separate site, or a custom subdomain), then the Supabase Site URL
+    and redirect list. Rowan's call; not done.
+  - Sign-ups are open and nothing limits rows per account, so anyone could
+    fill the free database or use up the email allowance a password reset
+    needs. Turn "Allow new users to sign up" off until going public. The
+    live minimum password length should be 8 (the server default is 6; the
+    app checks 8 only in the browser), with "secure password change" and
+    "secure email change" on.
+  - A link carrying a different account's tokens (anyone can send one)
+    does not sign in on its own: the app asks "Switch accounts?" with the
+    current account as the default. Errors never repeat text from the
+    address bar (`recipeFromRoute`). The built page carries a content
+    security policy as a meta tag (`vite.config.ts`): scripts, styles,
+    fonts and images from the app itself, requests only to its Supabase
+    project.
+  - Before going public: per-account row caps, CAPTCHA on sign-up, sign-in
+    and reset, a custom email sender, token-hash email links (`verifyOtp`)
+    so session tokens never sit in the address or the browser's history
+    list, account deletion and export, a privacy policy and terms, and an
+    age gate or an off switch for wine pairings.
 - **Never `npx supabase config push` the repo's `config.toml`.** It holds
   local-development values (site URL `127.0.0.1`, confirmation off, MFA off)
   and pushing it would reset ten live settings. To change one live setting,
@@ -942,8 +1044,8 @@ precisely" and "Design").
 ## Where things stand, and what comes next
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), all seven migrations
-are on the live project, and every push runs 127 unit tests and 160 e2e tests before it deploys.
+recipes are written (four courses and the usual), migrations 00001 to
+00007 are on the live project (00008 is ready to push), and every push runs 136 unit tests and 173 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 
