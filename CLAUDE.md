@@ -943,7 +943,7 @@ precisely" and "Design").
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all seven migrations
-are on the live project, and every push runs 127 unit tests and 186 e2e tests before it deploys.
+are on the live project, and every push runs 127 unit tests and 160 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

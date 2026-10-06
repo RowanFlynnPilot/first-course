@@ -120,7 +120,7 @@ The deploy workflow runs these, and nothing deploys unless all pass:
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 186 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 160 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired email link, creating
     and changing the chef, the character
