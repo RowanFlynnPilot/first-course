@@ -16,7 +16,7 @@ describe('the after-cook notice', () => {
     expect(notice.xpBefore).toBe(0)
     expect(notice.lines).toEqual([
       '+120 XP. Level 2.',
-      'Kept $22.75 by not ordering.',
+      'Kept $22.50 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
     ])
@@ -44,11 +44,12 @@ describe('the after-cook notice', () => {
     expect(notice.lines).toContain('Now ready to cook: Pasta with quick marinara and Pasta al limone.')
   })
 
-  it('opens a Fourth-course recipe as soon as its skills are learned', () => {
-    // Carbonara needs mise en place (aglio e olio) and the pasta-water sauce (pasta al limone).
-    const before = [log('chopped-salad', 2), log('soft-scrambled-eggs', 2), log('aglio-e-olio', 2)]
-    const notice = cookNotice(recipeById('pasta-al-limone'), before, log('pasta-al-limone', 2), 'Remy', ESTIMATES)
-    expect(notice.lines).toContain('Now ready to cook: Spaghetti carbonara.')
+  it('opens a Fourth-course recipe only once a Third-course skill it needs is learned', () => {
+    // Carbonara needs the pasta-water sauce, separating an egg (the aioli) and spooning off fat (the pan sauce).
+    const before = ['chopped-salad', 'soft-scrambled-eggs', 'aglio-e-olio', 'pasta-al-limone', 'seared-chicken-thighs', 'oven-fries-aioli']
+      .map((id) => log(id, 2))
+    const notice = cookNotice(recipeById('chicken-pan-sauce'), before, log('chicken-pan-sauce', 2), 'Remy', ESTIMATES)
+    expect(notice.lines.find((line) => line.startsWith('Now ready to cook:'))).toContain('Spaghetti carbonara')
   })
 
   it('announces mastery and the end of XP for a recipe', () => {

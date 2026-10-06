@@ -123,12 +123,12 @@ test.describe('signing in and creating a chef', () => {
 
   test('keeps everything after signing out and back in', async ({ page, kitchen }) => {
     await kitchen.open('./', { logs: [{ recipe: 'chopped-salad', rating: 2 }] })
-    await expect(page.getByText('$22.75')).toBeVisible()
+    await expect(page.getByText('$22.50')).toBeVisible()
     await page.getByRole('button', { name: 'Sign out' }).click()
     await page.getByLabel('Email').fill(EMAIL)
     await page.getByLabel('Password').fill(PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
-    await expect(page.getByText('$22.75')).toBeVisible()
+    await expect(page.getByText('$22.50')).toBeVisible()
   })
 })

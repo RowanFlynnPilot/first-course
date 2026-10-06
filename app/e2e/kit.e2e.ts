@@ -36,11 +36,11 @@ test.describe('the kit', () => {
 
     await page.getByRole('link', { name: 'Your kit' }).click()
     await expect(page.getByRole('heading', { name: 'Your kit' })).toBeVisible()
+    // The Fourth course adds no new kit.
     await expect(page.getByRole('heading', { level: 2 })).toHaveText([
       'To start',
       'New for the second course',
       'New for the third course',
-      'New for the fourth course',
     ])
     await page.getByRole('checkbox', { name: /Chef’s knife/ }).click()
     await expect(page.getByRole('checkbox', { name: /Chef’s knife/ })).toBeChecked()
@@ -54,9 +54,10 @@ test.describe('the kit', () => {
     await kitchen.open('./', { kit: FIRST_COURSE_KIT })
     const course = (name: string) => page.locator('section').filter({ has: page.getByRole('heading', { name }) })
     await expect(course('First course').getByRole('link', { name: /Kit:/ })).toHaveCount(0)
-    await expect(course('Second course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 7 new things to get')
-    // The same count the kit screen gives under “New for the fourth course”.
-    await expect(course('Fourth course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 5 new things to get')
+    await expect(course('Second course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 11 new things to get')
+    // The same count the kit screen gives under “New for the third course”.
+    await expect(course('Third course').getByRole('link', { name: /Kit:/ })).toHaveText('Kit: 9 new things to get')
+    await expect(course('Fourth course').getByRole('link', { name: /Kit:/ })).toHaveCount(0)
   })
 
   test('one tap ticks everything a course adds', async ({ page, kitchen }) => {

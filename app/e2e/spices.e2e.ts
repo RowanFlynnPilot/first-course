@@ -11,7 +11,6 @@ test.describe('the spice guide', () => {
       'To start',
       'New for the second course',
       'New for the third course',
-      'New for the fourth course',
       'Worth adding later',
     ])
 
@@ -21,9 +20,9 @@ test.describe('the spice guide', () => {
     const salt = start.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Kosher salt' }) })
     await expect(salt).toContainText('In your pantry. First used in Chopped salad with lemon vinaigrette.')
 
-    const fourth = page.locator('section').filter({ has: page.getByRole('heading', { name: 'New for the fourth course' }) })
-    await expect(fourth.getByRole('heading', { level: 3 })).toHaveText(['Paprika'])
-    await fourth.getByRole('link', { name: 'Broiled chicken tikka' }).click()
+    const third = page.locator('section').filter({ has: page.getByRole('heading', { name: 'New for the third course' }) })
+    await expect(third.getByRole('heading', { level: 3 })).toHaveText(['Ground coriander', 'Garam masala', 'Paprika'])
+    await third.getByRole('link', { name: 'Broiled chicken tikka' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Broiled chicken tikka' })).toBeVisible()
   })
 

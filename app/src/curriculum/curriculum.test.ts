@@ -48,6 +48,32 @@ describe('the menu', () => {
     }
   })
 
+  it('opens each course only once the one before it is under way', () => {
+    // Courses 2 to 4: at least one required skill is taught in the course just before.
+    for (const recipe of RECIPES) {
+      if (recipe.tier < 2 || recipe.tier > 4) continue
+      const fromBefore = recipe.requires.some((technique) => teacherOf(technique).tier === recipe.tier - 1)
+      expect(fromBefore, `${recipe.id} (course ${recipe.tier}) needs a skill from course ${recipe.tier - 1}`).toBe(true)
+    }
+  })
+
+  it('handles raw meat only after the recipe that teaches doneness', () => {
+    // Every skill taught by the recipes a recipe needs, and by the recipes those needed, all the way down.
+    function allLearned(technique: TechniqueId): TechniqueId[] {
+      const teacher = teacherOf(technique)
+      return [...teacher.teaches, ...teacher.requires.flatMap(allLearned)]
+    }
+    for (const recipe of RECIPES) {
+      const rawMeat = recipe.content.ingredients.some(({ ingredientId }) => {
+        const ingredient: Ingredient = INGREDIENTS[ingredientId]
+        return ingredient.safeTempF !== undefined
+      })
+      if (!rawMeat) continue
+      const known = new Set([...recipe.teaches, ...recipe.requires.flatMap(allLearned)])
+      expect(known.has('doneness'), `${recipe.id} uses raw meat`).toBe(true)
+    }
+  })
+
   it('can be cooked start to finish from nothing', () => {
     const learned = new Set<TechniqueId>()
     const cooked = new Set<string>()
@@ -158,6 +184,10 @@ describe('written recipes', () => {
       [/kitchen towel|folded towel/i, ['kitchen-towels']],
       [/\bsheet pan\b/i, ['sheet-pan']],
       [/\bsaucepan\b/i, ['small-saucepan', 'medium-saucepan']],
+      // The verb, not the noun: "slice the garlic", never "a slice of bread".
+      [/\b(slice|chop|mince|dice|cut) (the|it|them|a|an|into|in|each|both|one|crosswise|thin)\b/i, ['chefs-knife']],
+      [/\bcutting board\b|\bthe board\b/i, ['cutting-board']],
+      [/\bopen the can\b/i, ['can-opener']],
     ]
     for (const { id, content } of written) {
       for (const [index, step] of content.steps.entries()) {
@@ -185,6 +215,77 @@ describe('written recipes', () => {
         const part = new RegExp(String.raw`\b(?:of the|remaining|half the|rest of the) (?:(\w+) )?${noun}\b`, 'gi')
         const used = [...text.matchAll(part)].some((match) => match[1] === undefined || words.includes(match[1].toLowerCase()))
         if (used) expect(line.prep, `${id}: ${line.ingredientId} is used in parts`).not.toBeNull()
+      }
+    }
+  })
+
+  it('split an ingredient into parts that add up to the list', () => {
+    // "1 for the beef, ½ for the sauce, 6 for the pasta water" is 7½.
+    const amount = String.raw`(\d+)?\s*([⅛¼⅜½⅝¾⅞])?`
+    const GLYPHS: Record<string, number> = { '⅛': 0.125, '¼': 0.25, '⅜': 0.375, '½': 0.5, '⅝': 0.625, '¾': 0.75, '⅞': 0.875 }
+    for (const { id, content } of written) {
+      for (const line of content.ingredients) {
+        // "1 for each batch" is a count, not a part: leave those notes to the reader.
+        if (line.prep === null || /\bfor each\b/.test(line.prep)) continue
+        const parts = [...line.prep.matchAll(new RegExp(String.raw`(?:^|[,:;] )${amount} (?:for|to|with) `, 'g'))]
+          .filter((match) => match[1] !== undefined || match[2] !== undefined)
+          .map((match) => Number(match[1] ?? 0) + (match[2] === undefined ? 0 : (GLYPHS[match[2]] ?? 0)))
+        if (parts.length < 2) continue
+        expect(parts.reduce((sum, part) => sum + part, 0), `${id} ${line.ingredientId}: ${line.prep}`).toBe(line.qty)
+      }
+    }
+  })
+
+  it('check every safe temperature the whole way: where, how long, and what if it is low', () => {
+    for (const { id, content } of written) {
+      for (const { ingredientId } of content.ingredients) {
+        const ingredient: Ingredient = INGREDIENTS[ingredientId]
+        const temperature = ingredient.safeTempF
+        if (temperature === undefined) continue
+        const check = content.steps.find((step) => step.text.includes(`at least ${temperature}°F`))
+        expect(check, `${id}: no step checks ${temperature}°F`).toBeDefined()
+        const text = check?.text ?? ''
+        expect(text, `${id}: where the probe goes`).toMatch(/\btip\b|\bprobe\b/i)
+        expect(text, `${id}: wait for the reading`).toMatch(/stops climbing/i)
+        expect(text, `${id}: what to do if it is low`).toMatch(/if (it is|it’s|any is|one is) (lower|below)/i)
+      }
+    }
+  })
+
+  it('separate eggs only for pasteurized ones, whose raw yolk is safe', () => {
+    for (const { id, content } of written) {
+      if (!content.steps.some((step) => /\bseparate the (egg|third)\b/i.test(step.text))) continue
+      expect(content.ingredients.map((line) => line.ingredientId), id).toContain('pasteurized-eggs')
+    }
+  })
+
+  it('say to carry on during any timer of 30 minutes or more', () => {
+    for (const { id, content } of written) {
+      for (const [index, step] of content.steps.entries()) {
+        if (step.timer === null || step.timer.seconds < 1800) continue
+        const next = content.steps[index + 1]?.text ?? ''
+        const carryOn = /go (straight )?on to the next step|while (it|they|that|the)|meanwhile/i
+        expect(carryOn.test(step.text) || /^(while|meanwhile)/i.test(next), `${id} step ${index + 1}`).toBe(true)
+      }
+    }
+  })
+
+  it('drain a pot into a colander with oven mitts, tipping it away from you', () => {
+    for (const { id, content } of written) {
+      for (const [index, step] of content.steps.entries()) {
+        if (!/pour [^.]*into the colander/i.test(step.text)) continue
+        expect(step.text, `${id} step ${index + 1}`).toMatch(/oven mitts/i)
+        expect(step.text, `${id} step ${index + 1}`).toMatch(/away from you/i)
+      }
+    }
+  })
+
+  it('never call a staple something one recipe uses up', () => {
+    // A staple is used a little at a time. A recipe that needs a whole package of it is shopping for it each time.
+    for (const { id, content } of written) {
+      for (const line of content.ingredients) {
+        const ingredient = INGREDIENTS[line.ingredientId]
+        if (ingredient.staple) expect(line.qty, `${id} ${line.ingredientId}`).toBeLessThan(ingredient.package.units)
       }
     }
   })

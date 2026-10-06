@@ -174,6 +174,18 @@ orders. Tier 5 has seven dishes: double smash burger, crispy chicken sandwich,
 margherita pizza, ragù bolognese, pad thai, General Tso's chicken, chicken
 tikka masala.
 
+**Courses are gates** (Rowan's call, October 5, 2026). Every recipe in the
+Second, Third and Fourth courses requires a skill taught in the course just
+before, so a course opens only once the one before it is under way, and
+`curriculum.test.ts` checks it. Before that, five Fourth-course dishes
+opened during the Second course and shallow frying could be a ninth recipe.
+The oven fries moved to the Second course, and the pan pizza, the cutlets
+and the chicken tikka to the Third; carbonara now needs the aioli's egg
+separating and the pan sauce's spooning off fat, and the green curry needs
+the masala base's cue. The courses now hold 6, 7, 8 and 3 recipes, and the
+Fourth course adds no new kit or spice. The usual is not gated by course:
+a dish comes into reach when its skills are learned.
+
 **Every recipe is written, the usual included (31 recipes).** `content` is
 required on `Recipe`, so the type system rules out an unwritten recipe, and
 nothing in the app handles one. Once a dish of the usual is in reach, the
@@ -296,7 +308,23 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   cook learns how pairing works, not just what to buy.
 - Prefer ingredients that later recipes reuse.
 - `npm test` must pass. It checks the graph rules listed at the top of
-  `recipes.ts` and that every recipe costs less than ordering.
+  `recipes.ts` and that every recipe costs less than ordering, plus the
+  rules above that a test can read: a recipe with raw meat needs doneness
+  (taught by the seared thighs) somewhere below it; a step that cuts, chops
+  or slices lists the knife, "the board" lists the cutting board, and "open
+  the can" lists the can opener; a split prep note ("1 for the beef, ½ for
+  the sauce") adds up to the list; every safe temperature has one full
+  thermometer check (the tip or probe, "stops climbing", what to do if it
+  is lower); a step that separates an egg uses `pasteurized-eggs`; a timer
+  of 30 minutes or more says to go on, or what happens meanwhile; pouring
+  into the colander names oven mitts and "away from you"; and no recipe
+  uses a whole package of a staple (that is not a staple).
+- A sauce that simmers tomatoes for 20 minutes or more goes in a saucepan,
+  not the skillet: the kit steers a buyer to cast iron, and long acid
+  simmers strip its seasoning and taste of metal.
+- Say how to keep a leftover part of a package: half a can of tomatoes
+  keeps a week in the fridge or 3 months frozen; leftover raw chicken can
+  be frozen.
 
 ## The rules, precisely
 
@@ -326,9 +354,12 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - Ranks by level: dishwasher 1, prep cook 3, line cook 6, sous chef 10, head
   chef 14, executive chef 18.
 - Pacing this was tuned for: the first good cook reaches level 2. Mastering
-  the First course lands near line cook. Head chef arrives about when the
-  usual comes into reach. Executive chef needs close to five strong cooks of
-  everything (a perfect run tops out at 18,750 XP, level 19).
+  the First course lands near line cook. Executive chef needs close to five
+  strong cooks of everything (a perfect run tops out at 18,750 XP, level 19).
+- Pacing as simulated in October 2026, at 2 to 3 cooks a week, mostly
+  Decent: line cook around week 8, sous chef around week 21, head chef
+  around week 40. The usual starts coming into reach around line cook, well
+  before head chef (an earlier version of this file said otherwise).
 
 `lib/cost.ts`:
 
@@ -710,7 +741,11 @@ Behavior:
 - **Pantry** (`/pantry`). Every `staple: true` ingredient, by store section,
   with a toggle. What a staple is: used a little at a time and keeps for
   weeks. A can or a pack of meat is used up whole, so it is not one; garlic,
-  fresh ginger and a parmesan wedge are.
+  fresh ginger, a parmesan wedge, eggs and a tube of tomato paste are. A box
+  of spaghetti is not: two recipes use all of it. Packages are sized so a
+  beginner wastes little: a can of broth, not a carton; a half pint of
+  cream; a single large russet; a 5 lb bag of rice, which six recipes draw
+  on.
 - **Price overrides.** Tap a price on the grocery list to correct the
   package price, or go back to the estimate. Every price read goes through
   `packagePriceCents(id, prices)` in `cost.ts`; kept totals use current
@@ -752,7 +787,7 @@ precisely" and "Design").
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all six migrations are
-on the live project, and every push runs 96 unit tests and 117 e2e tests before it deploys.
+on the live project, and every push runs 104 unit tests and 117 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

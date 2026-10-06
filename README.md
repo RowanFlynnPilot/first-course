@@ -112,7 +112,7 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 96 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 104 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.

@@ -41,13 +41,13 @@ test.describe('cooking and logging', () => {
 
     await expect(noticeLines(page)).toHaveText([
       '+120 XP. Level 2.',
-      'Kept $22.75 by not ordering.',
+      'Kept $22.50 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
     ])
     await expect(page.getByRole('status').getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
-    await expect(page.locator('.kept')).toHaveText('$22.75 kept by cooking')
+    await expect(page.locator('.kept')).toHaveText('$22.50 kept by cooking')
     // The yolk lands on the plate just cooked, and only there.
     await expect(page.locator('.plate-celebrate')).toHaveCount(1)
     await expect(page.getByRole('link', { name: /Chopped salad/ }).locator('.plate-celebrate')).toHaveCount(1)

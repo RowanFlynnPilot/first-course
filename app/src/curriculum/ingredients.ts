@@ -125,7 +125,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'lb',
     staple: false,
-    package: { label: '5 lb bag', priceCents: 449, units: 5 },
+    package: { label: '1 large russet', priceCents: 90, units: 0.75 },
   },
   lime: {
     name: 'Lime',
@@ -204,7 +204,7 @@ export const INGREDIENTS = {
     section: 'meat',
     unit: 'oz',
     staple: false,
-    package: { label: '12 oz pack', priceCents: 599, units: 12 },
+    package: { label: '16 oz pack', priceCents: 749, units: 16 },
   },
 
   // Dairy
@@ -212,7 +212,7 @@ export const INGREDIENTS = {
     name: 'Large egg',
     section: 'dairy',
     unit: 'each',
-    staple: false,
+    staple: true,
     package: { label: '1 dozen', priceCents: 349, units: 12 },
   },
   butter: {
@@ -227,7 +227,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'oz',
     staple: false,
-    package: { label: '6 oz tub, crumbled', priceCents: 449, units: 6 },
+    package: { label: '4 oz tub, crumbled', priceCents: 349, units: 4 },
   },
   parmesan: {
     name: 'Parmesan',
@@ -284,7 +284,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'cup',
     staple: false,
-    package: { label: '1 pint (2 cups)', priceCents: 379, units: 2 },
+    package: { label: '½ pint (1 cup)', priceCents: 249, units: 1 },
   },
 
   // Bakery
@@ -357,7 +357,7 @@ export const INGREDIENTS = {
     name: 'Spaghetti',
     section: 'pantry',
     unit: 'oz',
-    staple: true,
+    staple: false,
     package: { label: '16 oz box', priceCents: 179, units: 16 },
   },
   'jasmine-rice': {
@@ -365,7 +365,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'cup',
     staple: true,
-    package: { label: '2 lb bag', priceCents: 399, units: 4.5 },
+    package: { label: '5 lb bag', priceCents: 749, units: 11 },
   },
   'crushed-tomatoes': {
     name: 'Crushed tomatoes',
@@ -378,15 +378,15 @@ export const INGREDIENTS = {
     name: 'Tomato paste',
     section: 'pantry',
     unit: 'tbsp',
-    staple: false,
-    package: { label: '6 oz can (about 10 tbsp)', priceCents: 109, units: 10 },
+    staple: true,
+    package: { label: '4.5 oz tube (about 8 tbsp)', priceCents: 299, units: 8 },
   },
   'chicken-broth': {
     name: 'Low-sodium chicken broth',
     section: 'pantry',
     unit: 'cup',
     staple: false,
-    package: { label: '32 oz carton (4 cups)', priceCents: 279, units: 4 },
+    package: { label: '14.5 oz can', priceCents: 129, units: 1.75 },
   },
   'red-lentils': {
     name: 'Red lentils',
@@ -537,7 +537,7 @@ export const INGREDIENTS = {
   },
   tamarind: {
     // The pourable Thai kind. The thick black Indian paste is several times stronger.
-    name: 'Thai tamarind concentrate, pourable',
+    name: 'Thai tamarind concentrate, pourable (at an Asian grocery)',
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
@@ -551,11 +551,11 @@ export const INGREDIENTS = {
     package: { label: '14 oz box', priceCents: 299, units: 14 },
   },
   tagliatelle: {
-    name: 'Dried egg tagliatelle',
+    name: 'Dried egg tagliatelle or egg fettuccine',
     section: 'pantry',
     unit: 'oz',
     staple: false,
-    package: { label: '1 lb bag of nests', priceCents: 449, units: 16 },
+    package: { label: '8.8 oz bag of nests', priceCents: 349, units: 8.8 },
   },
   'roasted-peanuts': {
     name: 'Roasted peanuts, unsalted',

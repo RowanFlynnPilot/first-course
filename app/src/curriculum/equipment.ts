@@ -41,7 +41,11 @@ export const EQUIPMENT = {
     note: 'Pre-seasoned is fine. It goes from the stove into a 500°F oven and holds heat for a crisp crust.',
     coveredBy: [],
   },
-  'skillet-lid': { name: 'Lid or plate that covers the skillet', note: 'A large plate or a sheet pan works.', coveredBy: [] },
+  'skillet-lid': {
+    name: 'Metal lid that fits the 12-inch skillet',
+    note: 'It also smothers an oil fire, so metal, never a plate: a plate can crack.',
+    coveredBy: [],
+  },
   'small-saucepan': { name: 'Small saucepan with a tight lid', note: 'About 2 quarts. For a pot of rice.', coveredBy: [] },
   'medium-saucepan': { name: 'Medium saucepan with lid', note: 'About 3 quarts.', coveredBy: [] },
   'large-pot': { name: 'Large pot with lid', note: 'At least 6 quarts, for pasta.', coveredBy: [] },

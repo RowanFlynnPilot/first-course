@@ -227,8 +227,8 @@ test.describe('this week: the plan and the grocery list', () => {
 
   test('a corrected price changes what the recipe page says you keep', async ({ page, kitchen }) => {
     await kitchen.open('#/recipe/chopped-salad', { prices: { feta: 900 } })
-    // Feta at $9.00 for 6 oz instead of $4.49. The salad uses 2 oz, so cooking it costs $1.51 more
-    // ($8.02 instead of $6.51) and you keep $21.24 instead of $22.75.
-    await expect(page.locator('.tab-kept mark')).toHaveText('$21.24')
+    // Feta at $9.00 for 4 oz instead of $3.49. The salad uses 2 oz, so cooking it costs $2.76 more
+    // ($9.51 instead of $6.76) and you keep $19.74 instead of $22.50.
+    await expect(page.locator('.tab-kept mark')).toHaveText('$19.74')
   })
 })
