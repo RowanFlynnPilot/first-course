@@ -243,7 +243,8 @@ test.describe('this week: the plan and the grocery list', () => {
 
   test('a staple already at home goes to the pantry from the list', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { ...SALAD_DONE, plan: ['sheet-pan-sausage'] })
-    // The line after it in the list, by the order the list shows.
+    // The line after it in the list, by the order the list shows, once the list is on screen.
+    await expect(page.getByRole('checkbox', { name: /Kosher salt/ })).toBeVisible()
     const boxes = page.locator('.checks-cart input[type=checkbox]')
     const names = await page.locator('.checks-cart .check-label .row-title').allTextContents()
     const after = names[names.indexOf('Kosher salt') + 1] ?? names[names.indexOf('Kosher salt') - 1]
