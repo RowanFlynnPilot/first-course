@@ -11,7 +11,7 @@ import { DISCIPLINES, TECHNIQUES } from '../curriculum/techniques'
 import { BADGES, earnedBadges } from '../lib/badges'
 import type { Chef } from '../lib/chefs'
 import { totalKeptCents, type Prices } from '../lib/cost'
-import { EXTRAS, trackCooks, wornExtras } from '../lib/extras'
+import { EXTRAS, trackCooks, unlockedExtras, wornExtras } from '../lib/extras'
 import { formatCents, localDateString, plural } from '../lib/format'
 import {
   disciplineStats,
@@ -38,6 +38,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
   const streak = currentStreak(logs, today)
   const earned = new Set(earnedBadges(logs, prices))
   const worn = wornExtras(chef.extras, logs)
+  const extrasEarned = unlockedExtras(logs)
 
   return (
     <main className="page">
@@ -126,7 +127,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
                   {worn.includes(extra.id) && ', wearing it'}
                 </span>
                 <span className="row-note">
-                  {cooks >= extra.cooks ? 'Earned.' : `${extra.how} ${cooks} of ${extra.cooks} so far.`}
+                  {extrasEarned.includes(extra.id) ? 'Earned.' : `${extra.how} ${cooks} of ${extra.cooks} so far.`}
                 </span>
               </li>
             )

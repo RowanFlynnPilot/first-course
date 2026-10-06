@@ -16,7 +16,7 @@ describe('the after-cook notice', () => {
     expect(notice.xpBefore).toBe(0)
     expect(notice.lines).toEqual([
       'Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.',
-      'Kept $22.50 by not ordering.',
+      'Kept $27.40 by not ordering.',
       'Learned knife basics and seasoning to taste.',
     ])
     // What opened up is a list of recipes, so the menu can link each one.

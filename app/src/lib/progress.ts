@@ -14,6 +14,13 @@ export const RATINGS: readonly { value: Rating; label: string; hint: string }[] 
   { value: 3, label: 'Nailed it', hint: 'I would serve this to someone.' },
 ]
 
+/** "Rough", "Decent" or "Nailed it": the one place a rating gets its name. */
+export function ratingLabel(rating: Rating): string {
+  const found = RATINGS.find((option) => option.value === rating)
+  if (found === undefined) throw new Error(`No rating ${String(rating)}`)
+  return found.label
+}
+
 export interface CookLog {
   readonly id: string
   readonly recipeId: string
@@ -71,6 +78,20 @@ export function readyToPlan(logs: readonly CookLog[], plan: readonly string[]): 
 }
 
 /**
+ * What still stands between a recipe and mastery, as a sentence. The one
+ * place it is worded: the log form, the recipe page and the menu all use it.
+ */
+export function masteryLeft(recipe: Recipe, logs: readonly CookLog[]): string {
+  if (recipeState(recipe, logs) === 'mastered') return 'Mastered.'
+  const more = Math.max(0, MASTERED_COOKS - goodCooks(recipe, logs))
+  const nailed = logs.some((log) => log.recipeId === recipe.id && log.rating === 3)
+  // Without a "Nailed it" yet, the last good cook it needs has to be one.
+  if (!nailed && more <= 1) return 'A “Nailed it” masters it.'
+  if (nailed) return more === 1 ? 'One more good cook masters it.' : `${more} more good cooks master it.`
+  return `${more} more good cooks, one of them “Nailed it”, master it.`
+}
+
+/**
  * What this cook's rating decides, said before it is saved: the skills a
  * good cook teaches, or how far the recipe is from mastery.
  */
@@ -79,12 +100,24 @@ export function whatTheRatingDecides(recipe: Recipe, logs: readonly CookLog[]): 
   const toLearn = recipe.teaches.filter((technique) => !learned.has(technique))
   if (toLearn.length > 0) return `Decent or better teaches ${skillList(toLearn)}.`
   if (recipeState(recipe, logs) === 'mastered') return 'Mastered already. Every cook still counts toward what you keep.'
+  return masteryLeft(recipe, logs)
+}
+
+/** What a recipe needs next, in a few words, for its row on the menu. */
+export function rowNote(recipe: Recipe, logs: readonly CookLog[]): string {
+  const state = recipeState(recipe, logs)
+  if (state === 'locked') return `Needs ${skillList(missingTechniques(recipe, logs))}`
+  if (state === 'mastered') return 'Mastered'
+  if (state === 'ready') return recipe.teaches.length > 0 ? `Teaches ${skillList(recipe.teaches)}` : 'In reach. Cook it any time.'
   const good = goodCooks(recipe, logs)
-  const nailed = logs.some((log) => log.recipeId === recipe.id && log.rating === 3)
-  const more = Math.max(0, MASTERED_COOKS - good)
-  if (more === 0) return 'A “Nailed it” masters it.'
-  const cooks = more === 1 ? 'One more good cook' : `${more} more good cooks`
-  return nailed ? `${cooks} masters it.` : `${cooks}, one of them “Nailed it”, master it.`
+  if (good === 0) {
+    return recipe.teaches.length > 0
+      ? `Rough so far. A Decent cook teaches ${skillList(recipe.teaches)}`
+      : 'Rough so far. Cook it again at Decent or better'
+  }
+  if (good < MASTERED_COOKS) return `${good} of ${MASTERED_COOKS} good cooks`
+  // Row notes go without a full stop.
+  return `${good} good cooks. ${masteryLeft(recipe, logs).slice(0, -1)}`
 }
 
 /** The one recipe that teaches a skill (locked decision 3). */
@@ -92,6 +125,25 @@ export function teacherOf(technique: TechniqueId): Recipe {
   const recipe = RECIPES.find((candidate) => candidate.teaches.includes(technique))
   if (recipe === undefined) throw new Error(`No recipe teaches ${technique}`)
   return recipe
+}
+
+/**
+ * The recipes to cook, each at Decent or better, before this one opens: the
+ * ones that teach what it is missing, and what those are missing, each
+ * after the recipes it needs. Empty when it is not locked.
+ */
+export function pathTo(recipe: Recipe, logs: readonly CookLog[]): Recipe[] {
+  const path: Recipe[] = []
+  function visit(target: Recipe) {
+    for (const technique of missingTechniques(target, logs)) {
+      const teacher = teacherOf(technique)
+      if (path.includes(teacher)) continue
+      visit(teacher)
+      path.push(teacher)
+    }
+  }
+  visit(recipe)
+  return path
 }
 
 /**
@@ -143,9 +195,17 @@ export function lastNote(recipeId: string, logs: readonly CookLog[]): string | n
   return latest === null ? null : latest.notes
 }
 
-/** The recipe and its content, or a thrown reason it cannot be cooked or logged right now. */
-export function cookable(id: string, logs: readonly CookLog[]): { recipe: Recipe; content: RecipeContent } {
+/**
+ * Whether a recipe can be cooked or logged right now (locked decision 13):
+ * its content, or the skills it is missing. A recipe can lock again while
+ * its screen is open, when a catch-up brings in a cook deleted elsewhere, so
+ * a locked one is a state to show, not an error.
+ */
+export function cookable(
+  id: string,
+  logs: readonly CookLog[],
+): { recipe: Recipe; content: RecipeContent; missing: null } | { recipe: Recipe; content: null; missing: TechniqueId[] } {
   const recipe = recipeById(id)
-  if (recipeState(recipe, logs) === 'locked') throw new Error(`${recipe.title} is still locked`)
-  return { recipe, content: recipe.content }
+  const missing = missingTechniques(recipe, logs)
+  return missing.length > 0 ? { recipe, content: null, missing } : { recipe, content: recipe.content, missing: null }
 }

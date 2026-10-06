@@ -81,7 +81,10 @@ In UI copy say "ordering" or "delivered", never a delivery brand name.
     always shows the rank (Rowan's call, October 4, 2026).
 13. **One gate for cooking and logging.** `cookable()` in `lib/progress.ts`
     is the only thing that decides whether a recipe can be cooked or logged.
-    Both cook mode and the log form call it before doing anything.
+    Both cook mode and the log form call it before doing anything. It
+    returns the content or the skills still missing; a locked recipe shows
+    "… is locked" and the way there in place of the form, because a
+    catch-up can lock a recipe again while its screen is open.
 
 ## Stack and layout
 
@@ -151,7 +154,10 @@ app/
       ChefEditor.tsx           name, look and extras form, used to create (extras are one
                                  line then: nothing is earned yet) and to change
       CheckRow.tsx             a checkbox row that saves itself (grocery list, pantry, kit)
-      useWrite.ts              busy + error for one write from a button
+      useWrite.ts              busy + error for one write from a button; a tap while busy does nothing
+      useFocusTarget.ts        where focus goes when a write takes away the control that made it
+      LockedNotice.tsx         "Locked. Learn … from …" and the way there; the page cook mode and
+                                 the log form show for a locked recipe
       usePageTitle.ts          each screen's title: "This week · First Course"
       useCookTimers.ts         cook mode's timers: persisted, chimed from one check
       XpBar.tsx, IngredientList.tsx, EquipmentList.tsx, RatingPicker.tsx
@@ -216,10 +222,12 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - A step that says "while that cooks" is fine: timers keep running across
   steps in cook mode.
 - New ingredients go in `ingredients.ts` with a section, one unit, a package
-  and a price estimate. Quantities are whole eighths (`curriculum.test.ts`
-  checks), and `formatQty` prints every eighth, so the grocery list's sums
-  print too; it throws on anything else. (Until October 5, 2026 it lacked
-  ⅜, ⅝ and ⅞, and planning the salad with the eggs crashed This week.)
+  and a price estimate. Quantities are whole quarters (`curriculum.test.ts`
+  checks): a standard set of measuring spoons stops at ¼ teaspoon, any sum
+  of quarters prints on the grocery list, and the self-hosted fonts carry
+  ¼ ½ ¾ but no eighths. `formatQty` throws on anything else. (On October 5,
+  2026 the eggs' ⅛ teaspoon of pepper plus the salad's ¼ crashed This week;
+  eighths were added, then dropped on October 6 when the pepper became ¼.)
 - Salt quantities assume Morton coarse kosher salt.
 - When one ingredient is used in several steps, say which part each step
   uses ("½ teaspoon of the salt", "the remaining 2 tablespoons") and put the
@@ -235,13 +243,15 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   tongs, a saucepan…) its recipe does not list.
 - A step's text is at most `STEP_MAX` (360) characters, about ten lines in
   cook mode on a phone. Longer steps get split.
-- Raw meat carries `safeTempF` in `ingredients.ts` (chicken 165, ground beef
-  160, a whole cut of beef such as flank steak 145). Bacon has none: it is
-  cured and cooked until crisp, so crisp is the cue, but it is still raw pork
-  in the package, so it gets cut last and its board, knife and hands get
-  washed. A recipe using it must list `thermometer`, say "at least
-  N°F" where the cook checks, say "wash your hands", and clean what the raw
-  meat touched in "hot, soapy water"; `curriculum.test.ts` checks all four.
+- Every ingredient in the meat section declares `safeTempF`, and the type
+  requires it: a temperature for raw meat (chicken 165, ground beef 160, a
+  whole cut of beef such as flank steak 145), `'cured'` for bacon, or
+  `'fully-cooked'` for the smoked sausage. Bacon is cured and cooked until
+  crisp, so crisp is the cue, but it is still raw pork in the package, so it
+  gets cut last and its board, knife and hands get washed. A recipe using raw
+  meat must list `thermometer`, say "at least N°F" where the cook checks,
+  say "wash your hands", and clean what the raw meat touched in "hot, soapy
+  water"; with bacon, the last two. `curriculum.test.ts` checks all of it.
   Cut vegetables before raw meat, never rinse chicken, keep a raw plate and a
   cooked plate, wash tongs after they touch raw meat, and never pour fat
   down the sink.
@@ -272,17 +282,29 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   in oil, a strip of chicken on a spoon) the tip must sit in the middle of
   the meat: a tip that pokes out reads the oil or the spoon.
 - Measure in spoons a standard set has: "1½ teaspoons", never "½
-  tablespoon". Teaspoon amounts come in quarters, because a standard set
-  stops at ¼ teaspoon. (The eggs once used ⅛ teaspoon of pepper.)
+  tablespoon", and never less than ¼ teaspoon.
 - A step that starts a long timer the cook should not wait on (a dough's
-  rise while the oven heats) says to go straight on to the next step. An
-  instruction due partway through a long timer ("with 30 minutes left")
-  goes on the timer's own step, because the cook stays there.
+  rise while the oven heats) says to go straight on to the next step. A
+  timer rings only at zero, so never write "when the timer shows 30 minutes
+  left": split the wait into two timers (the ragù simmers 2 hours on one
+  step, then 30 minutes on the next, while the pasta water heats).
+- A utensil that touched raw meat (tongs, a spatula that spread it in the
+  pan) is washed before it moves or stirs cooked meat. Sliced raw meat that
+  marinates or velvets waits covered in the fridge.
+- Any move, lift, slide, tilt or swirl of a pan that has been on the heat
+  names an oven mitt in that step (`curriculum.test.ts` checks), small
+  nonstick skillet included. Never tip a hot skillet onto a plate: lift the
+  food out with the spatula.
+- Smash patties are pressed to about 5 inches across, at opposite edges of
+  the pan: two at ¼ inch would be 12 inches, wider than the pan's flat.
+- Any recipe a cook can reach before the aglio (which teaches it) says how
+  to peel garlic.
 - When two very different products share a name, the ingredient says which
   one (pourable Thai tamarind concentrate, not the thick black paste), and a
   why says what to do with the other.
-- Say "turn off the burner" (and "turn off the oven") where the heat is done;
-  `curriculum.test.ts` checks every recipe that uses a burner or the oven.
+- Say "turn off the burner" (and "turn off the oven") where the heat is done,
+  once for each pan that was heated ("both burners" counts twice), and in the
+  same step that drains a pot; `curriculum.test.ts` checks all three.
   Name oven mitts wherever a hot pan comes out of the oven, a hot metal
   handle gets held, or a pot of boiling water gets drained (colander in the
   sink, tip the pot away from you).
@@ -320,15 +342,23 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   thermometer check (the tip or probe, "stops climbing", what to do if it
   is lower); a step that separates an egg uses `pasteurized-eggs`; a timer
   of 30 minutes or more says to go on, or what happens meanwhile; pouring
-  into the colander names oven mitts and "away from you"; teaspoon
-  amounts are whole quarters; and no recipe uses a whole package of a
-  staple (that is not a staple).
+  into the colander names oven mitts and "away from you"; quantities are
+  whole quarters; moving a hot pan names an oven mitt; each heated pan gets
+  its own "turn off the burner"; no step rinses raw meat; `techniques.ts`
+  lists skills in menu order (the chef sheet shows them in that order); and
+  no recipe uses a whole package of a staple (that is not a staple).
 - A sauce that simmers tomatoes for 20 minutes or more goes in a saucepan,
   not the skillet: the kit steers a buyer to cast iron, and long acid
   simmers strip its seasoning and taste of metal.
 - Say how to keep a leftover part of a package: half a can of tomatoes
   keeps a week in the fridge or 3 months frozen; leftover raw chicken can
-  be frozen.
+  be frozen; the rest of a can of broth keeps 4 days in a lidded jar, or 3
+  months frozen; bacon keeps a week or freezes; the loaf lives in the
+  freezer. Leftover rice is spread in a lidded container and in the fridge
+  within an hour.
+- A side dish is compared with ordering it as a side (the oven fries, $5.50
+  a serving), and a dish that is dinner with dinner (the salad is an entrée
+  Greek salad at $12). Until October 6, 2026 the salad was a $9.50 side.
 
 ## The rules, precisely
 
@@ -347,6 +377,14 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - `teacherOf(technique)`: the one recipe that teaches a skill. A locked
   recipe page names it, with a link: "Locked. Learn heat control from Soft
   scrambled eggs on toast."
+- `pathTo(recipe, logs)`: every recipe to cook, each at Decent or better,
+  before a locked one opens, each after the ones it needs. When a teacher is
+  locked too, the locked notice adds "The way there: …, then this." A course
+  whose every recipe is locked says "Opens as you learn … skills".
+- `masteryLeft(recipe, logs)` is the one wording of how far a recipe is from
+  mastery ("A “Nailed it” masters it."), used by the log form
+  (`whatTheRatingDecides`), the recipe page and the menu rows (`rowNote`).
+  `ratingLabel(rating)` is the one place a rating gets its name.
 
 
 `lib/leveling.ts`:
@@ -359,7 +397,7 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   chef 14, executive chef 18.
 - Pacing this was tuned for: the first good cook reaches level 2. Mastering
   the First course lands near line cook. Executive chef needs close to five
-  strong cooks of everything (a perfect run tops out at 18,750 XP, level 19).
+  strong cooks of everything (a perfect run tops out at 18,150 XP, level 19).
 - Pacing as simulated in October 2026, at 2 to 3 cooks a week, mostly
   Decent: line cook around week 8, sous chef around week 21, head chef
   around week 40. The usual starts coming into reach around line cook, well
@@ -540,9 +578,15 @@ constraints, which columns a cook may update, whether rows can be deleted,
 and own-rows RLS. An unknown column, a write the grants forbid, or a request
 the fake does not understand fails the test, as do uncaught page errors and
 console errors. When a migration changes a table, change `TABLES` in the fake
-to match. Besides `failNext`, the fake can carry out a request and lose its
-answer (`loseNextAnswer`), and write a row as another device would
-(`writeElsewhere`). A request to any other site fails the test too. `kitchen.ts` is the fixture
+to match. Reads are checked too: a column in `select` or `order` that the
+table does not have answers 400, as PostgREST does. Besides `failNext`
+(tables, `rpc/<function>`, or `auth/<path>` such as `auth/logout`), the fake
+can carry out a request and lose its answer (`loseNextAnswer`), carry it out
+and answer only when the test says (`holdNext`, weak signal: a read answers
+with what the database held when it arrived), and write or delete rows as
+another device would (`writeElsewhere`, `deleteElsewhere`). `recoveryHash()`
+and `signupHash()` make an email link's landing. A request to any other site
+fails the test too. `kitchen.ts` is the fixture
 (`kitchen.open(route, seed)`), the seeds and the shared steps. The deploy workflow runs the suite before the
 build; a failed run keeps its traces as an artifact.
 
@@ -562,12 +606,12 @@ build; a failed run keeps its traces as an artifact.
   context is one per page load, kept outside the hook, so going to the log
   form and back does not lose the sound. "Start timer" is a full-width
   solid button above the Why, and "Stop timer" asks first when more than a
-  minute is left. "Finish and log it", like "Leave cook mode", asks first
+  minute is left; once the time is up it reads "Clear timer". "Finish and log it", like "Leave cook mode", asks first
   when a timer is running. Each step ends with "Next:" and the first
   sentence of the next one.
 - **Timers are end times in `sessionStorage`** (`lib/timers.ts`), one entry
   per recipe, keyed by the timer's label (unique in a recipe, which
-  `curriculum.test.ts` checks), each `{ endsAt, rang }`. Not by step number:
+  `curriculum.test.ts` checks), each `{ endsAt, rang, stopped }`. Not by step number:
   a deploy that splits a step mid-cook would move the timer to the wrong
   step. The storage key names the format (`timers-by-label`). They survive moving
   between steps, a reload, and a phone discarding a backgrounded tab.
@@ -578,10 +622,15 @@ build; a failed run keeps its traces as an artifact.
   ring is over: the cook tapped, or it rang out. Sound needs a tap on the
   page first: starting a timer is one, and after a reload cook mode says
   "Tap anywhere so your timers can chime"; a timer that runs out before
-  that tap rings once at the tap. A timer finished more than 30
-  minutes ago is dropped (`STALE_AFTER_MS`). "Leave cook mode" (which asks
-  first if one is running) and saving the cook both clear the recipe's
-  timers.
+  that tap rings once at the tap. The tap is heard at its end (`pointerup`,
+  `touchend`, or a key), which is what a phone counts as a tap that may
+  play sound, and the prompt goes only once the sound is actually on. A
+  timer finished more than 30 minutes ago, or stopped, is hidden
+  (`STALE_AFTER_MS`, `shownTimers`) but stays stored until the cook is
+  over, so cook mode knows which timers were never started: on a later
+  step, a timer the cook passed by shows as a dashed chip, "Potatoes:
+  start 15:00", that starts it. "Leave cook mode" (which asks first if one
+  is running) and saving the cook both clear the recipe's timers.
 - **Install to the home screen.** `public/manifest.webmanifest` (standalone,
   start and scope `./`, so it opens at the menu under `/first-course/`), the
   plate as `icon-192.png`, `icon-512.png` (also maskable: the plate sits in
@@ -617,11 +666,22 @@ build; a failed run keeps its traces as an artifact.
   the shop again, so a cook logged or a recipe planned on another device
   shows up: an installed app is never reloaded otherwise. A failed catch-up
   keeps what is on screen and says so above the page, with "Try again".
+  Every write's change applies to the latest state, never to what a screen
+  drew from, and `App.tsx` counts writes: a catch-up that was out while a
+  write landed may have read the database before it, so it is thrown away
+  and read again. (Before October 6, 2026 a catch-up could take a cook just
+  saved off the screen, inviting a second log.) A cook deleted elsewhere
+  turns its change screen into "That cook is not in your log".
 - **A save is never logged twice.** The log form makes the cook's id once
   (`newCookId` in `cookLogs.ts`), and sends it with the insert. When a save
-  lands but its answer is lost on weak signal, the retry hits the
-  duplicate key and returns the cook already saved. The e2e fake can lose
-  an answer on purpose (`loseNextAnswer`).
+  lands but its answer is lost on weak signal, the retry hits the duplicate
+  key and saves what the form says now over it (`updateCookLog`), so a
+  rating changed between taps sticks. A cook already in the log (a
+  catch-up brought it in) is replaced, not added again, and the notice is
+  worked out without it. Deleting finds nothing to delete when an earlier
+  try landed: the cook is gone either way. Creating the chef twice returns
+  the chef that exists. The e2e fake can lose an answer on purpose
+  (`loseNextAnswer`).
 - **A cook is never dated after today**: `checkCookedOn` in `format.ts`
   throws, on both cook forms, as well as the date field's `max`.
 - **Email links come back in the hash**, where the hash router would take
@@ -633,25 +693,44 @@ build; a failed run keeps its traces as an artifact.
   for a reset link (`type=recovery`) before anything else. A failed link is
   shown in the app's own words ("That email link has expired.", from
   `error_code`), never the link's text, which anyone could write; the
-  screen then says how to get a new link. The reset email goes to the
+  screen then says how to get a new link. It is shown once (App state, not
+  the module constant), so it does not come back after a later sign-out,
+  and a cook still signed in from before sees it above the menu with
+  "Hide this". A sign-out that never reaches the server (no signal) still
+  signs the phone out, so the sign-in screen says so. The reset email goes to the
   Supabase project's Site URL, the Pages URL, so a reset asked for on
   localhost lands on the live site. Supabase's built-in email sender allows
   only a few emails an hour.
 - **Sign in, create an account and reset are three modes of one screen.**
   Creating an account has its own form ("New here? Create an account"),
-  with `autocomplete="new-password"` and the 8-character hint.
+  with `autocomplete="new-password"` and the 8-character hint. Each mode has
+  its own heading, which takes focus when the mode changes.
 - **Before the first cook**, the menu shows "Where to start": tick the kit,
   tick the pantry, plan, shop, cook, each ticked off from the data. Until
   any kit is ticked, equipment lists show one pointer to the kit instead of
   "Not in your kit yet" on every tool.
 - **The menu folds a course** whose every recipe is mastered, behind "All N
-  recipes mastered", and its suggestion card has "Add to this week".
+  recipes mastered". Its suggestion card leads with the move the week
+  needs: "Add to this week" when the dish is not planned, "Shop for it"
+  when it is planned but not bought, "Start cooking" once it is. The card's
+  heading is named with its label ("Cook this next: …"). After a cook, the
+  notice offers to add the tools it used that the kit does not have ticked.
+- **Focus follows the change.** A control that a write takes away hands
+  focus to what replaced it (`focusAfter` and `useFocusTarget`): "Add"
+  under Ready to cook to the recipe on the plan, "I have all of these" to
+  "You have all of it.", "Wear it" to "Wearing it.", Done shopping to its
+  message. The after-cook notice takes focus once the moments are over. A
+  button busy with its write says so with `aria-disabled` rather than
+  `disabled`, which would drop focus to the top of the page, and
+  `useWrite` ignores a second tap. Tapping a price puts the cursor in it,
+  and closing the form goes back to the price.
 - **Money reads like money** ("$1,338.32", `formatCents`), and times of an
   hour or more read in hours ("2 hours 45 minutes", `formatMinutes`).
 - **Zoomed far in** (a page about 200 CSS pixels wide, as at 200% on a
   phone), the gutters slim down and cook mode's buttons, the price lines and
-  the chef sheet's head stack; the e2e suite checks that no screen runs off
-  the side.
+  the chef sheet's head stack; cook mode's buttons stop sticking to the
+  bottom, where stacked they would hold a third of the screen. The e2e
+  suite checks that no screen runs off the side.
 - **A cook can be changed or deleted** at `/cook-log/:id`, reached from
   "Your cooks" on the recipe page. The date, rating and notes change; the
   recipe never does. Because progress is derived, the screen first says what
@@ -811,13 +890,17 @@ Behavior:
   list grows again (`clearStaleChecks` in `shop.ts`, run before "Add to this
   week" and "Put it back on the list"), so a new list never opens with
   things ticked that were never bought for it.
-- **Pantry** (`/pantry`). Every `staple: true` ingredient, by store section,
-  with a toggle. What a staple is: used a little at a time and keeps for
+- **Pantry** (`/pantry`). Every `staple: true` ingredient, filed like the kit
+  under the first course that uses it (`staplesByCourse` in `grocery.ts`),
+  with a toggle. The kit ends with "Next: your pantry" and the pantry with
+  "Next: plan this week". What a staple is: used a little at a time and keeps for
   weeks. A can or a pack of meat is used up whole, so it is not one; garlic,
-  fresh ginger, a parmesan wedge, eggs and a tube of tomato paste are. A box
-  of spaghetti is not: two recipes use all of it. Packages are sized so a
+  fresh ginger, a parmesan wedge, eggs, a tube of tomato paste, a block of
+  cheddar and a loaf of sandwich bread (kept in the freezer) are. A box of
+  spaghetti is not: two recipes use all of it. The salad uses its whole 4 oz
+  tub of feta, which nothing else uses. Packages are sized so a
   beginner wastes little: a can of broth, not a carton; a half pint of
-  cream; a single large russet; a 5 lb bag of rice, which six recipes draw
+  cream; a single large russet; a 5 lb bag of rice, which ten recipes draw
   on.
 - **Price overrides.** Tap a price on the grocery list to correct the
   package price, or go back to the estimate. Every price read goes through
@@ -860,7 +943,7 @@ precisely" and "Design").
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all seven migrations
-are on the live project, and every push runs 109 unit tests and 130 e2e tests before it deploys.
+are on the live project, and every push runs 127 unit tests and 186 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

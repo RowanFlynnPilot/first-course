@@ -35,4 +35,11 @@ describe('extras', () => {
     expect(wornExtras(['red-clogs', 'whisk'], five)).toEqual(['red-clogs'])
     expect(wornExtras(['red-clogs'], five.slice(1))).toEqual([])
   })
+
+  it('counts the usual toward its track', () => {
+    const usual = RECIPES.find((recipe) => recipe.tier === 5 && recipe.track === 'burgers-sandwiches')
+    if (usual === undefined) throw new Error('No dish of the usual on the burgers track')
+    expect(trackCooks('burgers-sandwiches', times(5, usual.id))).toBe(5)
+    expect(unlockedExtras(times(5, usual.id))).toContain('red-clogs')
+  })
 })

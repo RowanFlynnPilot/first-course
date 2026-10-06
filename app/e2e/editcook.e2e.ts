@@ -60,9 +60,10 @@ test.describe('changing and deleting a cook', () => {
     expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
   })
 
-  test('a cook that is not in the log says so', async ({ page, kitchen }) => {
-    kitchen.expectErrorScreen()
+  test('a cook that is not in the log says so, without failing the app', async ({ page, kitchen }) => {
     await kitchen.open('#/cook-log/not-a-cook', ONE_SALAD)
-    await expect(page.getByRole('alert')).toHaveText('That cook is not in your log.')
+    await expect(page.getByRole('heading', { name: 'That cook is not in your log' })).toBeVisible()
+    await page.getByRole('link', { name: 'Menu' }).click()
+    await expect(page.getByText('Cook this next')).toBeVisible()
   })
 })

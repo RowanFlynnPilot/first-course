@@ -71,6 +71,23 @@ test.describe('moving between screens', () => {
     await expect(course.getByRole('link', { name: /Grilled cheese/ })).toBeVisible()
   })
 
+  test('a course cooked well but not mastered stays open', async ({ page, kitchen }) => {
+    const firstCourse = ['chopped-salad', 'soft-scrambled-eggs', 'aglio-e-olio', 'grilled-cheese', 'fried-egg-rice-bowl', 'sheet-pan-sausage']
+    const logs = firstCourse.flatMap((recipe) => [2, 2, 2].map((rating) => ({ recipe, rating: rating as 2 })))
+    await kitchen.open('./', { logs })
+    const course = page.locator('section').filter({ has: page.getByRole('heading', { name: 'First course' }) })
+    await expect(course.getByText(/recipes mastered/)).toHaveCount(0)
+    await expect(course.getByRole('link', { name: /Grilled cheese/ })).toContainText('3 good cooks. A “Nailed it” masters it')
+  })
+
+  test('a course still shut says what opens it', async ({ page, kitchen }) => {
+    await kitchen.open('./', FRESH)
+    const course = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Second course' }) })
+    await expect(course.getByText('Opens as you learn first course skills. Each dish below says which it needs.')).toBeVisible()
+    const first = page.locator('section').filter({ has: page.getByRole('heading', { name: 'First course' }) })
+    await expect(first.getByText(/^Opens as you learn/)).toHaveCount(0)
+  })
+
   test('back after a while away, the app catches up with another device', async ({ page, kitchen }) => {
     await page.clock.install({ time: new Date('2026-10-03T18:00:00-05:00') })
     await kitchen.open('./', FRESH)
@@ -84,13 +101,14 @@ test.describe('moving between screens', () => {
     await show('hidden')
     await page.clock.fastForward('11:00')
     await show('visible')
-    await expect(page.locator('.kept')).toHaveText('$22.50 kept by cooking')
+    await expect(page.locator('.kept')).toHaveText('$27.40 kept by cooking')
   })
 
   test('zoomed far in, no screen runs off the side', async ({ page, kitchen }) => {
     await page.setViewportSize({ width: 195, height: 422 })
     await kitchen.open('#/recipe/sheet-pan-sausage', { ...SALAD_DONE, plan: ['sheet-pan-sausage'] })
-    for (const route of ['#/recipe/sheet-pan-sausage', '#/cook/sheet-pan-sausage/3', '#/shop', '#/chef', './']) {
+    const routes = ['#/recipe/sheet-pan-sausage', '#/cook/sheet-pan-sausage/3', '#/shop', '#/chef', '#/kit', '#/pantry', '#/recipe/chicken-pan-sauce', './']
+    for (const route of routes) {
       await page.goto(route)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
       const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)

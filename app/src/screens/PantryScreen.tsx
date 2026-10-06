@@ -1,13 +1,16 @@
 // The pantry: staples the cook already has, which stay off the grocery list.
+// Filed like the kit, under the first course that uses each one, so week one
+// asks about salt and oil, not curry paste.
 
 import { Link } from 'react-router'
 import { CheckRow } from '../components/CheckRow'
 import { usePageTitle } from '../components/usePageTitle'
-import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
-import { SECTIONS } from '../lib/grocery'
-import { clearFromPantry, stockPantry, type Shop, type ShopChange } from '../lib/shop'
+import { INGREDIENTS } from '../curriculum/ingredients'
+import { COURSE_NAMES } from '../lib/format'
+import { staplesByCourse } from '../lib/grocery'
+import { setInPantry, type Shop, type ShopChange } from '../lib/shop'
 
-const STAPLES = (Object.keys(INGREDIENTS) as IngredientId[]).filter((id) => INGREDIENTS[id].staple)
+const COURSES = staplesByCourse()
 
 export function PantryScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
   usePageTitle('Your pantry')
@@ -22,39 +25,30 @@ export function PantryScreen({ shop, onShopChange }: { shop: Shop; onShopChange:
         out, untick it. New to spices? The <Link to="/spices">spice guide</Link> says what to buy and how to start
         using it.
       </p>
-      {SECTIONS.map((section) => {
-        const staples = STAPLES.filter((id) => INGREDIENTS[id].section === section.id).sort((a, b) =>
-          INGREDIENTS[a].name.localeCompare(INGREDIENTS[b].name),
-        )
-        if (staples.length === 0) return null
-        return (
-          <section className="section" key={section.id}>
-            <h2 className="section-title">{section.name}</h2>
-            <p className="section-note">
-              {staples.filter((id) => shop.pantry.has(id)).length} of {staples.length} at home
-            </p>
-            <ul className="checks">
-              {staples.map((id) => (
-                <CheckRow
-                  key={id}
-                  checked={shop.pantry.has(id)}
-                  label={INGREDIENTS[id].name}
-                  note={INGREDIENTS[id].package.label}
-                  onChange={async (have) => {
-                    await (have ? stockPantry(id) : clearFromPantry(id))
-                    onShopChange((previous) => {
-                      const pantry = new Set(previous.pantry)
-                      if (have) pantry.add(id)
-                      else pantry.delete(id)
-                      return { ...previous, pantry }
-                    })
-                  }}
-                />
-              ))}
-            </ul>
-          </section>
-        )
-      })}
+      {COURSES.map(({ tier, staples }) => (
+        <section className="section" key={tier}>
+          <h2 className="section-title">
+            {tier === 1 ? 'To start' : tier === 5 ? 'For the usual' : `New for the ${COURSE_NAMES[tier].toLowerCase()}`}
+          </h2>
+          <p className="section-note">
+            {staples.filter((id) => shop.pantry.has(id)).length} of {staples.length} at home
+          </p>
+          <ul className="checks">
+            {staples.map((id) => (
+              <CheckRow
+                key={id}
+                checked={shop.pantry.has(id)}
+                label={INGREDIENTS[id].name}
+                note={INGREDIENTS[id].package.label}
+                onChange={(have) => setInPantry(id, have, onShopChange)}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+      <p className="next-step">
+        <Link to="/shop">Next: plan this week</Link>
+      </p>
     </main>
   )
 }

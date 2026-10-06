@@ -88,6 +88,8 @@ test.describe('the chef', () => {
     // Nothing is on the feet yet, so it goes on from right here.
     await line.getByRole('button', { name: 'Wear it' }).click()
     await expect(line).toContainText('Wearing it.')
+    // The button is gone; focus stays on what replaced it, not the top of the page.
+    await expect(line.getByText('Wearing it.')).toBeFocused()
     expect(kitchen.backend.table('chefs')).toMatchObject([{ extras: ['red-clogs'] }])
   })
 })

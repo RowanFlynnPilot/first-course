@@ -2,12 +2,14 @@
 
 import { Link } from 'react-router'
 import { CheckRow } from '../components/CheckRow'
+import { focusAfter, useFocusTarget } from '../components/useFocusTarget'
 import { useWrite } from '../components/useWrite'
 import { usePageTitle } from '../components/usePageTitle'
 import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
+import type { Tier } from '../curriculum/types'
 import { COURSE_NAMES } from '../lib/format'
 import { hasKit, kitByCourse } from '../lib/kit'
-import { addAllToKit, addToKit, removeFromKit, type Shop, type ShopChange } from '../lib/shop'
+import { addAllToKit, setInKit, type Shop, type ShopChange } from '../lib/shop'
 
 const COURSES = kitByCourse()
 
@@ -28,12 +30,10 @@ export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: Sh
         return (
           <section className="section" key={tier}>
             <h2 className="section-title">
-              {tier === 1 ? 'To start' : `New for the ${COURSE_NAMES[tier].toLowerCase()}`}
+              {tier === 1 ? 'To start' : tier === 5 ? 'For the usual' : `New for the ${COURSE_NAMES[tier].toLowerCase()}`}
             </h2>
-            <p className="section-note">
-              {missing.length === 0 ? 'You have all of it.' : `You have ${items.length - missing.length} of ${items.length}.`}
-            </p>
-            {missing.length > 0 && <HaveAll items={items} shop={shop} onShopChange={onShopChange} />}
+            <HaveCount tier={tier} have={items.length - missing.length} of={items.length} />
+            {missing.length > 0 && <HaveAll tier={tier} items={items} shop={shop} onShopChange={onShopChange} />}
             <ul className="checks">
               {items.map((id) => {
                 const item = EQUIPMENT[id]
@@ -44,15 +44,7 @@ export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: Sh
                     checked={shop.kit.has(id)}
                     label={item.name}
                     note={covered ? 'Something else in your kit does this job.' : (item.note ?? undefined)}
-                    onChange={async (own) => {
-                      await (own ? addToKit(id) : removeFromKit(id))
-                      onShopChange((previous) => {
-                        const kit = new Set(previous.kit)
-                        if (own) kit.add(id)
-                        else kit.delete(id)
-                        return { ...previous, kit }
-                      })
-                    }}
+                    onChange={(own) => setInKit(id, own, onShopChange)}
                   />
                 )
               })}
@@ -60,12 +52,35 @@ export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: Sh
           </section>
         )
       })}
+      <p className="next-step">
+        <Link to="/pantry">Next: your pantry</Link>
+      </p>
     </main>
   )
 }
 
+/** "You have 3 of 9." It takes focus when "I have all of these" goes, so a keyboard user keeps their place. */
+function HaveCount({ tier, have, of }: { tier: Tier; have: number; of: number }) {
+  const ref = useFocusTarget<HTMLParagraphElement>(`kit-course:${tier}`)
+  return (
+    <p className="section-note" ref={ref} tabIndex={-1}>
+      {have === of ? 'You have all of it.' : `You have ${have} of ${of}.`}
+    </p>
+  )
+}
+
 /** One tap for a cook who already owns everything a course adds, instead of one per item. */
-function HaveAll({ items, shop, onShopChange }: { items: readonly EquipmentId[]; shop: Shop; onShopChange: ShopChange }) {
+function HaveAll({
+  tier,
+  items,
+  shop,
+  onShopChange,
+}: {
+  tier: Tier
+  items: readonly EquipmentId[]
+  shop: Shop
+  onShopChange: ShopChange
+}) {
   const { busy, error, run } = useWrite()
   const unticked = items.filter((id) => !shop.kit.has(id))
   return (
@@ -73,13 +88,8 @@ function HaveAll({ items, shop, onShopChange }: { items: readonly EquipmentId[];
       <button
         className="button button-quiet"
         type="button"
-        disabled={busy}
-        onClick={() =>
-          void run(async () => {
-            await addAllToKit(unticked)
-            onShopChange((previous) => ({ ...previous, kit: new Set([...previous.kit, ...unticked]) }))
-          })
-        }
+        aria-disabled={busy}
+        onClick={() => void run(() => focusAfter(`kit-course:${tier}`, () => addAllToKit(unticked, onShopChange)))}
       >
         I have all of these
       </button>

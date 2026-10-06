@@ -19,7 +19,7 @@ test.describe('the menu', () => {
     await page.getByRole('link', { name: 'Read the recipe' }).click()
     await expect(page.getByRole('heading', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
     await expect(page.getByText('Cooking it')).toBeVisible()
-    await expect(page.getByText('Side Greek salad')).toBeVisible()
+    await expect(page.getByText('Greek salad')).toBeVisible()
     await expect(page.getByText('Sauvignon Blanc')).toBeVisible()
     await expect(page.getByText('Match acid with acid.')).toBeVisible()
   })
@@ -41,13 +41,20 @@ test.describe('cooking and logging', () => {
 
     await expect(noticeLines(page)).toHaveText([
       'Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.',
-      'Kept $22.50 by not ordering.',
+      'Kept $27.40 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
+      'You cooked with 7 things not ticked in your kit. Add them to your kit',
     ])
+    // Focus is on what the cook earned, so a screen reader reads it first.
+    await expect(page.getByRole('status')).toBeFocused()
+    // The tools the cook plainly owns now go into the kit in one tap.
+    await page.getByRole('button', { name: 'Add them to your kit' }).click()
+    await expect(page.getByText('Added 7 things to your kit.')).toBeFocused()
+    expect(kitchen.backend.table('kit_items')).toHaveLength(7)
     await expect(page.getByRole('status').getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
-    await expect(page.locator('.kept')).toHaveText('$22.50 kept by cooking')
+    await expect(page.locator('.kept')).toHaveText('$27.40 kept by cooking')
     // The yolk lands on the plate just cooked, and only there.
     await expect(page.locator('.plate-celebrate')).toHaveCount(1)
     await expect(page.getByRole('link', { name: /Chopped salad/ }).locator('.plate-celebrate')).toHaveCount(1)
@@ -88,6 +95,7 @@ test.describe('cooking and logging', () => {
       'Soft scrambled eggs on toast: Rough. +10 XP.',
       'Kept $17.12 by not ordering.',
       'Cook it again at “Decent” or better to learn heat control.',
+      'You cooked with 7 things not ticked in your kit. Add them to your kit',
     ])
     // The menu row says what a Decent cook would do.
     await expect(page.getByRole('link', { name: /Soft scrambled eggs/ })).toContainText('Rough so far. A Decent cook teaches heat control')
@@ -157,7 +165,7 @@ test.describe('cooking and logging', () => {
   test('cook mode shows what comes next', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/sheet-pan-sausage/2', SALAD_DONE)
     await expect(page.getByText('Next: Roast the potatoes on their own.')).toBeVisible()
-    await page.goto('#/cook/sheet-pan-sausage/7')
+    await page.goto('#/cook/sheet-pan-sausage/8')
     await expect(page.getByText('Next: log how it went.')).toBeVisible()
   })
 })

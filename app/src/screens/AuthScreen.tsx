@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { usePageTitle } from '../components/usePageTitle'
 import { supabase } from '../supabase'
 
@@ -10,14 +10,38 @@ type Mode = 'sign-in' | 'create' | 'reset'
 
 const TITLES: Record<Mode, string> = { 'sign-in': 'Sign in', create: 'Create an account', reset: 'Reset your password' }
 
-/** `linkError` is why an email link that brought the cook here failed, if it did. */
-export function AuthScreen({ linkError }: { linkError: string | null }) {
+/**
+ * `linkError` is why an email link that brought the cook here failed, if it
+ * did. The screen keeps it and tells the app it has been shown, so it does
+ * not come back on the next visit.
+ */
+export function AuthScreen({
+  linkError,
+  onLinkErrorShown,
+  signOutProblem,
+}: {
+  linkError: string | null
+  onLinkErrorShown: () => void
+  /** The last sign-out did not reach the server. */
+  signOutProblem: string | null
+}) {
   const [mode, setMode] = useState<Mode>('sign-in')
   usePageTitle(TITLES[mode])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  const [fromLink] = useState(linkError)
   const [error, setError] = useState<string | null>(linkError)
+  useEffect(() => {
+    if (fromLink !== null) onLinkErrorShown()
+  }, [fromLink, onLinkErrorShown])
+  // Switching between signing in, creating an account and a reset moves focus
+  // to the new form's heading, so a screen reader hears which one it is.
+  const heading = useRef<HTMLHeadingElement>(null)
+  const switched = useRef(false)
+  useEffect(() => {
+    if (switched.current) heading.current?.focus()
+  }, [mode])
   // "Confirm email" is on for the live project: a new account waits for its link.
   const [confirmationSent, setConfirmationSent] = useState(false)
   const [resetSent, setResetSent] = useState(false)
@@ -68,6 +92,7 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
   }
 
   function switchTo(next: Mode) {
+    switched.current = true
     setMode(next)
     setError(null)
     setConfirmationSent(false)
@@ -93,7 +118,7 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
       <p className="notice notice-error" role="alert">
         {error}
       </p>
-      {error === linkError && (
+      {error !== null && error === fromLink && (
         <p className="section-note">
           Email links expire. For a new confirmation link, sign in and ask for one. For a new password link, use
           “Forgot your password?”.
@@ -106,6 +131,14 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
     <main className="page auth">
       <h1 className="wordmark">First Course</h1>
       <p className="lede">Learn to cook the things you keep ordering, one skill at a time.</p>
+      {signOutProblem !== null && (
+        <p className="notice notice-error" role="alert">
+          {signOutProblem}. Sign in and out again when you have signal.
+        </p>
+      )}
+      <h2 className="section-title" ref={heading} tabIndex={-1}>
+        {TITLES[mode]}
+      </h2>
       {mode === 'reset' && (
         <form className="form" onSubmit={sendReset}>
           <p>Enter the email you signed up with, and we will send a link to set a new password.</p>

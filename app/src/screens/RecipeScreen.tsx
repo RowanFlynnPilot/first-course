@@ -1,33 +1,35 @@
 import { Link, useParams } from 'react-router'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
+import { LockedNotice } from '../components/LockedNotice'
 import { Plate } from '../components/Plate'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { recipeById } from '../curriculum/recipes'
-import { TECHNIQUES, type TechniqueId } from '../curriculum/techniques'
+import { TECHNIQUES } from '../curriculum/techniques'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 import {
   cookCostPerServingCents,
   COUNTED_SERVINGS,
+  countedServings,
   DELIVERY_FEE_CENTS,
   keptPerCookCents,
   orderCostPerServingCents,
   SERVICE_FEE_RATE,
   TIP_RATE,
 } from '../lib/cost'
-import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, formatMinutes, plural, skillList } from '../lib/format'
+import { TRACK_NAMES } from '../lib/extras'
+import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, formatMinutes, plural } from '../lib/format'
 import {
   goodCooks,
   lastNote,
   MASTERED_COOKS,
-  missingTechniques,
-  RATINGS,
+  masteryLeft,
+  ratingLabel,
   recipeState,
-  teacherOf,
   type CookLog,
 } from '../lib/progress'
-import { planRecipe, removeFromPlan, withoutPlanned, type Shop, type ShopChange } from '../lib/shop'
+import { planRecipe, takeOffPlan, type Shop, type ShopChange } from '../lib/shop'
 
 export function RecipeScreen({
   logs,
@@ -43,7 +45,6 @@ export function RecipeScreen({
   const recipe = recipeById(id)
   usePageTitle(recipe.title)
   const state = recipeState(recipe, logs)
-  const missing = missingTechniques(recipe, logs)
   const good = goodCooks(recipe, logs)
   const history = logs.filter((log) => log.recipeId === recipe.id).toReversed()
 
@@ -56,7 +57,10 @@ export function RecipeScreen({
       <header className="recipe-head">
         <Plate state={state} goodCooks={good} size={64} />
         <div>
-          <p className="row-note">{COURSE_NAMES[recipe.tier]}</p>
+          {/* The track is what the extras count: "Cook the basics 5 times." */}
+          <p className="row-note">
+            {COURSE_NAMES[recipe.tier]}. Counts toward {TRACK_NAMES[recipe.track]}.
+          </p>
           <h1 className="title">{recipe.title}</h1>
         </div>
       </header>
@@ -76,7 +80,7 @@ export function RecipeScreen({
         </section>
       )}
 
-      {state === 'locked' && <LockedNotice missing={missing} />}
+      {state === 'locked' && <LockedNotice recipe={recipe} logs={logs} />}
 
       <Written
         recipe={recipe}
@@ -93,9 +97,7 @@ export function RecipeScreen({
           <p className="section-note">
             {state === 'mastered'
               ? 'Mastered.'
-              : good >= MASTERED_COOKS
-                ? `${good} good cooks. One “Nailed it” masters this.`
-                : `${good} of ${MASTERED_COOKS} good cooks toward mastery. One has to be “Nailed it”.`}
+              : `${good < MASTERED_COOKS ? `${good} of ${MASTERED_COOKS}` : good} good cooks toward mastery. ${masteryLeft(recipe, logs)}`}
           </p>
           <ul className="rows">
             {history.map((log) => (
@@ -103,7 +105,7 @@ export function RecipeScreen({
                 <Link className="history" to={`/cook-log/${log.id}`}>
                   <span>
                     <span className="row-title">
-                      {RATINGS.find((rating) => rating.value === log.rating)?.label}, {formatCookedOn(log.cookedOn)}
+                      {ratingLabel(log.rating)}, {formatCookedOn(log.cookedOn)}
                     </span>
                     {log.notes !== '' && <span className="row-note">{log.notes}</span>}
                   </span>
@@ -170,7 +172,11 @@ function Written({
             <dd>{formatCents(orderCostPerServingCents(content))} a serving</dd>
           </div>
           <div className="tab-kept">
-            <dt>You keep</dt>
+            <dt>
+              You keep
+              {/* Two servings at most, so the sum checks out: what ordering costs them, less what cooking does. */}
+              <span className="row-note">For {plural(countedServings(content), 'serving', 'servings')}</span>
+            </dt>
             <dd>
               <mark>{formatCents(keptPerCookCents(content, shop.prices))}</mark> each time
             </dd>
@@ -219,45 +225,18 @@ function Written({
   )
 }
 
-/** "Locked. Learn heat control from Soft scrambled eggs on toast.", one sentence per recipe that teaches what is missing. */
-function LockedNotice({ missing }: { missing: readonly TechniqueId[] }) {
-  const teachers = new Map<Recipe, TechniqueId[]>()
-  for (const technique of missing) {
-    const teacher = teacherOf(technique)
-    teachers.set(teacher, [...(teachers.get(teacher) ?? []), technique])
-  }
-  return (
-    <p className="notice">
-      Locked.
-      {[...teachers].map(([teacher, skills]) => (
-        <span key={teacher.id}>
-          {' '}
-          Learn {skillList(skills)} from <Link to={`/recipe/${teacher.id}`}>{teacher.title}</Link>.
-        </span>
-      ))}
-    </p>
-  )
-}
-
 /** "Add to this week": one batch per recipe on the plan, no servings scaling. */
 function PlanButton({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop; onShopChange: ShopChange }) {
   const { busy, error, run } = useWrite()
   const planned = shop.plan.includes(recipe.id)
 
   function toggle() {
-    void run(async () => {
-      if (planned) {
-        await removeFromPlan(recipe.id)
-        onShopChange((previous) => withoutPlanned(previous, recipe.id))
-      } else {
-        await planRecipe(shop, recipe.id, onShopChange)
-      }
-    })
+    void run(() => (planned ? takeOffPlan(recipe.id, onShopChange) : planRecipe(shop, recipe.id, onShopChange)))
   }
 
   return (
     <>
-      <button className="button button-quiet" type="button" disabled={busy} onClick={toggle}>
+      <button className="button button-quiet" type="button" aria-disabled={busy} onClick={toggle}>
         {planned ? 'Take off this week' : 'Add to this week'}
       </button>
       {planned && (

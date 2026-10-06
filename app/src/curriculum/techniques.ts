@@ -103,6 +103,11 @@ export const TECHNIQUES = {
     name: 'Blooming spices',
     summary: 'Frying spices briefly in hot fat so their flavor carries through the dish.',
   },
+  emulsions: {
+    discipline: 'sauce',
+    name: 'Cold emulsions',
+    summary: 'Whisking oil into egg or mustard drop by drop for aioli, mayo and burger sauce.',
+  },
 
   // Third course
   'pan-sauce': {
@@ -130,27 +135,27 @@ export const TECHNIQUES = {
     name: 'Masala base',
     summary: 'Cooking onion, ginger, garlic, tomato and spices down until the oil separates.',
   },
-  emulsions: {
-    discipline: 'sauce',
-    name: 'Cold emulsions',
-    summary: 'Whisking oil into egg or mustard drop by drop for aioli, mayo and burger sauce.',
-  },
-
-  // Fourth course
   'yeasted-dough': {
     discipline: 'oven',
     name: 'Yeasted dough',
     summary: 'Mixing, kneading and proofing dough, and knowing by feel when it is ready.',
   },
-  'tempering-eggs': {
-    discipline: 'sauce',
-    name: 'Tempering eggs',
-    summary: 'Using gentle leftover heat to thicken eggs into a sauce without scrambling them.',
-  },
   'breading-frying': {
     discipline: 'pan',
     name: 'Breading and shallow-frying',
     summary: 'Flour, egg, crumbs, then steady oil temperature for a crisp, even crust.',
+  },
+  'marinating-broiling': {
+    discipline: 'oven',
+    name: 'Marinating and broiling',
+    summary: 'A yogurt marinade and the broiler for charred, tender meat without a grill.',
+  },
+
+  // Fourth course
+  'tempering-eggs': {
+    discipline: 'sauce',
+    name: 'Tempering eggs',
+    summary: 'Using gentle leftover heat to thicken eggs into a sauce without scrambling them.',
   },
   'curry-balance': {
     discipline: 'palate',
@@ -161,11 +166,6 @@ export const TECHNIQUES = {
     discipline: 'prep',
     name: 'Velveting',
     summary: 'Coating sliced meat in cornstarch so it stays tender in a hot pan.',
-  },
-  'marinating-broiling': {
-    discipline: 'oven',
-    name: 'Marinating and broiling',
-    summary: 'A yogurt marinade and the broiler for charred, tender meat without a grill.',
   },
 } as const satisfies Record<string, Technique>
 

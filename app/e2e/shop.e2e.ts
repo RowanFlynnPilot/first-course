@@ -20,8 +20,8 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(total).toHaveText(SHEET_PAN_CHECKOUT)
 
     // Check something off.
-    await page.getByRole('checkbox', { name: /Smoked sausage/ }).click()
-    await expect(page.getByRole('checkbox', { name: /Smoked sausage/ })).toBeChecked()
+    await page.getByRole('checkbox', { name: /smoked sausage/ }).click()
+    await expect(page.getByRole('checkbox', { name: /smoked sausage/ })).toBeChecked()
     expect(kitchen.backend.table('grocery_checks')).toMatchObject([{ ingredient_id: 'kielbasa' }])
 
     // Correct a price, then go back to the estimate.
@@ -48,7 +48,7 @@ test.describe('this week: the plan and the grocery list', () => {
     })
     await page.getByRole('button', { name: 'Done shopping' }).click()
     await expect(page.getByRole('status')).toHaveText(
-      'Done shopping. Extra-virgin olive oil and Kosher salt went into your pantry.',
+      'Done shopping. Extra-virgin olive oil and Kosher salt went into your pantry. Go to the menu to cook',
     )
     // The confirm names what was not bought.
     expect(asked).toHaveLength(1)
@@ -112,6 +112,14 @@ test.describe('this week: the plan and the grocery list', () => {
     expect(kitchen.backend.table('grocery_checks')).toEqual([])
     await page.getByRole('link', { name: 'this week’s plan' }).click()
     await expect(page.getByRole('checkbox', { name: /Lemon/ })).not.toBeChecked()
+  })
+
+  test('clearing old ticks leaves the ones the list still shows', async ({ page, kitchen }) => {
+    // Butter is on the eggs' list; lemon is left from a salad since cooked.
+    await kitchen.open('#/recipe/chopped-salad', { plan: ['soft-scrambled-eggs'], checks: ['butter', 'lemon'] })
+    await page.getByRole('button', { name: 'Add to this week' }).click()
+    await expect(page.getByRole('button', { name: 'Take off this week' })).toBeVisible()
+    expect(kitchen.backend.table('grocery_checks').map((row) => row.ingredient_id)).toEqual(['butter'])
   })
 
   test('with everything in the cart, the list says to finish', async ({ page, kitchen }) => {
@@ -221,15 +229,16 @@ test.describe('this week: the plan and the grocery list', () => {
     page.once('dialog', (dialog) => void dialog.dismiss())
     await page.getByRole('button', { name: 'Done shopping' }).click()
     await expect(page.getByRole('link', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
-    expect(kitchen.backend.table('plan_items')).toHaveLength(1)
+    // Since 00006 the plan keeps its row either way: what Done shopping would change is "shopped".
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'chopped-salad', shopped: false }])
     expect(kitchen.backend.table('grocery_checks')).toHaveLength(1)
   })
 
   test('a corrected price changes what the recipe page says you keep', async ({ page, kitchen }) => {
     await kitchen.open('#/recipe/chopped-salad', { prices: { feta: 900 } })
-    // Feta at $9.00 for 4 oz instead of $3.49. The salad uses 2 oz, so cooking it costs $2.76 more
-    // ($9.51 instead of $6.76) and you keep $19.74 instead of $22.50.
-    await expect(page.locator('.tab-kept mark')).toHaveText('$19.74')
+    // Feta at $9.00 for a 4 oz tub instead of $3.49. The salad uses the whole tub, so cooking two
+    // servings costs $5.51 more, and you keep $21.89 instead of $27.40.
+    await expect(page.locator('.tab-kept mark')).toHaveText('$21.89')
   })
 
   test('a staple already at home goes to the pantry from the list', async ({ page, kitchen }) => {

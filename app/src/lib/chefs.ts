@@ -86,8 +86,18 @@ export async function fetchChef(): Promise<Chef | null> {
   return data === null ? null : toChef(data as ChefRow)
 }
 
+/**
+ * An account has one chef. A duplicate key means it already has one: a
+ * retry after the answer was lost on weak signal, or a chef made on another
+ * device. Either way that chef is the one to show.
+ */
 export async function createChef(chef: Chef): Promise<Chef> {
   const { data, error } = await supabase.from('chefs').insert(toRow(chef)).select(COLUMNS).single()
+  if (error?.code === '23505') {
+    const existing = await fetchChef()
+    if (existing === null) throw new Error(`Could not create your chef: ${error.message}`)
+    return existing
+  }
   if (error) throw new Error(`Could not create your chef: ${error.message}`)
   return toChef(data as ChefRow)
 }

@@ -5,14 +5,26 @@ import { describe, expect, it } from 'vitest'
 import { cookCostPerServingCents, ESTIMATES, orderCostPerServingCents } from '../lib/cost'
 import { formatAmount, formatDuration } from '../lib/format'
 import type { EquipmentId } from './equipment'
-import { INGREDIENTS, type Ingredient } from './ingredients'
+import { INGREDIENTS, type Ingredient, type IngredientId, type MeatSafety } from './ingredients'
 import { RECIPES } from './recipes'
 import { TECHNIQUES, type TechniqueId } from './techniques'
+import type { RecipeContent } from './types'
 
 const techniqueIds = Object.keys(TECHNIQUES) as TechniqueId[]
 
 /** Characters in one step's text. Roughly ten lines in cook mode at 390px wide. */
 const STEP_MAX = 360
+
+/** Everything that sits on a burner. */
+const STOVETOP: readonly EquipmentId[] = [
+  'small-nonstick-skillet',
+  'large-skillet',
+  'steel-skillet',
+  'cast-iron-skillet',
+  'small-saucepan',
+  'medium-saucepan',
+  'large-pot',
+]
 
 function teacherOf(technique: TechniqueId) {
   const teachers = RECIPES.filter((recipe) => recipe.teaches.includes(technique))
@@ -20,6 +32,19 @@ function teacherOf(technique: TechniqueId) {
     throw new Error(`${technique} is taught by ${teachers.length} recipes, expected exactly 1`)
   }
   return teachers[0]!
+}
+
+/** How each meat in a recipe is made safe. Every meat says, so none can slip past a check. */
+function meatSafety(content: RecipeContent): MeatSafety[] {
+  return content.ingredients.flatMap(({ ingredientId }) => {
+    const ingredient: Ingredient = INGREDIENTS[ingredientId]
+    return ingredient.section === 'meat' ? [ingredient.safeTempF] : []
+  })
+}
+
+/** Meat that is raw in the package: a safe temperature, or cured (bacon). Smoked sausage is already cooked. */
+function rawMeat(content: RecipeContent): MeatSafety[] {
+  return meatSafety(content).filter((safety) => safety !== 'fully-cooked')
 }
 
 describe('the menu', () => {
@@ -30,6 +55,19 @@ describe('the menu', () => {
 
   it('teaches every skill in exactly one recipe', () => {
     for (const technique of techniqueIds) teacherOf(technique)
+  })
+
+  it('lists the skills in the order the menu teaches them', () => {
+    // The chef sheet lists skills in this order, course by course.
+    const order = techniqueIds.map((technique) => RECIPES.indexOf(teacherOf(technique)))
+    expect(order).toEqual(order.toSorted((a, b) => a - b))
+  })
+
+  it('says how every meat is made safe, and nothing else claims to', () => {
+    // The type requires it; this catches a cast that gets around the type.
+    for (const [id, ingredient] of Object.entries(INGREDIENTS) as [IngredientId, Ingredient][]) {
+      expect(ingredient.safeTempF !== undefined, id).toBe(ingredient.section === 'meat')
+    }
   })
 
   it('teaches something in tiers 1 to 4 and nothing new in tier 5', () => {
@@ -64,11 +102,7 @@ describe('the menu', () => {
       return [...teacher.teaches, ...teacher.requires.flatMap(allLearned)]
     }
     for (const recipe of RECIPES) {
-      const rawMeat = recipe.content.ingredients.some(({ ingredientId }) => {
-        const ingredient: Ingredient = INGREDIENTS[ingredientId]
-        return ingredient.safeTempF !== undefined
-      })
-      if (!rawMeat) continue
+      if (rawMeat(recipe.content).length === 0) continue
       const known = new Set([...recipe.teaches, ...recipe.requires.flatMap(allLearned)])
       expect(known.has('doneness'), `${recipe.id} uses raw meat`).toBe(true)
     }
@@ -95,11 +129,7 @@ describe('the menu', () => {
 })
 
 describe('written recipes', () => {
-  const written = RECIPES.flatMap((recipe) => (recipe.content ? [{ id: recipe.id, content: recipe.content }] : []))
-
-  it('exist', () => {
-    expect(written.length).toBeGreaterThan(0)
-  })
+  const written = RECIPES.map((recipe) => ({ id: recipe.id, content: recipe.content }))
 
   it('have steps, positive quantities that format, and no repeated ingredient', () => {
     for (const { id, content } of written) {
@@ -109,12 +139,9 @@ describe('written recipes', () => {
       expect(new Set(ids).size, id).toBe(ids.length)
       for (const line of content.ingredients) {
         expect(line.qty, `${id} ${line.ingredientId}`).toBeGreaterThan(0)
-        // Whole eighths, so any sum of them prints on the grocery list too.
-        expect(Number.isInteger(line.qty * 8), `${id} ${line.ingredientId} is not a whole number of eighths`).toBe(true)
-        // A standard set of measuring spoons stops at ¼ teaspoon.
-        if (INGREDIENTS[line.ingredientId].unit === 'tsp') {
-          expect(Number.isInteger(line.qty * 4), `${id} ${line.ingredientId} is not a whole number of quarter teaspoons`).toBe(true)
-        }
+        // Whole quarters: a standard set of measuring spoons stops at ¼ teaspoon, any sum of
+        // quarters prints on the grocery list too, and the app's fonts carry ¼ ½ ¾ but no eighths.
+        expect(Number.isInteger(line.qty * 4), `${id} ${line.ingredientId} is not a whole number of quarters`).toBe(true)
         formatAmount(line.qty, INGREDIENTS[line.ingredientId].unit) // throws on an unprintable fraction
       }
       for (const step of content.steps) {
@@ -142,28 +169,58 @@ describe('written recipes', () => {
     }
   })
 
-  it('turn off every burner and oven they use', () => {
+  it('turn off every burner they use, one for each pan, and the oven', () => {
     for (const { id, content } of written) {
       const text = content.steps.map((step) => step.text).join(' ')
-      if (content.equipment.some((item) => /skillet|saucepan|pot\b/i.test(item))) {
-        expect(text, id).toMatch(/turn off (the|that) burner/i)
-      }
+      // A saucepan is sometimes a tool off the heat: the cutlets are pounded flat with one.
+      const heatsASaucepan = content.steps.some((step) => /\bsaucepan\b/i.test(step.text) && /\b(heat|burner|boil|simmer)/i.test(step.text))
+      const pans = content.equipment.filter((item) => STOVETOP.includes(item) && (!item.endsWith('saucepan') || heatsASaucepan))
+      const offs =
+        (text.match(/turn off (?:the|that) burner|turn (?:the|that) burner off|turn the burners off/gi)?.length ?? 0) +
+        2 * (text.match(/turn off both burners/gi)?.length ?? 0)
+      expect(offs, `${id} heats ${pans.join(', ')} and turns off ${offs} burners`).toBeGreaterThanOrEqual(pans.length)
       if (/\boven\b(?! mitt)/i.test(text)) expect(text, id).toMatch(/turn off the oven/i)
+    }
+  })
+
+  it('move, tilt, tip or swirl a pan that has been on the heat only with an oven mitt', () => {
+    // "lift the pan off the burner", "slide the skillet onto a cool burner", "swirling the pan by its handle".
+    const movesAPan = /\b(?:move|moving|slide|sliding|lift|lifting|tilt|tilting|tip|tipping|swirl|swirling|take|taking) (?:the|that) (?:skillet|pan|saucepan|pot)\b/i
+    for (const { id, content } of written) {
+      for (const [index, step] of content.steps.entries()) {
+        const words = `${step.text} ${step.why ?? ''}`
+        if (!movesAPan.test(words)) continue
+        expect(words, `${id} step ${index + 1}`).toMatch(/oven mitt/i)
+        expect(content.equipment, `${id} step ${index + 1}`).toContain('oven-mitts')
+      }
     }
   })
 
   it('handle raw meat safely: the thermometer, the safe temperature, and clean hands', () => {
     for (const { id, content } of written) {
-      const temperatures = content.ingredients.flatMap(({ ingredientId }) => {
-        const ingredient: Ingredient = INGREDIENTS[ingredientId]
-        return ingredient.safeTempF === undefined ? [] : [ingredient.safeTempF]
-      })
-      if (temperatures.length === 0) continue
+      const raw = rawMeat(content)
+      if (raw.length === 0) continue
       const text = content.steps.map((step) => step.text).join(' ')
-      expect(content.equipment, id).toContain('thermometer')
-      for (const temperature of temperatures) expect(text, id).toContain(`at least ${temperature}°F`)
+      // Cured bacon is still raw pork in the package: no thermometer, but the same washing.
       expect(text, id).toMatch(/wash your hands/i)
       expect(text, id).toMatch(/hot, soapy water/)
+      const temperatures = raw.filter((safety) => typeof safety === 'number')
+      if (temperatures.length === 0) continue
+      expect(content.equipment, id).toContain('thermometer')
+      for (const temperature of temperatures) expect(text, id).toContain(`at least ${temperature}°F`)
+    }
+  })
+
+  it('never tell the cook to rinse raw meat', () => {
+    // Rinsing splashes germs around the sink and removes none of them.
+    const meat = /\b(chicken|beef|pork|steak|bacon|meat|thighs?|breasts?)\b/i
+    for (const { id, content } of written) {
+      for (const [index, step] of content.steps.entries()) {
+        for (const sentence of step.text.split(/(?<=[.;!?])\s+/)) {
+          if (!/\brins(e|ing)\b/i.test(sentence) || !meat.test(sentence)) continue
+          expect(sentence, `${id} step ${index + 1}`).toMatch(/\b(do not|don’t|never) rinse\b/i)
+        }
+      }
     }
   })
 
@@ -244,10 +301,8 @@ describe('written recipes', () => {
 
   it('check every safe temperature the whole way: where, how long, and what if it is low', () => {
     for (const { id, content } of written) {
-      for (const { ingredientId } of content.ingredients) {
-        const ingredient: Ingredient = INGREDIENTS[ingredientId]
-        const temperature = ingredient.safeTempF
-        if (temperature === undefined) continue
+      for (const temperature of meatSafety(content)) {
+        if (typeof temperature !== 'number') continue
         const check = content.steps.find((step) => step.text.includes(`at least ${temperature}°F`))
         expect(check, `${id}: no step checks ${temperature}°F`).toBeDefined()
         const text = check?.text ?? ''
@@ -276,12 +331,14 @@ describe('written recipes', () => {
     }
   })
 
-  it('drain a pot into a colander with oven mitts, tipping it away from you', () => {
+  it('drain a pot into a colander with oven mitts, tipping it away from you, its burner off', () => {
     for (const { id, content } of written) {
       for (const [index, step] of content.steps.entries()) {
         if (!/pour [^.]*into the colander/i.test(step.text)) continue
         expect(step.text, `${id} step ${index + 1}`).toMatch(/oven mitts/i)
         expect(step.text, `${id} step ${index + 1}`).toMatch(/away from you/i)
+        // The pot leaves the burner here; a burner left on high under nothing is how kitchen fires start.
+        expect(step.text, `${id} step ${index + 1}`).toMatch(/turn off the burner/i)
       }
     }
   })

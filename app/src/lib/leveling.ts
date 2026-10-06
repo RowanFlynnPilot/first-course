@@ -59,12 +59,9 @@ export type RankIndex = 0 | 1 | 2 | 3 | 4 | 5
 export const RANK_INDEXES: readonly RankIndex[] = [0, 1, 2, 3, 4, 5]
 
 export function rankIndexForLevel(level: number): RankIndex {
-  if (level >= 18) return 5
-  if (level >= 14) return 4
-  if (level >= 10) return 3
-  if (level >= 6) return 2
-  if (level >= 3) return 1
-  return 0
+  const rank = RANK_INDEXES[RANKS.findLastIndex((candidate) => level >= candidate.fromLevel)]
+  if (rank === undefined) throw new Error(`No rank for level ${level}`)
+  return rank
 }
 
 export interface DisciplineStat {

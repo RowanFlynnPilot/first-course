@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { RECIPES } from '../curriculum/recipes'
 import { BADGES, earnedBadges } from './badges'
-import { ESTIMATES } from './cost'
+import { ESTIMATES, keptPerCookCents } from './cost'
+import { recipeById } from '../curriculum/recipes'
 import type { CookLog, Rating } from './progress'
 
 let counter = 0
@@ -67,5 +68,29 @@ describe('badges', () => {
     )
     expect(earnedBadges(weeks, ESTIMATES)).toContain('four-weeks')
     expect(earnedBadges(weeks.slice(1), ESTIMATES)).not.toContain('four-weeks')
+  })
+
+  it('gives a dish of the usual its badge only for a good cook of it', () => {
+    expect(earnedBadges([log('pad-thai', 1)], ESTIMATES)).not.toContain('usual-pad-thai')
+    expect(earnedBadges([log('pad-thai', 2)], ESTIMATES)).toContain('usual-pad-thai')
+  })
+
+  it('needs the usual too for the whole menu', () => {
+    const courses = RECIPES.filter((recipe) => recipe.tier < 5).map((recipe) => log(recipe.id, 2))
+    expect(earnedBadges(courses, ESTIMATES)).not.toContain('every-recipe')
+    expect(earnedBadges([...courses, ...RECIPES.filter((recipe) => recipe.tier === 5).map((recipe) => log(recipe.id, 1))], ESTIMATES)).toContain(
+      'every-recipe',
+    )
+  })
+
+  it('counts money kept at the prices the cook corrected', () => {
+    // Enough cooks of the salad to sit just over $100 kept at the estimates.
+    const salad = recipeById('chopped-salad')
+    const each = keptPerCookCents(salad.content, ESTIMATES)
+    const cooks = Array.from({ length: Math.ceil(10_000 / each) }, () => log(salad.id, 2))
+    expect(earnedBadges(cooks, ESTIMATES)).toContain('kept-100')
+    // Feta at $40 a tub makes the salad cost more than it kept.
+    const dear = new Map([['feta' as const, 4000]])
+    expect(earnedBadges(cooks, dear)).not.toContain('kept-100')
   })
 })

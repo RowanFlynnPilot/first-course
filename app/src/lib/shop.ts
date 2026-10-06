@@ -61,6 +61,14 @@ export async function fetchShop(): Promise<Shop> {
     load<{ ingredient_id: string; price_cents: number }>('price_overrides', 'ingredient_id, price_cents', 'your prices'),
     load<{ equipment_id: string }>('kit_items', 'equipment_id', 'your kit'),
   ])
+  for (const row of plan) {
+    if (typeof row.shopped !== 'boolean') throw new Error(`This week’s plan has no shopped mark for ${row.recipe_id}`)
+  }
+  for (const row of prices) {
+    if (!Number.isInteger(row.price_cents) || row.price_cents <= 0) {
+      throw new Error(`Your price for ${row.ingredient_id} is not a price: ${row.price_cents}`)
+    }
+  }
   return {
     plan: plan.map((row) => recipeById(row.recipe_id).id),
     shopped: new Set(plan.filter((row) => row.shopped).map((row) => row.recipe_id)),
@@ -71,7 +79,10 @@ export async function fetchShop(): Promise<Shop> {
   }
 }
 
-// ── Writes. Each one either succeeds or throws a message that says what failed. ──
+// ── Writes. Each one either succeeds and then changes the shop on screen, or
+// throws a message that says what failed and changes nothing. A change is
+// applied to the latest shop, so another write that finished meanwhile
+// survives it.
 
 // Adding ignores a row that is already there, so a double tap is harmless.
 async function add(table: string, row: Record<string, string>, what: string) {
@@ -84,6 +95,13 @@ async function remove(table: string, column: string, value: string, what: string
   if (error) throw new Error(`Could not ${what}: ${error.message}`)
 }
 
+function toggled<T>(set: ReadonlySet<T>, item: T, on: boolean): Set<T> {
+  const next = new Set(set)
+  if (on) next.add(item)
+  else next.delete(item)
+  return next
+}
+
 /** Adds a recipe to this week, and says whether it was already there and shopped for (on another device). */
 async function addToPlan(recipeId: string): Promise<{ shopped: boolean }> {
   await add('plan_items', { recipe_id: recipeId }, 'add it to this week')
@@ -91,15 +109,44 @@ async function addToPlan(recipeId: string): Promise<{ shopped: boolean }> {
   if (error) throw new Error(`Could not add it to this week: ${error.message}`)
   return { shopped: (data as { shopped: boolean }).shopped }
 }
-export const removeFromPlan = (recipeId: string) =>
-  remove('plan_items', 'recipe_id', recipeId, 'take it off this week')
 
-export const stockPantry = (id: IngredientId) => add('pantry_items', { ingredient_id: id }, 'add it to your pantry')
-export const clearFromPantry = (id: IngredientId) =>
-  remove('pantry_items', 'ingredient_id', id, 'take it out of your pantry')
+/** "Take off": the recipe leaves this week's plan, bought or not. */
+export async function takeOffPlan(recipeId: string, onShopChange: ShopChange) {
+  await remove('plan_items', 'recipe_id', recipeId, 'take it off this week')
+  onShopChange((previous) => withoutPlanned(previous, recipeId))
+}
 
-export const checkOff = (id: IngredientId) => add('grocery_checks', { ingredient_id: id }, 'check it off')
-export const uncheck = (id: IngredientId) => remove('grocery_checks', 'ingredient_id', id, 'uncheck it')
+/** A staple at home (the pantry), or not: "Have it" and "Put it on the list" on This week, and the pantry's ticks. */
+export async function setInPantry(id: IngredientId, have: boolean, onShopChange: ShopChange) {
+  await (have
+    ? add('pantry_items', { ingredient_id: id }, 'add it to your pantry')
+    : remove('pantry_items', 'ingredient_id', id, 'take it out of your pantry'))
+  onShopChange((previous) => ({ ...previous, pantry: toggled(previous.pantry, id, have) }))
+}
+
+/** Ticked off on the grocery list (in the cart), or not. */
+export async function setChecked(id: IngredientId, checked: boolean, onShopChange: ShopChange) {
+  await (checked
+    ? add('grocery_checks', { ingredient_id: id }, 'check it off')
+    : remove('grocery_checks', 'ingredient_id', id, 'uncheck it'))
+  onShopChange((previous) => ({ ...previous, checks: toggled(previous.checks, id, checked) }))
+}
+
+/** One piece of equipment in the kit, or not. */
+export async function setInKit(id: EquipmentId, own: boolean, onShopChange: ShopChange) {
+  await (own
+    ? add('kit_items', { equipment_id: id }, 'add it to your kit')
+    : remove('kit_items', 'equipment_id', id, 'take it out of your kit'))
+  onShopChange((previous) => ({ ...previous, kit: toggled(previous.kit, id, own) }))
+}
+
+/** Several at once, in one request: "I have all of these", and the tools of a recipe just cooked. */
+export async function addAllToKit(ids: readonly EquipmentId[], onShopChange: ShopChange) {
+  const rows = ids.map((id) => ({ equipment_id: id }))
+  const { error } = await supabase.from('kit_items').upsert(rows, { ignoreDuplicates: true })
+  if (error) throw new Error(`Could not add them to your kit: ${error.message}`)
+  onShopChange((previous) => ({ ...previous, kit: new Set([...previous.kit, ...ids]) }))
+}
 
 /**
  * Clears ticks the current list no longer shows: left from a shop that never
@@ -147,48 +194,51 @@ export async function shopForAgain(shop: Shop, recipeId: string, onShopChange: S
   const { data, error } = await supabase.from('plan_items').update({ shopped: false }).eq('recipe_id', recipeId).select('recipe_id')
   if (error) throw new Error(`Could not put it back on the list: ${error.message}`)
   if (data.length !== 1) throw new Error('It is not on this week’s plan any more: it was cooked or taken off on another device.')
-  onShopChange((previous) => {
-    const shopped = new Set(previous.shopped)
-    shopped.delete(recipeId)
-    return { ...previous, shopped }
-  })
+  onShopChange((previous) => ({ ...previous, shopped: toggled(previous.shopped, recipeId, false) }))
 }
-
-export const addToKit = (id: EquipmentId) => add('kit_items', { equipment_id: id }, 'add it to your kit')
-
-/** Several at once, in one request: "I have all of these". */
-export async function addAllToKit(ids: readonly EquipmentId[]) {
-  const rows = ids.map((id) => ({ equipment_id: id }))
-  const { error } = await supabase.from('kit_items').upsert(rows, { ignoreDuplicates: true })
-  if (error) throw new Error(`Could not add them to your kit: ${error.message}`)
-}
-export const removeFromKit = (id: EquipmentId) => remove('kit_items', 'equipment_id', id, 'take it out of your kit')
 
 /** The package price the cook paid, in place of the estimate in ingredients.ts. */
-export async function setPrice(id: IngredientId, priceCents: number) {
+export async function setPrice(id: IngredientId, priceCents: number, onShopChange: ShopChange) {
   if (!Number.isInteger(priceCents) || priceCents <= 0) throw new Error(`A price must be above zero, not ${priceCents}`)
   const { error } = await supabase.from('price_overrides').upsert({ ingredient_id: id, price_cents: priceCents })
   if (error) throw new Error(`Could not save the price: ${error.message}`)
+  onShopChange((previous) => ({ ...previous, prices: new Map(previous.prices).set(id, priceCents) }))
 }
 
-export const resetPrice = (id: IngredientId) =>
-  remove('price_overrides', 'ingredient_id', id, 'go back to the estimate')
+/** Back to the estimate in ingredients.ts. */
+export async function resetPrice(id: IngredientId, onShopChange: ShopChange) {
+  await remove('price_overrides', 'ingredient_id', id, 'go back to the estimate')
+  onShopChange((previous) => {
+    const prices = new Map(previous.prices)
+    prices.delete(id)
+    return { ...previous, prices }
+  })
+}
 
 /**
- * "Done shopping": bought staples go into the pantry, the ticks this list
- * showed are cleared, and the recipes it covered are marked shopped. One
- * transaction (00007). Only what this device saw changes, so a recipe or a
- * tick added on another device meanwhile is left alone.
+ * "Done shopping" for the list this screen shows: the staples checked off go
+ * into the pantry, the ticks it showed are cleared, and the recipes it
+ * covered are marked shopped. One transaction (00007). Only what this device
+ * saw changes, so a recipe or a tick added on another device meanwhile is
+ * left alone. Returns the staples that went into the pantry.
  */
-export async function finishShopping(done: {
-  boughtStaples: readonly IngredientId[]
-  shoppedRecipes: readonly string[]
-  seenChecks: readonly IngredientId[]
-}) {
+export async function doneShopping(shop: Shop, onShopChange: ShopChange): Promise<IngredientId[]> {
+  const shoppedRecipes = toShopFor(shop)
+  const seenChecks = [...shop.checks]
+  const staples = groceryList(shoppedRecipes, shop.pantry, shop.prices)
+    .lines.map((line) => line.ingredientId)
+    .filter((id) => shop.checks.has(id) && INGREDIENTS[id].staple)
   const { error } = await supabase.rpc('finish_shopping', {
-    bought_staples: done.boughtStaples,
-    shopped_recipes: done.shoppedRecipes,
-    seen_checks: done.seenChecks,
+    bought_staples: staples,
+    shopped_recipes: shoppedRecipes,
+    seen_checks: seenChecks,
   })
   if (error) throw new Error(`Could not finish shopping: ${error.message}`)
+  onShopChange((previous) => ({
+    ...previous,
+    shopped: new Set([...previous.shopped, ...shoppedRecipes]),
+    checks: new Set([...previous.checks].filter((id) => !seenChecks.includes(id))),
+    pantry: new Set([...previous.pantry, ...staples]),
+  }))
+  return staples
 }

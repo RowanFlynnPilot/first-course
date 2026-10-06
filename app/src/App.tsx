@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { HashRouter, Route, Routes, useLocation, useNavigationType } from 'react-router'
 import { fetchChef, type Chef } from './lib/chefs'
 import { fetchCookLogs } from './lib/cookLogs'
@@ -29,7 +29,13 @@ export default function App() {
   const [settingPassword, setSettingPassword] = useState(fromPasswordReset)
   // An email link's sign-in finishes before anything shows, so the sign-in screen never flashes first.
   const [landed, setLanded] = useState(landingSignIn === null)
-  const [landingError, setLandingError] = useState<string | null>(null)
+  // Why an email link that brought the cook here failed. Shown once, then
+  // gone: it must not come back on the sign-in screen after a sign-out.
+  const [linkProblem, setLinkProblem] = useState<string | null>(linkError)
+  // A sign-out the server never heard (no signal): this phone is signed out,
+  // but the session is still good elsewhere until it expires. Said on the
+  // sign-in screen, which is where the cook lands.
+  const [signOutProblem, setSignOutProblem] = useState<string | null>(null)
 
   useEffect(() => {
     if (landingSignIn === null) return
@@ -38,7 +44,7 @@ export default function App() {
       (cause: Error) => {
         // A reset link that did not sign anyone in leaves no password to set.
         setSettingPassword(false)
-        setLandingError(cause.message)
+        setLinkProblem(cause.message)
         setLanded(true)
       },
     )
@@ -51,9 +57,33 @@ export default function App() {
   }, [])
 
   if (session === undefined || !landed) return <p className="status">Loading…</p>
-  if (session === null) return <AuthScreen linkError={landingError ?? linkError} />
+  if (session === null) {
+    return (
+      <AuthScreen
+        linkError={linkProblem}
+        onLinkErrorShown={() => setLinkProblem(null)}
+        signOutProblem={signOutProblem}
+      />
+    )
+  }
   if (settingPassword) return <SetPasswordScreen email={session.user.email} onDone={() => setSettingPassword(false)} />
-  return <Kitchen key={session.user.id} userId={session.user.id} />
+  return (
+    <Kitchen
+      key={session.user.id}
+      userId={session.user.id}
+      linkProblem={linkProblem}
+      onLinkProblemSeen={() => setLinkProblem(null)}
+      onSignOut={async () => {
+        setSignOutProblem(null)
+        const { error } = await supabase.auth.signOut()
+        if (error) {
+          const problem = `Signed out on this phone, but the sign-out did not reach the server: ${error.message}`
+          setSignOutProblem(problem)
+          throw new Error(problem)
+        }
+      }}
+    />
+  )
 }
 
 /** Away from the app this long, and it loads everything again on return. */
@@ -63,7 +93,18 @@ function loadKitchen() {
   return Promise.all([fetchCookLogs(), fetchChef(), fetchShop()])
 }
 
-function Kitchen({ userId }: { userId: string }) {
+function Kitchen({
+  userId,
+  linkProblem,
+  onLinkProblemSeen,
+  onSignOut,
+}: {
+  userId: string
+  /** An email link failed while a stored session kept the cook signed in. */
+  linkProblem: string | null
+  onLinkProblemSeen: () => void
+  onSignOut: () => Promise<void>
+}) {
   const [logs, setLogs] = useState<readonly CookLog[] | null>(null)
   // undefined = still loading; null = this account has not named a chef.
   const [chef, setChef] = useState<Chef | null | undefined>(undefined)
@@ -88,6 +129,10 @@ function Kitchen({ userId }: { userId: string }) {
   // replace the screen, so a cook in the middle of a recipe keeps cooking.
   const [refreshes, setRefreshes] = useState(0)
   const [refreshError, setRefreshError] = useState<string | null>(null)
+  // Writes that have landed. A catch-up that was out while one landed may have
+  // read the database before it did, so it reads again rather than put older
+  // data on screen over the write.
+  const writes = useRef(0)
   useEffect(() => {
     let hiddenAt: number | null = null
     function onVisibility() {
@@ -107,13 +152,26 @@ function Kitchen({ userId }: { userId: string }) {
   }, [])
   useEffect(() => {
     if (refreshes === 0) return
+    // A newer catch-up (Try again, or another return) replaces this one.
+    let current = true
+    const writesBefore = writes.current
     loadKitchen()
       .then(([loadedLogs, loadedChef, loadedShop]) => {
+        if (!current) return
+        if (writes.current !== writesBefore) {
+          setRefreshes((count) => count + 1)
+          return
+        }
         setLogs(loadedLogs)
         setChef(loadedChef)
         setShop(loadedShop)
       })
-      .catch((cause: Error) => setRefreshError(cause.message))
+      .catch((cause: Error) => {
+        if (current) setRefreshError(cause.message)
+      })
+    return () => {
+      current = false
+    }
   }, [refreshes])
 
   if (error !== null) {
@@ -140,14 +198,35 @@ function Kitchen({ userId }: { userId: string }) {
   if (logs === null || chef === undefined || shop === null) return <p className="status">Loading your kitchen…</p>
   if (chef === null) return <NameChefScreen onCreated={setChef} />
 
-  const changeShop: ShopChange = (change) =>
+  // Every write's change applies to the latest state, never to what a screen
+  // drew from, so two writes that land close together both stay.
+  const changeShop: ShopChange = (change) => {
+    writes.current += 1
     setShop((previous) => {
       if (previous === null) throw new Error('The shop changed before it loaded')
       return change(previous)
     })
+  }
+  function changeLogs(change: (logs: readonly CookLog[]) => readonly CookLog[]) {
+    writes.current += 1
+    setLogs((previous) => {
+      if (previous === null) throw new Error('The cook log changed before it loaded')
+      return change(previous)
+    })
+  }
 
   return (
     <HashRouter>
+      {linkProblem !== null && (
+        <div className="page page-alert">
+          <p className="notice notice-error" role="alert">
+            {linkProblem} You are still signed in.
+          </p>
+          <button className="link-button" type="button" onClick={onLinkProblemSeen}>
+            Hide this
+          </button>
+        </div>
+      )}
       {refreshError !== null && (
         <div className="page page-alert">
           <p className="notice notice-error" role="alert">
@@ -171,14 +250,23 @@ function Kitchen({ userId }: { userId: string }) {
         logs={logs}
         shop={shop}
         onLogged={(log) => {
-          setLogs([...logs, log])
+          // A save retried after a lost answer can find its cook already here, brought in by a catch-up.
+          changeLogs((previous) =>
+            previous.some((other) => other.id === log.id)
+              ? previous.map((other) => (other.id === log.id ? log : other))
+              : [...previous, log],
+          )
           // Saving the cook took its recipe off the plan in the database (00006).
           changeShop((previous) => withoutPlanned(previous, log.recipeId))
         }}
-        onLogUpdated={(log) => setLogs(logs.map((other) => (other.id === log.id ? log : other)))}
-        onLogDeleted={(id) => setLogs(logs.filter((other) => other.id !== id))}
-        onChefSaved={setChef}
+        onLogUpdated={(log) => changeLogs((previous) => previous.map((other) => (other.id === log.id ? log : other)))}
+        onLogDeleted={(id) => changeLogs((previous) => previous.filter((other) => other.id !== id))}
+        onChefSaved={(saved) => {
+          writes.current += 1
+          setChef(saved)
+        }}
         onShopChange={changeShop}
+        onSignOut={onSignOut}
       />
     </HashRouter>
   )
@@ -194,6 +282,7 @@ function Pages({
   onLogDeleted,
   onChefSaved,
   onShopChange,
+  onSignOut,
 }: {
   userId: string
   chef: Chef
@@ -204,6 +293,7 @@ function Pages({
   onLogDeleted: (id: string) => void
   onChefSaved: (chef: Chef) => void
   onShopChange: ShopChange
+  onSignOut: () => Promise<void>
 }) {
   const { pathname } = useLocation()
   const navigationType = useNavigationType()
@@ -243,6 +333,7 @@ function Pages({
             notice={notice}
             onChefSaved={onChefSaved}
             onShopChange={onShopChange}
+            onSignOut={onSignOut}
           />
         }
       />

@@ -28,7 +28,8 @@ export function CheckRow({
     <li className={checked ? 'check check-on' : 'check'}>
       <div className="check-line">
         <label className="check-label">
-          <input type="checkbox" checked={checked} disabled={busy} onChange={() => void run(() => onChange(!checked))} />
+          {/* aria-disabled, not disabled: a disabled box drops focus to the top of the page. useWrite ignores the tap. */}
+          <input type="checkbox" checked={checked} aria-disabled={busy} onChange={() => void run(() => onChange(!checked))} />
           <span>
             <span className="row-title">{label}</span>
             {busy ? <span className="row-note">Saving…</span> : note !== undefined && <span className="row-note">{note}</span>}

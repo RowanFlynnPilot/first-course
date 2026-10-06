@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clearTimers, dueTimers, liveTimers, loadTimers, saveTimers, STALE_AFTER_MS } from './timers'
+import { clearTimers, dueTimers, loadTimers, saveTimers, shownTimers, STALE_AFTER_MS, stopped } from './timers'
 
 // A minimal Storage, so the tests do not need a browser.
 function memoryStorage(): Storage {
@@ -21,31 +21,45 @@ const NOW = Date.parse('2026-10-04T18:00:00Z')
 describe('cook-mode timers', () => {
   it('survive a save and a load', () => {
     const storage = memoryStorage()
-    saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW + 60_000, rang: false } })
-    expect(loadTimers(storage, 'sheet-pan-sausage', NOW)).toEqual({ Potatoes: { endsAt: NOW + 60_000, rang: false } })
-    expect(loadTimers(storage, 'chopped-salad', NOW)).toEqual({})
+    saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW + 60_000, rang: false, stopped: false } })
+    expect(loadTimers(storage, 'sheet-pan-sausage')).toEqual({ Potatoes: { endsAt: NOW + 60_000, rang: false, stopped: false } })
+    expect(loadTimers(storage, 'chopped-salad')).toEqual({})
   })
 
-  it('drop a timer that finished more than half an hour ago, and keep one that just finished', () => {
+  it('load a timer saved before stopping was kept, as not stopped', () => {
+    const storage = memoryStorage()
+    storage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: NOW, rang: false } }))
+    expect(loadTimers(storage, 'sheet-pan-sausage')).toEqual({ Potatoes: { endsAt: NOW, rang: false, stopped: false } })
+  })
+
+  it('hide one finished more than half an hour ago, and one stopped, but keep both as started', () => {
     const timers = {
-      Potatoes: { endsAt: NOW - STALE_AFTER_MS - 1, rang: true },
-      Roasting: { endsAt: NOW - 1000, rang: true },
+      Potatoes: { endsAt: NOW - STALE_AFTER_MS - 1, rang: true, stopped: false },
+      Roasting: { endsAt: NOW - 1000, rang: true, stopped: false },
+      Rice: stopped({ endsAt: NOW + 60_000, rang: false, stopped: false }, NOW),
     }
-    expect(liveTimers(timers, NOW)).toEqual({ Roasting: { endsAt: NOW - 1000, rang: true } })
+    expect(shownTimers(timers, NOW)).toEqual({ Roasting: { endsAt: NOW - 1000, rang: true, stopped: false } })
+    expect(Object.keys(timers)).toEqual(['Potatoes', 'Roasting', 'Rice'])
+  })
+
+  it('stop at once: ended now, its ring over, and hidden', () => {
+    expect(stopped({ endsAt: NOW + 60_000, rang: false, stopped: false }, NOW)).toEqual({ endsAt: NOW, rang: true, stopped: true })
+    // One that already ran out keeps its end time.
+    expect(stopped({ endsAt: NOW - 5000, rang: false, stopped: false }, NOW).endsAt).toBe(NOW - 5000)
   })
 
   it('know which ran out and have not chimed', () => {
     const timers = {
-      Potatoes: { endsAt: NOW - 1000, rang: false },
-      Rice: { endsAt: NOW - 1000, rang: true },
-      Roasting: { endsAt: NOW + 1000, rang: false },
+      Potatoes: { endsAt: NOW - 1000, rang: false, stopped: false },
+      Rice: { endsAt: NOW - 1000, rang: true, stopped: false },
+      Roasting: { endsAt: NOW + 1000, rang: false, stopped: false },
     }
     expect(dueTimers(timers, NOW)).toEqual(['Potatoes'])
   })
 
   it('are cleared, and an empty set leaves nothing behind', () => {
     const storage = memoryStorage()
-    saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW, rang: false } })
+    saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW, rang: false, stopped: false } })
     clearTimers(storage, 'sheet-pan-sausage')
     expect(storage.length).toBe(0)
     saveTimers(storage, 'sheet-pan-sausage', {})
@@ -55,6 +69,6 @@ describe('cook-mode timers', () => {
   it('refuse saved data they did not write', () => {
     const storage = memoryStorage()
     storage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: 'soon' } }))
-    expect(() => loadTimers(storage, 'sheet-pan-sausage', NOW)).toThrow('malformed')
+    expect(() => loadTimers(storage, 'sheet-pan-sausage')).toThrow('malformed')
   })
 })

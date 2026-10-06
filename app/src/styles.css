@@ -622,6 +622,12 @@ p {
   font-size: var(--small);
 }
 
+.sheet-edit a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
+}
+
 /* ── Creating and changing the chef ── */
 
 .editor-preview {
@@ -1043,6 +1049,13 @@ p {
   white-space: nowrap;
 }
 
+/* A recipe's name on This week is a link: a full-size tap target like the rest. */
+.plan-row a.row-title {
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
+}
+
 /* A grocery line's price, with "Have it" under it for a staple. */
 .line-actions {
   display: grid;
@@ -1059,7 +1072,17 @@ p {
 
 .first-steps li {
   min-height: 3rem;
-  padding: 0.5rem 0;
+}
+
+/* The link is the full-height tap target; a step with no link is padded to match. */
+.first-steps a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
+}
+
+.first-steps li:not(:has(a)) {
+  padding: 0.75rem 0;
 }
 
 .first-steps .row-note {
@@ -1112,7 +1135,10 @@ p {
   cursor: pointer;
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled='true'],
+.link-button[aria-disabled='true'],
+input[aria-disabled='true'] {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -1167,6 +1193,11 @@ p {
 
 .auth {
   padding-top: 4rem;
+}
+
+/* Which form this is: sign in, create an account, or reset. */
+.auth .section-title {
+  margin-top: 1.5rem;
 }
 
 .form {
@@ -1463,6 +1494,15 @@ mark {
   text-decoration: none;
 }
 
+/* A timer on a step already passed that was never started: tap to start it. */
+.timer-chip-idle {
+  border-style: dashed;
+  color: var(--rim);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .timer-chip-done {
   border-color: var(--ketchup);
   color: var(--ketchup);
@@ -1611,7 +1651,10 @@ mark {
     padding-right: 0.75rem;
   }
 
+  /* Stacked, the buttons would hold a third of the screen if they stayed
+     pinned to the bottom; they scroll with the step instead. */
   .cook-nav {
+    position: static;
     grid-template-columns: 1fr;
   }
 
@@ -1633,4 +1676,16 @@ mark {
   .section-title {
     overflow-wrap: anywhere;
   }
+}
+
+/* The way on from a long list: the kit to the pantry, the pantry to the week. */
+.next-step {
+  margin: 2rem 0 0;
+}
+
+.next-step a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
+  font-weight: 700;
 }

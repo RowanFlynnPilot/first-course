@@ -182,6 +182,7 @@ export class FakeSupabase {
   private readonly rows: Record<string, Row[]> = Object.fromEntries(Object.keys(TABLES).map((name) => [name, []]))
   private readonly failures: { table: string; method: string; message: string }[] = []
   private readonly lost: { table: string; method: string }[] = []
+  private readonly held: { table: string; method: string; released: Promise<void> }[] = []
   private clock = Date.parse('2026-10-01T12:00:00Z')
   private confirmEmail = false
 
@@ -198,7 +199,7 @@ export class FakeSupabase {
     return rows
   }
 
-  /** The next matching request answers with a server error. */
+  /** The next matching request answers with a server error. `table` is a table, rpc/<function>, or auth/<path> ("auth/logout"). */
   failNext(table: string, method: string, message: string) {
     this.failures.push({ table, method, message })
   }
@@ -206,6 +207,28 @@ export class FakeSupabase {
   /** The next matching request is carried out, but its answer never arrives, as on weak signal. */
   loseNextAnswer(table: string, method: string) {
     this.lost.push({ table, method })
+  }
+
+  /**
+   * The next matching request is carried out at once, but its answer arrives
+   * only when the returned function is called: slow signal. A read answers
+   * with what the database held when it arrived, however late.
+   */
+  holdNext(table: string, method: string): () => void {
+    let release = () => {}
+    const released = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    this.held.push({ table, method, released })
+    return release
+  }
+
+  /** Rows deleted by another device: every row of the table that has these values. */
+  deleteElsewhere(table: string, values: Row) {
+    const rows = this.table(table)
+    const kept = rows.filter((row) => !Object.entries(values).every(([column, value]) => row[column] === value))
+    if (kept.length === rows.length) throw new Error(`No ${table} row has ${JSON.stringify(values)} to delete`)
+    this.rows[table] = kept
   }
 
   /** A row written by another device, as a seed is. */
@@ -264,6 +287,18 @@ export class FakeSupabase {
     if (url.pathname.startsWith('/auth/v1/')) return this.auth(route, request, url)
     if (url.pathname.startsWith('/rest/v1/')) {
       const name = url.pathname.slice('/rest/v1/'.length)
+      const hold = this.held.find((candidate) => candidate.table === name && candidate.method === request.method())
+      if (hold !== undefined) {
+        this.held.splice(this.held.indexOf(hold), 1)
+        const late = {
+          request: () => request,
+          fulfill: async (options: Parameters<Route['fulfill']>[0]) => {
+            await hold.released
+            return route.fulfill(options)
+          },
+        } as unknown as Route
+        return this.rest(late, request, url)
+      }
       const lost = this.lost.find((candidate) => candidate.table === name && candidate.method === request.method())
       if (lost === undefined) return this.rest(route, request, url)
       this.lost.splice(this.lost.indexOf(lost), 1)
@@ -303,6 +338,11 @@ export class FakeSupabase {
   private async auth(route: Route, request: Request, url: URL) {
     const path = url.pathname.slice('/auth/v1'.length)
     const method = request.method()
+    const failure = this.failures.find((candidate) => candidate.table === `auth${path}` && candidate.method === method)
+    if (failure !== undefined) {
+      this.failures.splice(this.failures.indexOf(failure), 1)
+      return json(route, request, 500, { error_code: 'unexpected_failure', msg: failure.message })
+    }
     const grant = url.searchParams.get('grant_type')
 
     if (method === 'POST' && path === '/token' && grant === 'password') {
@@ -373,6 +413,15 @@ export class FakeSupabase {
    * signed-in session in the hash, as Supabase's implicit flow does.
    */
   recoveryHash(): string {
+    return this.linkHash('recovery')
+  }
+
+  /** The hash a confirmation email's link lands with: a new account, signed in. */
+  signupHash(): string {
+    return this.linkHash('signup')
+  }
+
+  private linkHash(type: 'recovery' | 'signup'): string {
     const session = this.session(this.userId)
     const params = new URLSearchParams({
       access_token: session.access_token,
@@ -380,7 +429,7 @@ export class FakeSupabase {
       expires_in: '3600',
       refresh_token: session.refresh_token,
       token_type: 'bearer',
-      type: 'recovery',
+      type,
     })
     return `#${params.toString()}`
   }
@@ -414,6 +463,12 @@ export class FakeSupabase {
     const prefer = request.headers().prefer ?? ''
     const wantsObject = (request.headers().accept ?? '').startsWith('application/vnd.pgrst.object+json')
     const select = url.searchParams.get('select')
+    // PostgREST refuses a column the table does not have, in what is read as in a filter.
+    for (const column of select === null || select === '*' ? [] : select.split(',')) {
+      if (!spec.columns.includes(column)) {
+        return json(route, request, 400, { code: '42703', message: `column ${name}.${column} does not exist` })
+      }
+    }
     const respond = (rows: Row[], status: number) => {
       const shaped = rows.map((row) => project(row, select))
       if (!wantsObject) return json(route, request, status, shaped)

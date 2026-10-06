@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { LockedPage } from '../components/LockedNotice'
 import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
 import type { Chef } from '../lib/chefs'
@@ -9,22 +10,25 @@ import { checkCookedOn, localDateString } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
 import { cookable, whatTheRatingDecides, type CookLog, type Rating } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
+import type { Recipe } from '../curriculum/types'
 
-export function LogScreen({
-  chef,
-  logs,
-  prices,
-  onLogged,
-}: {
+type LogProps = {
   chef: Chef
   logs: readonly CookLog[]
   prices: Prices
   onLogged: (log: CookLog, earned: CookNotice) => void
-}) {
+}
+
+export function LogScreen(props: LogProps) {
   const { id } = useParams()
   if (id === undefined) throw new Error('Log route is missing its id')
   // Same gate as cook mode, checked before anything is written.
-  const { recipe } = cookable(id, logs)
+  const gate = cookable(id, props.logs)
+  if (gate.content === null) return <LockedPage recipe={gate.recipe} logs={props.logs} />
+  return <LogForm recipe={gate.recipe} {...props} />
+}
+
+function LogForm({ recipe, chef, logs, prices, onLogged }: LogProps & { recipe: Recipe }) {
   const navigate = useNavigate()
   usePageTitle(`Log a cook: ${recipe.title}`)
   const [rating, setRating] = useState<Rating | null>(null)
@@ -46,7 +50,9 @@ export function LogScreen({
       const log = await insertCookLog({ id: cookId, recipeId: recipe.id, cookedOn, rating, notes: notes.trim() })
       // The cook is over: its timers are done.
       clearTimers(sessionStorage, recipe.id)
-      onLogged(log, cookNotice(recipe, logs, log, chef.name, prices))
+      // A save retried after a lost answer can find this cook already in the log, brought in by a catch-up.
+      const before = logs.filter((other) => other.id !== log.id)
+      onLogged(log, cookNotice(recipe, before, log, chef.name, prices))
       // Replace, so Back from the menu cannot land on this form and log twice.
       navigate('/', { replace: true })
     } catch (cause) {
@@ -62,8 +68,10 @@ export function LogScreen({
       </nav>
       <h1 className="title">How did it go?</h1>
       <form className="form" onSubmit={save}>
-        <p className="section-note">{whatTheRatingDecides(recipe, logs)}</p>
-        <RatingPicker value={rating} onChange={setRating} />
+        <p className="section-note" id="rating-decides">
+          {whatTheRatingDecides(recipe, logs)}
+        </p>
+        <RatingPicker value={rating} onChange={setRating} describedBy="rating-decides" />
         <label className="field">
           Notes for next time
           <textarea
@@ -88,9 +96,11 @@ export function LogScreen({
             {error}
           </p>
         )}
-        <button className="button" type="submit" 
+        <button
+          className="button"
+          type="submit"
           disabled={busy || rating === null}
-          aria-describedby={rating === null ? 'save-hint' : undefined}
+          aria-describedby={rating === null ? 'save-hint' : 'rating-decides'}
         >
           Save this cook
         </button>

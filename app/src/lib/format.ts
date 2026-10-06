@@ -8,16 +8,13 @@ export function formatCents(cents: number): string {
   return DOLLARS.format(cents / 100)
 }
 
-// Every eighth, so any sum of recipe quantities prints: the grocery list adds
-// the plan's amounts together (⅛ plus ¼ is ⅜).
+// Recipe quantities are whole quarters (curriculum.test.ts checks), so every
+// sum the grocery list makes prints too. The self-hosted fonts' latin files
+// carry these three and no eighths, which would fall back to another font.
 const FRACTIONS: Record<string, string> = {
-  '0.125': '⅛',
   '0.25': '¼',
-  '0.375': '⅜',
   '0.5': '½',
-  '0.625': '⅝',
   '0.75': '¾',
-  '0.875': '⅞',
 }
 
 export function formatQty(qty: number): string {
@@ -133,11 +130,37 @@ export function plural(count: number, one: string, many: string): string {
 
 const LIST = new Intl.ListFormat('en', { type: 'conjunction' })
 
+/** "salt, oil, and lemons": the one way the app joins a list, serial comma and all. */
 export function listOf(items: readonly string[]): string {
   return LIST.format(items)
 }
 
-/** "knife basics, heat control and roasting" */
+/**
+ * The same list as listOf, in pieces, for a list whose items are links: each
+ * piece is an item's index or the text between items.
+ */
+export function listPieces(count: number): ({ index: number } | { text: string })[] {
+  const marks = Array.from({ length: count }, (_, index) => `\u0000${index}\u0000`)
+  return LIST.formatToParts(marks).map((part) =>
+    part.type === 'element' ? { index: Number(part.value.slice(1, -1)) } : { text: part.value },
+  )
+}
+
+/**
+ * A price typed by the cook, in cents: "3.49", "$3.49", "3", "3.5" or ".99".
+ * Anything else, or nothing above zero, says what to type.
+ */
+export function parseCents(typed: string): number {
+  const match = /^\$?\s*(\d*)(?:\.(\d{1,2}))?$/.exec(typed.trim())
+  const dollars = match?.[1] ?? ''
+  const cents = match?.[2] ?? ''
+  if (match === null || (dollars === '' && cents === '')) throw new Error('Enter the price you paid, like 3.49.')
+  const total = Number(dollars || '0') * 100 + Number(cents.padEnd(2, '0'))
+  if (total <= 0) throw new Error('Enter the price you paid, like 3.49.')
+  return total
+}
+
+/** "knife basics, heat control, and roasting" */
 export function skillList(ids: readonly TechniqueId[]): string {
   return listOf(ids.map((id) => TECHNIQUES[id].name.toLowerCase()))
 }

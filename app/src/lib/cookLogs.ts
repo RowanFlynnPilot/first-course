@@ -18,6 +18,10 @@ function toCookLog(row: CookLogRow): CookLog {
   if (row.rating !== 1 && row.rating !== 2 && row.rating !== 3) {
     throw new Error(`Cook log ${row.id} has rating ${row.rating}`)
   }
+  if (typeof row.cooked_on !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.cooked_on)) {
+    throw new Error(`Cook log ${row.id} has no date`)
+  }
+  if (typeof row.notes !== 'string') throw new Error(`Cook log ${row.id} has no notes field`)
   return {
     id: row.id,
     recipeId: row.recipe_id,
@@ -50,7 +54,8 @@ export function newCookId(): string {
  * `cookedOn` is the cook's local date (YYYY-MM-DD), never the server's. `id`
  * comes from the form, made once: when a save lands but its answer is lost
  * on weak signal, the retry finds that cook already saved (a duplicate key)
- * and returns it, instead of logging the cook twice.
+ * and saves what the form says now over it, instead of logging the cook
+ * twice or keeping a rating the cook has since changed.
  */
 export async function insertCookLog(input: {
   id: string
@@ -70,14 +75,10 @@ export async function insertCookLog(input: {
     })
     .select(COLUMNS)
     .single()
-  if (error?.code === '23505') return fetchCookLog(input.id)
+  if (error?.code === '23505') {
+    return updateCookLog(input.id, { cookedOn: input.cookedOn, rating: input.rating, notes: input.notes })
+  }
   if (error) throw new Error(`Could not save this cook: ${error.message}`)
-  return toCookLog(data as CookLogRow)
-}
-
-async function fetchCookLog(id: string): Promise<CookLog> {
-  const { data, error } = await supabase.from('cook_logs').select(COLUMNS).eq('id', id).single()
-  if (error) throw new Error(`Could not check whether this cook was saved: ${error.message}`)
   return toCookLog(data as CookLogRow)
 }
 
@@ -96,8 +97,11 @@ export async function updateCookLog(
   return toCookLog(data as CookLogRow)
 }
 
+/**
+ * Deletes a cook. Finding nothing to delete means it is already gone: a
+ * retry after an answer lost on weak signal, or a delete on another device.
+ */
 export async function deleteCookLog(id: string): Promise<void> {
-  const { data, error } = await supabase.from('cook_logs').delete().eq('id', id).select('id')
+  const { error } = await supabase.from('cook_logs').delete().eq('id', id)
   if (error) throw new Error(`Could not delete this cook: ${error.message}`)
-  if (data.length !== 1) throw new Error('That cook was not in your log')
 }

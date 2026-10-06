@@ -18,7 +18,8 @@ export const SLOTS: readonly { readonly id: ExtraSlot; readonly name: string }[]
   { id: 'feet', name: 'On the feet' },
 ]
 
-const TRACK_NAMES: Readonly<Record<Track, string>> = {
+/** Each track as a cook would say it: "Cook the basics 5 times." */
+export const TRACK_NAMES: Readonly<Record<Track, string>> = {
   foundations: 'the basics',
   'burgers-sandwiches': 'burgers and sandwiches',
   'pizza-pasta': 'pizza and pasta',
@@ -79,6 +80,10 @@ export function unlockedExtras(logs: readonly CookLog[]): ExtraId[] {
 
 /** What the sprite wears: the extras the cook chose that are still earned. */
 export function wornExtras(chosen: readonly ExtraId[], logs: readonly CookLog[]): ExtraId[] {
-  const unlocked = new Set(unlockedExtras(logs))
+  return wornOf(chosen, new Set(unlockedExtras(logs)))
+}
+
+/** The same, from the extras already known to be earned (the editor holds those). */
+export function wornOf(chosen: readonly ExtraId[], unlocked: ReadonlySet<ExtraId>): ExtraId[] {
   return chosen.filter((id) => unlocked.has(id))
 }

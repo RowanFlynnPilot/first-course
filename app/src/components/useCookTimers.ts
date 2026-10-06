@@ -12,7 +12,7 @@
 // and a timer that runs out first rings once at that tap.
 
 import { useEffect, useRef, useState } from 'react'
-import { dueTimers, liveTimers, loadTimers, saveTimers, type Timers } from '../lib/timers'
+import { dueTimers, loadTimers, saveTimers, shownTimers, stopped, type Timers } from '../lib/timers'
 
 const TICK_MS = 250
 const RING_EVERY_MS = 5000
@@ -60,7 +60,7 @@ function ended(timers: Timers, labels: readonly string[]): Timers {
 }
 
 export function useCookTimers(recipeId: string) {
-  const [timers, setTimers] = useState<Timers>(() => loadTimers(sessionStorage, recipeId, Date.now()))
+  const [timers, setTimers] = useState<Timers>(() => loadTimers(sessionStorage, recipeId))
   const [now, setNow] = useState(() => Date.now())
   const [soundOn, setSoundOn] = useState(sharedAudio !== null)
   const [soundError, setSoundError] = useState<string | null>(null)
@@ -83,26 +83,24 @@ export function useCookTimers(recipeId: string) {
         .resume()
         .then(() => {
           const at = Date.now()
-          if (dueTimers(liveTimers(latest.current, at), at).length > 0) ring(audio)
+          if (dueTimers(shownTimers(latest.current, at), at).length > 0) ring(audio)
         })
         .catch((cause: Error) => setSoundError(cause.message))
     }
     function check() {
       const at = Date.now()
       setNow(at)
-      const current = latest.current
-      const live = liveTimers(current, at)
       const audio = sharedAudio
       // With no sound yet, a timer that ran out waits for the tap.
-      const due = audio === null ? [] : dueTimers(live, at)
+      const due = audio === null ? [] : dueTimers(shownTimers(latest.current, at), at)
       for (const label of due) if (!ringingSince.current.has(label)) ringingSince.current.set(label, at)
       const over = due.filter((label) => at - (ringingSince.current.get(label) ?? at) >= RING_FOR_MS)
       if (audio !== null && due.length > over.length && at - lastRing.current >= RING_EVERY_MS) {
         lastRing.current = at
         ringWhenAwake(audio)
       }
-      if (over.length === 0 && Object.keys(live).length === Object.keys(current).length) return
-      const next = ended(live, over)
+      if (over.length === 0) return
+      const next = ended(latest.current, over)
       latest.current = next
       setTimers(next)
     }
@@ -119,43 +117,53 @@ export function useCookTimers(recipeId: string) {
 
   // While a timer is counting or ringing, any tap turns the sound on (the first
   // one after a reload, or Start timer) and stops a ring: the cook is looking.
-  const waiting = Object.values(timers).some((timer) => !timer.rang)
+  const shown = shownTimers(timers, now)
+  const waiting = Object.values(shown).some((timer) => !timer.rang)
   useEffect(() => {
     if (!waiting) return
+    // A phone counts the end of a tap (pointerup, touchend), not its start, as
+    // the tap that may play sound, so the sound turns on only once it can.
+    // One tap fires several of these; the first that wakes the sound does the
+    // work and the rest find nothing left to do.
     function onTap() {
       const audio = (sharedAudio ??= new AudioContext())
-      setSoundOn(true)
-      const at = Date.now()
-      const due = dueTimers(liveTimers(latest.current, at), at)
-      // A timer that ran out before the sound was on has not been heard yet: once, now.
-      const unheard = due.some((label) => !ringingSince.current.has(label))
       audio
         .resume()
         .then(() => {
-          if (unheard) ring(audio)
+          if (audio.state !== 'running') return
+          setSoundOn(true)
+          const at = Date.now()
+          const due = dueTimers(shownTimers(latest.current, at), at)
+          // A timer that ran out before the sound was on has not been heard yet: once, now.
+          if (due.some((label) => !ringingSince.current.has(label))) ring(audio)
+          if (due.length === 0) return
+          lastRing.current = at
+          const next = ended(latest.current, due)
+          latest.current = next
+          setTimers(next)
         })
         .catch((cause: Error) => setSoundError(cause.message))
-      if (due.length === 0) return
-      lastRing.current = at
-      const next = ended(latest.current, due)
-      latest.current = next
-      setTimers(next)
     }
-    document.addEventListener('pointerdown', onTap)
-    return () => document.removeEventListener('pointerdown', onTap)
+    const events = ['pointerup', 'touchend', 'keydown'] as const
+    for (const event of events) document.addEventListener(event, onTap)
+    return () => {
+      for (const event of events) document.removeEventListener(event, onTap)
+    }
   }, [waiting])
 
   function secondsLeft(label: string): number | null {
-    const timer = timers[label]
+    const timer = shown[label]
     return timer === undefined ? null : Math.max(0, Math.ceil((timer.endsAt - now) / 1000))
   }
 
   return {
-    /** Labels of the timers, finished or not. */
-    labels: Object.keys(timers),
+    /** Labels of the timers on screen, finished or not. */
+    labels: Object.keys(shown),
+    /** Whether a timer was started in this cook, even if it was stopped or finished long ago. */
+    started: (label: string) => label in timers,
     secondsLeft,
     /** A timer is counting down. */
-    running: Object.keys(timers).some((label) => (secondsLeft(label) ?? 0) > 0),
+    running: Object.keys(shown).some((label) => (secondsLeft(label) ?? 0) > 0),
     /** A timer will need to ring, and no tap has turned the sound on since the page loaded. */
     needsTap: waiting && !soundOn,
     /** Why the phone would not play the ring, if it would not. */
@@ -165,11 +173,15 @@ export function useCookTimers(recipeId: string) {
       sharedAudio ??= new AudioContext()
       setSoundOn(true)
       ringingSince.current.delete(label)
-      setTimers((previous) => ({ ...previous, [label]: { endsAt: Date.now() + seconds * 1000, rang: false } }))
+      setTimers((previous) => ({ ...previous, [label]: { endsAt: Date.now() + seconds * 1000, rang: false, stopped: false } }))
     },
     stop(label: string) {
       ringingSince.current.delete(label)
-      setTimers((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => key !== label)))
+      setTimers((previous) => {
+        const timer = previous[label]
+        if (timer === undefined) throw new Error(`No timer called ${label} to stop`)
+        return { ...previous, [label]: stopped(timer, Date.now()) }
+      })
     },
   }
 }

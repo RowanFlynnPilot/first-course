@@ -1,4 +1,4 @@
-import { EMAIL, expect, PASSWORD, test } from './kitchen'
+import { EMAIL, expect, FRESH, PASSWORD, test } from './kitchen'
 
 test.describe('signing in and creating a chef', () => {
   test('signs in, creates a chef, and lands on the menu as a level 1 dishwasher', async ({ page, kitchen }) => {
@@ -111,6 +111,45 @@ test.describe('signing in and creating a chef', () => {
     await page.getByLabel('Password').fill(PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByText('Cook this next')).toBeVisible()
+    // Shown once: signing out later does not bring the old link's error back.
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+
+  test('a confirmation link signs the new account in, straight to the menu', async ({ page, kitchen }) => {
+    await kitchen.open(`./${kitchen.backend.signupHash()}`, { signedIn: false })
+    await expect(page.getByText('Cook this next')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Set a new password' })).toHaveCount(0)
+    expect(new URL(page.url()).hash).toBe('')
+  })
+
+  test('a link that cannot sign in says so in the app’s words', async ({ page, kitchen }) => {
+    const b64 = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+    const stranger = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: 'nobody', role: 'authenticated', exp: 4102444800 })}.e2e`
+    const hash = kitchen.backend.recoveryHash().replace(/access_token=[^&]+/, `access_token=${stranger}`)
+    await kitchen.open(`./${hash}`, { signedIn: false })
+    await expect(page.getByRole('alert')).toHaveText(/^That email link did not sign you in: /)
+    await expect(page.getByRole('heading', { name: 'Set a new password' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  })
+
+  test('a failed link while already signed in says so above the menu', async ({ page, kitchen }) => {
+    await kitchen.open('./#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired', FRESH)
+    await expect(page.getByRole('alert')).toHaveText('That email link has expired. You are still signed in.')
+    await page.getByRole('button', { name: 'Hide this' }).click()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.getByText('Cook this next')).toBeVisible()
+  })
+
+  test('a sign-out the server never heard says so', async ({ page, kitchen }) => {
+    await kitchen.open('./', FRESH)
+    kitchen.backend.failNext('auth/logout', 'POST', 'The server is away')
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page.getByRole('alert')).toHaveText(
+      'Signed out on this phone, but the sign-out did not reach the server: The server is away. Sign in and out again when you have signal.',
+    )
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
   })
 
   test('an account that never confirmed can ask for the email again', async ({ page, kitchen }) => {
@@ -127,13 +166,13 @@ test.describe('signing in and creating a chef', () => {
 
   test('keeps everything after signing out and back in', async ({ page, kitchen }) => {
     await kitchen.open('./', { logs: [{ recipe: 'chopped-salad', rating: 2 }] })
-    await expect(page.getByText('$22.50')).toBeVisible()
+    await expect(page.getByText('$27.40')).toBeVisible()
     await page.getByRole('button', { name: 'Sign out' }).click()
     await page.getByLabel('Email').fill(EMAIL)
     await page.getByLabel('Password').fill(PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
-    await expect(page.getByText('$22.50')).toBeVisible()
+    await expect(page.getByText('$27.40')).toBeVisible()
   })
 
   test('Back after a reset link never lands on the link, or keeps its tokens in history', async ({ page, kitchen }) => {

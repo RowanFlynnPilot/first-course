@@ -5,10 +5,12 @@ import { useEffect, useState, type MouseEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
+import { LockedPage } from '../components/LockedNotice'
 import { useCookTimers } from '../components/useCookTimers'
 import { usePageTitle } from '../components/usePageTitle'
 import type { EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS } from '../curriculum/ingredients'
+import type { Recipe, RecipeContent } from '../curriculum/types'
 import { formatClock } from '../lib/format'
 import { cookable, lastNote, type CookLog } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
@@ -16,12 +18,29 @@ import { clearTimers } from '../lib/timers'
 export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: ReadonlySet<EquipmentId> }) {
   const params = useParams()
   if (params.id === undefined || params.step === undefined) throw new Error('Cook route is missing its id or step')
-  const { recipe, content } = cookable(params.id, logs)
+  // The one gate for cooking and logging (locked decision 13).
+  const gate = cookable(params.id, logs)
+  if (gate.content === null) return <LockedPage recipe={gate.recipe} logs={logs} />
+  return <CookMode recipe={gate.recipe} content={gate.content} stepParam={params.step} logs={logs} kit={kit} />
+}
 
+function CookMode({
+  recipe,
+  content,
+  stepParam,
+  logs,
+  kit,
+}: {
+  recipe: Recipe
+  content: RecipeContent
+  stepParam: string
+  logs: readonly CookLog[]
+  kit: ReadonlySet<EquipmentId>
+}) {
   // Step 0 is "get everything out"; steps 1..n are the method.
-  const step = Number(params.step)
+  const step = Number(stepParam)
   const last = content.steps.length
-  if (!Number.isInteger(step) || step < 0 || step > last) throw new Error(`${recipe.title} has no step ${params.step}`)
+  if (!Number.isInteger(step) || step < 0 || step > last) throw new Error(`${recipe.title} has no step ${stepParam}`)
 
   // Timers belong to the whole cook, not to one step, so a timer started on
   // step 3 keeps running while you read step 4, and through a reload.
@@ -45,6 +64,11 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
   const timer = current === null ? null : current.timer
   const note = lastNote(recipe.id, logs)
   const elsewhere = timers.labels.filter((label) => label !== timer?.label)
+  // Timers on steps already passed that were never started: the cook tapped
+  // on without one, and the recipe gives no other "when".
+  const skipped = content.steps
+    .slice(0, Math.max(0, step - 1))
+    .flatMap((earlier) => (earlier.timer === null || timers.started(earlier.timer.label) ? [] : [earlier.timer]))
 
   // A running timer belongs to the step whose timer has its label.
   function stepOfTimer(label: string): number {
@@ -87,8 +111,19 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
         </p>
       )}
 
-      {elsewhere.length > 0 && (
+      {elsewhere.length + skipped.length > 0 && (
         <ul className="timer-strip">
+          {skipped.map((earlier) => (
+            <li key={earlier.label}>
+              <button
+                className="timer-chip timer-chip-idle"
+                type="button"
+                onClick={() => timers.start(earlier.label, earlier.seconds)}
+              >
+                {earlier.label}: start {formatClock(earlier.seconds)}
+              </button>
+            </li>
+          ))}
           {elsewhere.map((label) => {
             const remaining = timers.secondsLeft(label)
             return (
@@ -131,7 +166,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
                     {left === 0 ? 'Time is up' : formatClock(left)}
                   </p>
                   <button className="link-button" type="button" onClick={() => stopTimer(timer.label, left)}>
-                    Stop timer
+                    {left === 0 ? 'Clear timer' : 'Stop timer'}
                   </button>
                 </>
               )}

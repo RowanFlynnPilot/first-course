@@ -4,7 +4,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { CHEF_NAME_MAX, type Chef } from '../lib/chefs'
-import { extraById, EXTRAS, SLOTS, type ExtraId, type ExtraSlot } from '../lib/extras'
+import { extraById, EXTRAS, SLOTS, wornOf, type ExtraId, type ExtraSlot } from '../lib/extras'
 import type { RankIndex } from '../lib/leveling'
 import { ChefSprite } from './ChefSprite'
 import { FACIAL_HAIR, GLASSES, HAIR_COLORS, HAIR_STYLES, isIndexOf, SKIN_TONES, type Look } from './chefSprites'
@@ -131,7 +131,7 @@ export function ChefEditor({
   return (
     <form className="form" onSubmit={submit}>
       <div className="editor-preview">
-        <ChefSprite rank={rank} look={look} extras={extras.filter((id) => unlocked?.has(id) === true)} scale={6} />
+        <ChefSprite rank={rank} look={look} extras={unlocked === null ? [] : wornOf(extras, unlocked)} scale={6} />
       </div>
       <label className="field">
         Chef’s name
@@ -227,7 +227,12 @@ function Extras({
               name={`extra-${slot.id}`}
               options={[{ name: 'None' }, ...options.map((extra) => ({ name: extra.name, locked: !unlocked.has(extra.id) }))]}
               value={chosen === null ? 0 : options.findIndex((extra) => extra.id === chosen) + 1}
-              onChange={(index) => wear(slot.id, index === 0 ? null : (options[index - 1]?.id ?? null))}
+              onChange={(index) => {
+                if (index === 0) return wear(slot.id, null)
+                const picked = options[index - 1]
+                if (picked === undefined) throw new Error(`No extra at choice ${index} for ${slot.name}`)
+                wear(slot.id, picked.id)
+              }}
             />
             {locked.length > 0 && (
               <ul className="extras-locked">

@@ -9,7 +9,7 @@ import { unlockedExtras, type ExtraId } from './extras'
 import { keptPerCookCents, type Prices } from './cost'
 import { formatCents, skillList } from './format'
 import { levelForXp, rankIndexForLevel, RANKS, totalXp, XP_COOKS_PER_RECIPE, type RankIndex } from './leveling'
-import { learnedTechniques, RATINGS, recipeState, type CookLog } from './progress'
+import { learnedTechniques, ratingLabel, recipeState, type CookLog } from './progress'
 
 export interface CookNotice {
   readonly lines: readonly string[]
@@ -45,7 +45,7 @@ export function cookNotice(
   const levelBefore = levelForXp(xpBefore)
   const levelAfter = levelForXp(xpAfter)
   // The first line says what was cooked, so the notice reads on its own.
-  const rated = `${recipe.title}: ${RATINGS.find((rating) => rating.value === log.rating)?.label ?? log.rating}.`
+  const rated = `${recipe.title}: ${ratingLabel(log.rating)}.`
   if (xpAfter === xpBefore) {
     lines.push(`${rated} No XP this time. A recipe pays out for its first ${XP_COOKS_PER_RECIPE} cooks.`)
   } else {

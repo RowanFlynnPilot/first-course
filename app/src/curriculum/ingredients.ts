@@ -11,9 +11,8 @@ export type Unit = 'each' | 'clove' | 'slice' | 'bunch' | 'cup' | 'tbsp' | 'tsp'
 /** Store order: the grocery list walks the aisles in this order. */
 export type Section = 'produce' | 'meat' | 'dairy' | 'bakery' | 'pantry' | 'frozen'
 
-export interface Ingredient {
+interface IngredientBase {
   readonly name: string
-  readonly section: Section
   readonly unit: Unit
   /**
    * Used a little at a time and keeps for weeks once bought, so it belongs in
@@ -25,13 +24,33 @@ export interface Ingredient {
     readonly priceCents: number
     readonly units: number
   }
-  /**
-   * Raw meat only: the internal temperature, in °F, that makes it safe. Any
-   * recipe using it must name this temperature, list the thermometer and say
-   * to wash your hands (curriculum.test.ts).
-   */
-  readonly safeTempF?: number
 }
+
+/**
+ * Everything from the meat case says how it is made safe, so no recipe check
+ * can skip a meat that forgot to say (curriculum.test.ts):
+ * - a number: raw meat, safe at that internal temperature in °F. A recipe
+ *   using it lists the thermometer, checks this temperature the whole way,
+ *   says to wash your hands, and cleans what it touched in hot, soapy water.
+ * - 'cured': raw pork in the package that is cooked until crisp, so crisp is
+ *   the cue and there is no thermometer check (bacon). Hands, board and knife
+ *   still get washed.
+ * - 'fully-cooked': only needs heating through (smoked sausage). No raw-meat
+ *   routine.
+ */
+export type MeatSafety = number | 'cured' | 'fully-cooked'
+
+interface Meat extends IngredientBase {
+  readonly section: 'meat'
+  readonly safeTempF: MeatSafety
+}
+
+interface NotMeat extends IngredientBase {
+  readonly section: Exclude<Section, 'meat'>
+  readonly safeTempF?: never
+}
+
+export type Ingredient = Meat | NotMeat
 
 export const INGREDIENTS = {
   // Produce
@@ -158,11 +177,12 @@ export const INGREDIENTS = {
 
   // Meat
   kielbasa: {
-    name: 'Smoked sausage (kielbasa), fully cooked',
+    name: 'Fully cooked smoked sausage (kielbasa)',
     section: 'meat',
     unit: 'each',
     staple: false,
     package: { label: '13 oz rope', priceCents: 449, units: 1 },
+    safeTempF: 'fully-cooked',
   },
   'chicken-thighs': {
     name: 'Boneless, skinless chicken thighs',
@@ -198,13 +218,13 @@ export const INGREDIENTS = {
     safeTempF: 145,
   },
   bacon: {
-    // Cured, and cooked until crisp, so crisp is the cue rather than a
-    // thermometer. Still raw pork in the package: wash hands and the board.
+    // Thick-cut runs about 1½ oz a slice, so the pack is about 11 slices.
     name: 'Thick-cut bacon',
     section: 'meat',
     unit: 'oz',
     staple: false,
     package: { label: '16 oz pack', priceCents: 749, units: 16 },
+    safeTempF: 'cured',
   },
 
   // Dairy
@@ -237,10 +257,11 @@ export const INGREDIENTS = {
     package: { label: '5 oz wedge', priceCents: 599, units: 5 },
   },
   cheddar: {
+    // A wrapped block keeps for weeks in the fridge, and a grilled cheese uses a quarter of it.
     name: 'Sharp cheddar',
     section: 'dairy',
     unit: 'oz',
-    staple: false,
+    staple: true,
     package: { label: '8 oz block', priceCents: 349, units: 8 },
   },
   'american-cheese': {
@@ -289,10 +310,11 @@ export const INGREDIENTS = {
 
   // Bakery
   'sandwich-bread': {
+    // Kept in the freezer, the loaf lasts for months, and slices toast straight from frozen.
     name: 'Sandwich bread',
     section: 'bakery',
     unit: 'slice',
-    staple: false,
+    staple: true,
     package: { label: '1 loaf (about 20 slices)', priceCents: 349, units: 20 },
   },
   'burger-buns': {

@@ -11,7 +11,10 @@ import {
   packagePriceCents,
   SERVICE_FEE_RATE,
   TIP_RATE,
+  totalKeptCents,
 } from './cost'
+import { recipeById } from '../curriculum/recipes'
+import type { CookLog } from './progress'
 
 const content: RecipeContent = {
   servings: 2,
@@ -52,5 +55,12 @@ describe('cost', () => {
     expect(COUNTED_SERVINGS).toBe(2)
     expect(orderCostCents(big)).toBe(orderCostCents(content))
     expect(keptPerCookCents(big, ESTIMATES)).toBe(orderCostCents(big) - Math.round(cookCostCents(big, ESTIMATES) / 3))
+  })
+
+  it('counts every cook toward what is kept, Rough ones included: you still did not order', () => {
+    const rough: CookLog = { id: 'r', recipeId: 'chopped-salad', cookedOn: '2026-10-01', rating: 1, notes: '' }
+    const salad = recipeById('chopped-salad').content
+    expect(totalKeptCents([rough], ESTIMATES)).toBe(keptPerCookCents(salad, ESTIMATES))
+    expect(totalKeptCents([rough, { ...rough, id: 'd', rating: 2 }], ESTIMATES)).toBe(2 * keptPerCookCents(salad, ESTIMATES))
   })
 })

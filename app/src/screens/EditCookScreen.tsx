@@ -11,11 +11,6 @@ import { deleteCookLog, updateCookLog } from '../lib/cookLogs'
 import { checkCookedOn, listOf, localDateString, skillList } from '../lib/format'
 import { progressLost, type CookLog, type Rating } from '../lib/progress'
 
-function findCook(logs: readonly CookLog[], id: string | undefined): CookLog {
-  const log = logs.find((candidate) => candidate.id === id)
-  if (log === undefined) throw new Error('That cook is not in your log.')
-  return log
-}
 
 function lostSentence(before: readonly CookLog[], after: readonly CookLog[], plan: readonly string[]): string | null {
   const lost = progressLost(before, after)
@@ -30,20 +25,36 @@ function lostSentence(before: readonly CookLog[], after: readonly CookLog[], pla
   return `This would ${listOf(parts)}.${onPlan}`
 }
 
-export function EditCookScreen({
-  logs,
-  plan,
-  onUpdated,
-  onDeleted,
-}: {
+type EditProps = {
   logs: readonly CookLog[]
   /** This week's plan, to say when a recipe that would lock again is on it. */
   plan: readonly string[]
   onUpdated: (log: CookLog) => void
   onDeleted: (id: string) => void
-}) {
+}
+
+export function EditCookScreen(props: EditProps) {
   const { id } = useParams()
-  const log = findCook(logs, id)
+  const log = props.logs.find((candidate) => candidate.id === id)
+  // Deleted on another device, and gone from the log when the app caught up.
+  if (log === undefined) return <CookGone />
+  return <EditCook log={log} {...props} />
+}
+
+function CookGone() {
+  usePageTitle('Not in your log')
+  return (
+    <main className="page">
+      <nav className="back">
+        <Link to="/">Menu</Link>
+      </nav>
+      <h1 className="title">That cook is not in your log</h1>
+      <p className="notice">It may have been deleted on another device. Nothing else changed.</p>
+    </main>
+  )
+}
+
+function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: CookLog }) {
   const recipe = recipeById(log.recipeId)
   const navigate = useNavigate()
   usePageTitle(`Change this cook: ${recipe.title}`)
@@ -66,7 +77,9 @@ export function EditCookScreen({
   function submit(event: FormEvent) {
     event.preventDefault()
     void save.run(async () => {
-      checkCookedOn(cookedOn, today)
+      // Only a date the cook changed is checked: one logged on a device a day
+      // ahead (another time zone, a clock set wrong) still saves its notes.
+      if (cookedOn !== log.cookedOn) checkCookedOn(cookedOn, today)
       onUpdated(await updateCookLog(log.id, { cookedOn, rating, notes: notes.trim() }))
       navigate(`/recipe/${recipe.id}`, { replace: true })
     })
@@ -94,7 +107,7 @@ export function EditCookScreen({
       </nav>
       <h1 className="title">Change this cook</h1>
       <form className="form" onSubmit={submit}>
-        <RatingPicker value={rating} onChange={setRating} />
+        <RatingPicker value={rating} onChange={setRating} describedBy={saveWarning === null ? undefined : 'save-warning'} />
         <label className="field">
           Notes for next time
           <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
@@ -104,25 +117,34 @@ export function EditCookScreen({
           <input
             type="date"
             required
-            max={today}
+            max={log.cookedOn > today ? log.cookedOn : today}
             value={cookedOn}
             onChange={(event) => setCookedOn(event.target.value)}
           />
         </label>
-        {saveWarning !== null && <p className="notice">{saveWarning}</p>}
+        {saveWarning !== null && (
+          <p className="notice" id="save-warning">
+            {saveWarning}
+          </p>
+        )}
         {save.error !== null && (
           <p className="notice notice-error" role="alert">
             {save.error}
           </p>
         )}
-        <button className="button" type="submit" disabled={save.busy || remove.busy}>
+        <button
+          className="button"
+          type="submit"
+          disabled={save.busy || remove.busy}
+          aria-describedby={saveWarning === null ? undefined : 'save-warning'}
+        >
           Save changes
         </button>
       </form>
 
       <section className="section">
         <h2 className="section-title">Delete it</h2>
-        <p className="section-note">
+        <p className="section-note" id="delete-warning">
           For a cook logged by mistake. {deleteWarning ?? 'Nothing you have learned depends on it.'}
         </p>
         {remove.error !== null && (
@@ -130,7 +152,13 @@ export function EditCookScreen({
             {remove.error}
           </p>
         )}
-        <button className="button button-quiet" type="button" disabled={save.busy || remove.busy} onClick={confirmDelete}>
+        <button
+          className="button button-quiet"
+          type="button"
+          disabled={save.busy || remove.busy}
+          aria-describedby="delete-warning"
+          onClick={confirmDelete}
+        >
           Delete this cook
         </button>
       </section>

@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { checkCookedOn, formatCents, formatClock, formatDuration, formatMinutes, inSentence, packagesOf } from './format'
+import {
+  checkCookedOn,
+  formatCents,
+  formatClock,
+  formatDuration,
+  formatMinutes,
+  inSentence,
+  listOf,
+  listPieces,
+  packagesOf,
+  parseCents,
+} from './format'
 
 describe('format', () => {
   it('reads a clock under an hour as m:ss and an hour or more as h:mm:ss', () => {
@@ -46,5 +57,25 @@ describe('format', () => {
     expect(inSentence('Kosher salt')).toBe('kosher salt')
     expect(inSentence('Thai green curry paste')).toBe('Thai green curry paste')
     expect(inSentence('Chef’s knife')).toBe('chef’s knife')
+  })
+
+  it('reads a price the way a cook types it', () => {
+    expect(parseCents('3.49')).toBe(349)
+    expect(parseCents('$3.49')).toBe(349)
+    expect(parseCents(' 3 ')).toBe(300)
+    expect(parseCents('3.5')).toBe(350)
+    expect(parseCents('.99')).toBe(99)
+    expect(parseCents('$.5')).toBe(50)
+    for (const typed of ['', '0', '0.00', 'three', '3.499', '-2', '$']) expect(() => parseCents(typed), typed).toThrow('like 3.49')
+  })
+
+  it('joins a list of links the same way listOf joins words', () => {
+    const words = ['salt', 'oil', 'lemons']
+    for (const count of [1, 2, 3]) {
+      const joined = listPieces(count)
+        .map((piece) => ('text' in piece ? piece.text : words[piece.index]))
+        .join('')
+      expect(joined).toBe(listOf(words.slice(0, count)))
+    }
   })
 })

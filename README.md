@@ -25,7 +25,7 @@ before changing anything.
 
 ## Prerequisites
 
-- Node 24 (22 also works)
+- Node 24 (22.18 or later also works: `npm run icons` runs a `.ts` file directly)
 - A Supabase project (free tier). The Supabase CLI runs through `npx supabase`;
   a global npm install of it is not supported.
 - For the e2e suite, Playwright's Chromium, once: `npx playwright install chromium`
@@ -114,13 +114,13 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 109 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 127 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 130 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 186 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired email link, creating
     and changing the chef, the character

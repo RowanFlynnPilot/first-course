@@ -1,6 +1,6 @@
 // Badges: achievements read off the cook log. Like all other progress they
 // are derived, never stored, so an edited or deleted cook can take one away.
-// The art for each is in components/badgeArt.ts.
+// The art for each is in components/badgeSprites.ts, drawn by BadgeArt.tsx.
 
 import { RECIPES } from '../curriculum/recipes'
 import { DISCIPLINES, type DisciplineId } from '../curriculum/techniques'

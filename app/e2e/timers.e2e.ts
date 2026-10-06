@@ -17,12 +17,12 @@ test.describe('timers in cook mode', () => {
     await page.addInitScript(COUNT_BEEPS)
     await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
 
-    await expect(page.getByText('Step 3 of 7')).toBeVisible()
+    await expect(page.getByText('Step 3 of 8')).toBeVisible()
     await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
     await expect(page.getByRole('timer')).toContainText(/1[45]:\d\d/)
 
     await page.getByRole('link', { name: 'Next step' }).click()
-    await expect(page.getByText('Step 4 of 7')).toBeVisible()
+    await expect(page.getByText('Step 4 of 8')).toBeVisible()
     const chip = page.getByRole('link', { name: /^Potatoes:/ })
     await expect(chip).toHaveText(/^Potatoes: 1[45]:\d\d$/)
 
@@ -32,9 +32,9 @@ test.describe('timers in cook mode', () => {
     await expect.poll(() => page.evaluate(() => (window as unknown as { beeps: number }).beeps)).toBe(3)
 
     await chip.click()
-    await expect(page.getByText('Step 3 of 7')).toBeVisible()
+    await expect(page.getByText('Step 3 of 8')).toBeVisible()
     await expect(page.getByRole('timer')).toContainText('Time is up')
-    await page.getByRole('button', { name: 'Stop timer' }).click()
+    await page.getByRole('button', { name: 'Clear timer' }).click()
     await expect(page.getByRole('button', { name: 'Start 15:00 timer' })).toBeVisible()
   })
 
@@ -51,13 +51,13 @@ test.describe('timers in cook mode', () => {
     await expect.poll(beeps).toBe(3)
     await page.clock.fastForward('00:05')
     await expect.poll(beeps).toBe(6)
-    await page.getByText('Step 3 of 7').click()
+    await page.getByText('Step 3 of 8').click()
     await page.clock.fastForward('00:10')
     await expect(page.getByRole('timer')).toContainText('Time is up')
     expect(await beeps()).toBe(6)
 
     // A second timer, left alone, rings out.
-    await page.getByRole('button', { name: 'Stop timer' }).click()
+    await page.getByRole('button', { name: 'Clear timer' }).click()
     await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
     await page.clock.fastForward('15:00')
     await expect.poll(beeps).toBe(9)
@@ -85,7 +85,7 @@ test.describe('timers in cook mode', () => {
   })
 
   test('leaving cook mode with a timer running asks first', async ({ page, kitchen }) => {
-    await kitchen.open('#/cook/sheet-pan-sausage/6', SALAD_DONE)
+    await kitchen.open('#/cook/sheet-pan-sausage/7', SALAD_DONE)
     await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
 
     const messages: string[] = []
@@ -95,7 +95,7 @@ test.describe('timers in cook mode', () => {
     })
     await page.getByRole('link', { name: 'Leave cook mode' }).click()
     expect(messages).toEqual(['A timer is still running. Leaving cook mode stops it.'])
-    await expect(page.getByText('Step 6 of 7')).toBeVisible()
+    await expect(page.getByText('Step 7 of 8')).toBeVisible()
 
     page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('link', { name: 'Leave cook mode' }).click()
@@ -111,11 +111,11 @@ test.describe('timers in cook mode', () => {
     await expect(page.getByRole('timer')).toContainText(/^(10:00|9:[45]\d)Stop timer$/)
 
     await page.reload()
-    await expect(page.getByText('Step 3 of 7')).toBeVisible()
+    await expect(page.getByText('Step 3 of 8')).toBeVisible()
     await expect(page.getByRole('timer')).toContainText(/^(10:00|9:[45]\d)Stop timer$/)
     await expect(page.getByText('The page reloaded. Tap anywhere so your timers can chime.')).toBeVisible()
 
-    await page.getByText('Step 3 of 7').click()
+    await page.getByText('Step 3 of 8').click()
     await expect(page.getByText('The page reloaded.')).toHaveCount(0)
     await page.clock.fastForward('10:00')
     await expect(page.getByRole('timer')).toContainText('Time is up')
@@ -131,7 +131,7 @@ test.describe('timers in cook mode', () => {
     await page.clock.fastForward('16:00')
     await expect(page.getByRole('timer')).toContainText('Time is up')
     await expect.poll(() => page.evaluate(() => (window as unknown as { beeps: number }).beeps)).toBe(0)
-    await page.getByText('Step 3 of 7').click()
+    await page.getByText('Step 3 of 8').click()
     await expect.poll(() => page.evaluate(() => (window as unknown as { beeps: number }).beeps)).toBe(3)
   })
 
@@ -141,18 +141,18 @@ test.describe('timers in cook mode', () => {
       sessionStorage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: twoHoursAgo, rang: true } }))
     })
     await kitchen.open('#/cook/sheet-pan-sausage/4', SALAD_DONE)
-    await expect(page.getByText('Step 4 of 7')).toBeVisible()
+    await expect(page.getByText('Step 4 of 8')).toBeVisible()
     await expect(page.getByRole('link', { name: /^Potatoes:/ })).toHaveCount(0)
   })
 
   test('leaving cook mode and logging the cook both stop its timers', async ({ page, kitchen }) => {
-    await kitchen.open('#/cook/sheet-pan-sausage/6', SALAD_DONE)
+    await kitchen.open('#/cook/sheet-pan-sausage/7', SALAD_DONE)
     await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
     page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('link', { name: 'Leave cook mode' }).click()
     // Let the navigation to the recipe page land before going back to cook mode.
     await expect(page.getByRole('heading', { name: 'Sheet-pan sausage and vegetables' })).toBeVisible()
-    await page.goto('#/cook/sheet-pan-sausage/6')
+    await page.goto('#/cook/sheet-pan-sausage/7')
     await expect(page.getByRole('button', { name: 'Start 20:00 timer' })).toBeVisible()
 
     await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
@@ -174,7 +174,7 @@ test.describe('timers in cook mode', () => {
   test('every step can show the ingredients without leaving cook mode', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/sheet-pan-sausage/4', SALAD_DONE)
     await page.getByText('Ingredients and amounts').click()
-    await expect(page.getByText('Smoked sausage (kielbasa), fully cooked')).toBeVisible()
-    await expect(page.getByText('Step 4 of 7')).toBeVisible()
+    await expect(page.getByText('Fully cooked smoked sausage (kielbasa)')).toBeVisible()
+    await expect(page.getByText('Step 4 of 8')).toBeVisible()
   })
 })

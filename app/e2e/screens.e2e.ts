@@ -247,6 +247,7 @@ test('character creator and extras', async ({ page, kitchen }) => {
 
 test('edit chef', async ({ page, kitchen }) => {
   await kitchen.open('#/chef/edit', COOKED)
+  await page.getByRole('heading', { name: 'Change your chef' }).waitFor()
   await shoot(page, 'edit-chef')
 })
 

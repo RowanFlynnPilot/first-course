@@ -28,7 +28,7 @@ export const EQUIPMENT = {
   'small-nonstick-skillet': { name: 'Nonstick skillet, 8 to 10 inch', note: 'For eggs and single sandwiches.', coveredBy: [] },
   'large-skillet': {
     name: 'Large skillet, 12 inch',
-    note: 'Any kind. Buying one? Buy cast iron: it is also the skillet the third and fourth courses ask for.',
+    note: 'Any kind. Buying one? Buy cast iron: it is also the skillet the third course and the usual ask for.',
     coveredBy: ['steel-skillet', 'cast-iron-skillet'],
   },
   'steel-skillet': {
@@ -43,7 +43,7 @@ export const EQUIPMENT = {
   },
   'skillet-lid': {
     name: 'Metal lid that fits the 12-inch skillet',
-    note: 'It also smothers an oil fire, so metal, never a plate: a plate can crack.',
+    note: 'It also smothers an oil fire, so metal, never a plate: a plate can crack. It rests on top of the small skillet too.',
     coveredBy: [],
   },
   'small-saucepan': { name: 'Small saucepan with a tight lid', note: 'About 2 quarts. For a pot of rice.', coveredBy: [] },
