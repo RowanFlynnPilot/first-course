@@ -202,8 +202,10 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - A step that says "while that cooks" is fine: timers keep running across
   steps in cook mode.
 - New ingredients go in `ingredients.ts` with a section, one unit, a package
-  and a price estimate. Quantities must print: `formatQty` supports wholes,
-  eighths, quarters, halves and three-quarters, and throws on anything else.
+  and a price estimate. Quantities are whole eighths (`curriculum.test.ts`
+  checks), and `formatQty` prints every eighth, so the grocery list's sums
+  print too; it throws on anything else. (Until October 5, 2026 it lacked
+  ⅜, ⅝ and ⅞, and planning the salad with the eggs crashed This week.)
 - Salt quantities assume Morton coarse kosher salt.
 - When one ingredient is used in several steps, say which part each step
   uses ("½ teaspoon of the salt", "the remaining 2 tablespoons") and put the
@@ -750,7 +752,7 @@ precisely" and "Design").
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all six migrations are
-on the live project, and every push runs 95 unit tests and 117 e2e tests before it deploys.
+on the live project, and every push runs 96 unit tests and 117 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

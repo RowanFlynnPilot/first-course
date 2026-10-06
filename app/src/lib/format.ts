@@ -5,11 +5,16 @@ export function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
 }
 
+// Every eighth, so any sum of recipe quantities prints: the grocery list adds
+// the plan's amounts together (⅛ teaspoon of pepper plus ¼ is ⅜).
 const FRACTIONS: Record<string, string> = {
   '0.125': '⅛',
   '0.25': '¼',
+  '0.375': '⅜',
   '0.5': '½',
+  '0.625': '⅝',
   '0.75': '¾',
+  '0.875': '⅞',
 }
 
 export function formatQty(qty: number): string {

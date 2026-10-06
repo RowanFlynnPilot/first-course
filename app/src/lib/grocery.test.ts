@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { ESTIMATES } from './cost'
+import { RECIPES } from '../curriculum/recipes'
+import { formatAmount } from './format'
 import { groceryList, groceryText } from './grocery'
 
 const NOTHING = new Set<IngredientId>()
@@ -53,6 +55,15 @@ describe('the grocery list', () => {
     expect(() => groceryText(['grilled-cheese'], list, new Set(list.lines.map((line) => line.ingredientId)))).toThrow(
       'nothing to share',
     )
+  })
+
+  it('prints every line for any two recipes planned together, and for the whole menu', () => {
+    // The salad's ¼ teaspoon of pepper and the eggs' ⅛ once summed to ⅜, which had no glyph.
+    const plans = [...RECIPES.flatMap((a, i) => RECIPES.slice(i + 1).map((b) => [a.id, b.id])), RECIPES.map((recipe) => recipe.id)]
+    for (const plan of plans) {
+      for (const line of groceryList(plan, NOTHING, ESTIMATES).lines) formatAmount(line.qty, INGREDIENTS[line.ingredientId].unit)
+    }
+    expect(formatAmount(0.375, 'tsp')).toBe('⅜ tsp')
   })
 
   it('is empty for an empty plan', () => {

@@ -83,6 +83,8 @@ describe('written recipes', () => {
       expect(new Set(ids).size, id).toBe(ids.length)
       for (const line of content.ingredients) {
         expect(line.qty, `${id} ${line.ingredientId}`).toBeGreaterThan(0)
+        // Whole eighths, so any sum of them prints on the grocery list too.
+        expect(Number.isInteger(line.qty * 8), `${id} ${line.ingredientId} is not a whole number of eighths`).toBe(true)
         formatAmount(line.qty, INGREDIENTS[line.ingredientId].unit) // throws on an unprintable fraction
       }
       for (const step of content.steps) {
