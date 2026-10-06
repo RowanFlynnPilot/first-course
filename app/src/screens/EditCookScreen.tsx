@@ -8,7 +8,7 @@ import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { recipeById } from '../curriculum/recipes'
 import { deleteCookLog, updateCookLog } from '../lib/cookLogs'
-import { listOf, localDateString, skillList } from '../lib/format'
+import { checkCookedOn, listOf, localDateString, skillList } from '../lib/format'
 import { progressLost, type CookLog, type Rating } from '../lib/progress'
 
 function findCook(logs: readonly CookLog[], id: string | undefined): CookLog {
@@ -66,7 +66,7 @@ export function EditCookScreen({
   function submit(event: FormEvent) {
     event.preventDefault()
     void save.run(async () => {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(cookedOn)) throw new Error('Choose the date you cooked it.')
+      checkCookedOn(cookedOn, today)
       onUpdated(await updateCookLog(log.id, { cookedOn, rating, notes: notes.trim() }))
       navigate(`/recipe/${recipe.id}`, { replace: true })
     })
@@ -94,6 +94,11 @@ export function EditCookScreen({
       </nav>
       <h1 className="title">Change this cook</h1>
       <form className="form" onSubmit={submit}>
+        <RatingPicker value={rating} onChange={setRating} />
+        <label className="field">
+          Notes for next time
+          <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
+        </label>
         <label className="field">
           Cooked on
           <input
@@ -103,11 +108,6 @@ export function EditCookScreen({
             value={cookedOn}
             onChange={(event) => setCookedOn(event.target.value)}
           />
-        </label>
-        <RatingPicker value={rating} onChange={setRating} />
-        <label className="field">
-          Notes for next time
-          <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
         </label>
         {saveWarning !== null && <p className="notice">{saveWarning}</p>}
         {save.error !== null && (

@@ -32,9 +32,11 @@ test.describe('the kit', () => {
   test('ticking what you own saves it and clears it from the recipes', async ({ page, kitchen }) => {
     await kitchen.open('#/recipe/chopped-salad', FRESH)
     const equipment = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Equipment' }) })
-    await expect(equipment.getByText('Not in your kit yet')).toHaveCount(7)
+    // With nothing ticked yet, one pointer to the kit instead of a marker on every tool.
+    await expect(equipment.getByText('Not in your kit yet')).toHaveCount(0)
+    await expect(equipment.getByText(/^Tick what you own in your kit/)).toBeVisible()
 
-    await page.getByRole('link', { name: 'Your kit' }).click()
+    await equipment.getByRole('link', { name: 'your kit' }).click()
     await expect(page.getByRole('heading', { name: 'Your kit' })).toBeVisible()
     // The Fourth course adds no new kit.
     await expect(page.getByRole('heading', { level: 2 })).toHaveText([

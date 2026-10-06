@@ -2,17 +2,24 @@ import { useState, type FormEvent } from 'react'
 import { usePageTitle } from '../components/usePageTitle'
 import { supabase } from '../supabase'
 
+/**
+ * What the screen is for: signing in, creating an account (its own form, so
+ * a password manager offers a new password), or asking for a reset link.
+ */
+type Mode = 'sign-in' | 'create' | 'reset'
+
+const TITLES: Record<Mode, string> = { 'sign-in': 'Sign in', create: 'Create an account', reset: 'Reset your password' }
+
 /** `linkError` is why an email link that brought the cook here failed, if it did. */
 export function AuthScreen({ linkError }: { linkError: string | null }) {
-  usePageTitle('Sign in')
+  const [mode, setMode] = useState<Mode>('sign-in')
+  usePageTitle(TITLES[mode])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(linkError)
   // "Confirm email" is on for the live project: a new account waits for its link.
   const [confirmationSent, setConfirmationSent] = useState(false)
-  // Forgot the password: the same screen asks only for the email and sends a link.
-  const [resetting, setResetting] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   // Signed up, but the confirmation link expired or never came: send another.
   const [unconfirmed, setUnconfirmed] = useState(false)
@@ -21,7 +28,6 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
   async function signIn(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
-    setConfirmationSent(false)
     setConfirmationResent(false)
     const { error: failure } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false)
@@ -38,12 +44,17 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
     setConfirmationResent(failure === null)
   }
 
-  async function createAccount() {
+  async function createAccount(event: FormEvent) {
+    event.preventDefault()
     setBusy(true)
     const { data, error: failure } = await supabase.auth.signUp({ email, password })
     setBusy(false)
     setError(failure ? failure.message : null)
-    setConfirmationSent(failure === null && data.session === null)
+    if (failure === null && data.session === null) {
+      // Confirmation on: the account waits for its link, and then the cook signs in here.
+      setConfirmationSent(true)
+      setMode('sign-in')
+    }
   }
 
   async function sendReset(event: FormEvent) {
@@ -56,8 +67,8 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
     setResetSent(failure === null)
   }
 
-  function switchTo(next: boolean) {
-    setResetting(next)
+  function switchTo(next: Mode) {
+    setMode(next)
     setError(null)
     setConfirmationSent(false)
     setResetSent(false)
@@ -95,7 +106,7 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
     <main className="page auth">
       <h1 className="wordmark">First Course</h1>
       <p className="lede">Learn to cook the things you keep ordering, one skill at a time.</p>
-      {resetting ? (
+      {mode === 'reset' && (
         <form className="form" onSubmit={sendReset}>
           <p>Enter the email you signed up with, and we will send a link to set a new password.</p>
           {emailField}
@@ -108,21 +119,44 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
           <button className="button" type="submit" disabled={busy}>
             Send the link
           </button>
-          <button className="link-button" type="button" onClick={() => switchTo(false)}>
+          <button className="link-button" type="button" onClick={() => switchTo('sign-in')}>
             Back to sign in
           </button>
         </form>
-      ) : (
-        <form className="form" onSubmit={signIn}>
+      )}
+      {mode === 'create' && (
+        <form className="form" onSubmit={createAccount}>
           {emailField}
           <label className="field">
             Password
             <span className="row-note">At least 8 characters.</span>
             <input
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               required
               minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+          {errorNotice}
+          <button className="button" type="submit" disabled={busy || email === '' || password.length < 8}>
+            Create account
+          </button>
+          <button className="link-button" type="button" onClick={() => switchTo('sign-in')}>
+            Have an account? Sign in
+          </button>
+        </form>
+      )}
+      {mode === 'sign-in' && (
+        <form className="form" onSubmit={signIn}>
+          {emailField}
+          <label className="field">
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
@@ -146,15 +180,10 @@ export function AuthScreen({ linkError }: { linkError: string | null }) {
           <button className="button" type="submit" disabled={busy}>
             Sign in
           </button>
-          <button
-            className="button button-quiet"
-            type="button"
-            disabled={busy || email === '' || password.length < 8}
-            onClick={createAccount}
-          >
-            Create account
+          <button className="link-button" type="button" onClick={() => switchTo('create')}>
+            New here? Create an account
           </button>
-          <button className="link-button" type="button" onClick={() => switchTo(true)}>
+          <button className="link-button" type="button" onClick={() => switchTo('reset')}>
             Forgot your password?
           </button>
         </form>

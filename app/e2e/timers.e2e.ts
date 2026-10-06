@@ -138,7 +138,7 @@ test.describe('timers in cook mode', () => {
   test('a timer that finished long ago is dropped', async ({ page, kitchen }) => {
     await page.addInitScript(() => {
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000
-      sessionStorage.setItem('first-course:timers:sheet-pan-sausage', JSON.stringify({ 3: { endsAt: twoHoursAgo, rang: true } }))
+      sessionStorage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: twoHoursAgo, rang: true } }))
     })
     await kitchen.open('#/cook/sheet-pan-sausage/4', SALAD_DONE)
     await expect(page.getByText('Step 4 of 7')).toBeVisible()
@@ -157,11 +157,18 @@ test.describe('timers in cook mode', () => {
 
     await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
     await page.getByRole('link', { name: 'Next step' }).click()
+    // The sheet pan's last step has no timer, but the roasting one is still running: logging asks first.
+    const asked: string[] = []
+    page.once('dialog', (dialog) => {
+      asked.push(dialog.message())
+      void dialog.accept()
+    })
     await page.getByRole('link', { name: 'Finish and log it' }).click()
+    expect(asked).toEqual(['A timer is still running. Logging the cook now stops it.'])
     await page.getByRole('radio', { name: /^Decent/ }).check()
     await page.getByRole('button', { name: 'Save this cook' }).click()
     await expect(page.getByRole('status')).toBeVisible()
-    expect(await page.evaluate(() => sessionStorage.getItem('first-course:timers:sheet-pan-sausage'))).toBeNull()
+    expect(await page.evaluate(() => sessionStorage.getItem('first-course:timers-by-label:sheet-pan-sausage'))).toBeNull()
   })
 
   test('every step can show the ingredients without leaving cook mode', async ({ page, kitchen }) => {

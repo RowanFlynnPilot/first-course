@@ -1,8 +1,11 @@
 import type { Unit } from '../curriculum/ingredients'
 import { TECHNIQUES, type TechniqueId } from '../curriculum/techniques'
 
+const DOLLARS = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+
+/** "$1,338.32": by month three the kept total runs into the thousands. */
 export function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
+  return DOLLARS.format(cents / 100)
 }
 
 // Every eighth, so any sum of recipe quantities prints: the grocery list adds
@@ -60,6 +63,11 @@ export function formatDuration(totalSeconds: number): string {
   return parts.filter((part) => part !== '').join(' ')
 }
 
+/** A recipe's time in words: "35 minutes", "2 hours 45 minutes". */
+export function formatMinutes(minutes: number): string {
+  return formatDuration(minutes * 60)
+}
+
 /**
  * How many packages to buy, in words: "2 red onions" from "1 red onion".
  * A label that is not a plain "1 <thing>" keeps a count in front: "2 × 1 lb pack".
@@ -81,6 +89,16 @@ const PROPER = new Set(['American', 'Dijon', 'Thai'])
 export function inSentence(name: string): string {
   const first = name.split(' ')[0] ?? ''
   return PROPER.has(first) ? name : name.charAt(0).toLowerCase() + name.slice(1)
+}
+
+/**
+ * A cook's date as the forms send it: YYYY-MM-DD, and never after today. The
+ * date field's max says so too, but not every phone enforces it.
+ */
+export function checkCookedOn(cookedOn: string, today: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cookedOn)) throw new Error('Choose the date you cooked it.')
+  // Dates in this form compare correctly as text.
+  if (cookedOn > today) throw new Error('A cook cannot be dated after today.')
 }
 
 /** Today's date where the cook is standing, not in UTC. */

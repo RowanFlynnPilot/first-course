@@ -181,6 +181,7 @@ export class FakeSupabase {
   private readonly tokens = new Map<string, string>()
   private readonly rows: Record<string, Row[]> = Object.fromEntries(Object.keys(TABLES).map((name) => [name, []]))
   private readonly failures: { table: string; method: string; message: string }[] = []
+  private readonly lost: { table: string; method: string }[] = []
   private clock = Date.parse('2026-10-01T12:00:00Z')
   private confirmEmail = false
 
@@ -200,6 +201,16 @@ export class FakeSupabase {
   /** The next matching request answers with a server error. */
   failNext(table: string, method: string, message: string) {
     this.failures.push({ table, method, message })
+  }
+
+  /** The next matching request is carried out, but its answer never arrives, as on weak signal. */
+  loseNextAnswer(table: string, method: string) {
+    this.lost.push({ table, method })
+  }
+
+  /** A row written by another device, as a seed is. */
+  writeElsewhere(table: string, values: Row) {
+    this.insertRow(table, { ...values, user_id: this.userId })
   }
 
   async load(page: Page, seed: Seed) {
@@ -251,7 +262,15 @@ export class FakeSupabase {
       return this.reject(route, `${request.method()} ${url.pathname} came without the publishable key`)
     }
     if (url.pathname.startsWith('/auth/v1/')) return this.auth(route, request, url)
-    if (url.pathname.startsWith('/rest/v1/')) return this.rest(route, request, url)
+    if (url.pathname.startsWith('/rest/v1/')) {
+      const name = url.pathname.slice('/rest/v1/'.length)
+      const lost = this.lost.find((candidate) => candidate.table === name && candidate.method === request.method())
+      if (lost === undefined) return this.rest(route, request, url)
+      this.lost.splice(this.lost.indexOf(lost), 1)
+      // Do the work, then drop the answer on the floor.
+      const silent = { request: () => request, fulfill: () => route.abort('failed') } as unknown as Route
+      return this.rest(silent, request, url)
+    }
     return this.reject(route, `${request.method()} ${url.pathname}`)
   }
 

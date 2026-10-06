@@ -71,10 +71,10 @@ test.describe('this week: the plan and the grocery list', () => {
     // Next week, the staples stay off the list.
     await page.goto('#/recipe/sheet-pan-sausage')
     await page.getByRole('button', { name: 'Add to this week' }).click()
-    await page.getByRole('link', { name: 'this week’s list' }).click()
+    await page.getByRole('link', { name: 'this week’s plan' }).click()
     await expect(page.getByText(/^Left off because your pantry has them\./)).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Put extra-virgin olive oil on the list' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Put kosher salt on the list' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Put it on the list: extra-virgin olive oil' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Put it on the list: kosher salt' })).toBeVisible()
     await expect(page.getByRole('checkbox', { name: /Kosher salt/ })).toHaveCount(0)
   })
 
@@ -110,7 +110,7 @@ test.describe('this week: the plan and the grocery list', () => {
     await page.getByRole('button', { name: 'Add to this week' }).click()
     await expect(page.getByRole('button', { name: 'Take off this week' })).toBeVisible()
     expect(kitchen.backend.table('grocery_checks')).toEqual([])
-    await page.getByRole('link', { name: 'this week’s list' }).click()
+    await page.getByRole('link', { name: 'this week’s plan' }).click()
     await expect(page.getByRole('checkbox', { name: /Lemon/ })).not.toBeChecked()
   })
 
@@ -134,7 +134,7 @@ test.describe('this week: the plan and the grocery list', () => {
 
   test('a staple that ran out goes back on the list from This week', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { logs: [{ recipe: 'soft-scrambled-eggs', rating: 2 }], plan: ['grilled-cheese'], pantry: ['butter'] })
-    await page.getByRole('button', { name: 'Put salted butter on the list' }).click()
+    await page.getByRole('button', { name: 'Put it on the list: salted butter' }).click()
     await expect(page.getByRole('checkbox', { name: /Salted butter/ })).toBeVisible()
     expect(kitchen.backend.table('pantry_items')).toEqual([])
   })
@@ -230,5 +230,30 @@ test.describe('this week: the plan and the grocery list', () => {
     // Feta at $9.00 for 4 oz instead of $3.49. The salad uses 2 oz, so cooking it costs $2.76 more
     // ($9.51 instead of $6.76) and you keep $19.74 instead of $22.50.
     await expect(page.locator('.tab-kept mark')).toHaveText('$19.74')
+  })
+
+  test('a staple already at home goes to the pantry from the list', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { ...SALAD_DONE, plan: ['sheet-pan-sausage'] })
+    await page.getByRole('button', { name: 'Have it: kosher salt' }).click()
+    await expect(page.getByRole('checkbox', { name: /Kosher salt/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Put it on the list: kosher salt' })).toBeVisible()
+    expect(kitchen.backend.table('pantry_items')).toMatchObject([{ ingredient_id: 'kosher-salt' }])
+  })
+
+  test('in the store the list comes first, and This week offers recipes to add', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['chopped-salad'] })
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Grocery list', 'The plan', 'Ready to cook'])
+    await page.getByRole('button', { name: 'Add Soft scrambled eggs on toast to this week' }).click()
+    await expect(page.getByRole('link', { name: 'Soft scrambled eggs on toast' }).first()).toBeVisible()
+    expect(kitchen.backend.table('plan_items').map((row) => row.recipe_id)).toEqual(['chopped-salad', 'soft-scrambled-eggs'])
+  })
+
+  test('the menu puts its suggestion on this week in one tap', async ({ page, kitchen }) => {
+    await kitchen.open('./', FRESH)
+    const tray = page.locator('.tray')
+    await tray.getByRole('button', { name: 'Add to this week' }).click()
+    await expect(tray.getByText('On this week’s plan')).toBeVisible()
+    await expect(tray.getByRole('button', { name: 'Add to this week' })).toHaveCount(0)
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'chopped-salad' }])
   })
 })

@@ -75,11 +75,11 @@ test.describe('badges', () => {
 
   test('the chef sheet shows every badge, earned or not', async ({ page, kitchen }) => {
     await kitchen.open('#/chef', { logs: [{ recipe: 'chopped-salad', rating: 3 }] })
-    await expect(page.locator('.record')).toContainText('2 of 15')
+    await expect(page.locator('.record')).toContainText('2 of 26')
     await expect(page.getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(page.getByRole('img', { name: 'Mastered badge, not earned yet' })).toBeVisible()
     await expect(page.locator('.badge-earned')).toHaveCount(2)
-    await expect(page.locator('.badge')).toHaveCount(15)
+    await expect(page.locator('.badge')).toHaveCount(26)
   })
 })
 

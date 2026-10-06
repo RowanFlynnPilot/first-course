@@ -40,6 +40,8 @@ test('forgot password, and the new password after the link', async ({ page, kitc
 
 test('sign-up with email confirmation on', async ({ page, kitchen }) => {
   await kitchen.open('./', { signedIn: false, confirmEmail: true })
+  await page.getByRole('button', { name: 'New here? Create an account' }).click()
+  await shoot(page, 'auth-create')
   await page.getByLabel('Email').fill('new-cook@example.test')
   await page.getByLabel('Password').fill('a long enough password')
   await page.getByRole('button', { name: 'Create account' }).click()
@@ -220,6 +222,7 @@ test('chef sheet with badges', async ({ page, kitchen }) => {
 
 test('log', async ({ page, kitchen }) => {
   await kitchen.open('#/cook/chopped-salad/log')
+  await page.getByRole('heading', { name: 'How did it go?' }).waitFor()
   await shoot(page, 'log')
 })
 

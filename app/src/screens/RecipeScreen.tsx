@@ -16,7 +16,7 @@ import {
   SERVICE_FEE_RATE,
   TIP_RATE,
 } from '../lib/cost'
-import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, plural, skillList } from '../lib/format'
+import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, formatMinutes, plural, skillList } from '../lib/format'
 import {
   goodCooks,
   lastNote,
@@ -27,7 +27,7 @@ import {
   teacherOf,
   type CookLog,
 } from '../lib/progress'
-import { addToPlan, clearStaleChecks, removeFromPlan, withoutPlanned, type Shop, type ShopChange } from '../lib/shop'
+import { planRecipe, removeFromPlan, withoutPlanned, type Shop, type ShopChange } from '../lib/shop'
 
 export function RecipeScreen({
   logs,
@@ -138,8 +138,8 @@ function Written({
   return (
     <>
       <p className="facts">
-        Serves {content.servings}. {content.activeMinutes} minutes of work, {content.totalMinutes} minutes start to
-        finish.
+        Serves {content.servings}. {formatMinutes(content.activeMinutes)} of work, {formatMinutes(content.totalMinutes)}{' '}
+        start to finish.
       </p>
 
       {!locked && (
@@ -250,11 +250,7 @@ function PlanButton({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop
         await removeFromPlan(recipe.id)
         onShopChange((previous) => withoutPlanned(previous, recipe.id))
       } else {
-        // Old ticks go first, so the list this recipe joins does not open with them.
-        const checks = await clearStaleChecks(shop)
-        onShopChange((previous) => ({ ...previous, checks }))
-        await addToPlan(recipe.id)
-        onShopChange((previous) => ({ ...previous, plan: [...previous.plan, recipe.id] }))
+        await planRecipe(shop, recipe.id, onShopChange)
       }
     })
   }
@@ -272,7 +268,7 @@ function PlanButton({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop
             </>
           ) : (
             <>
-              On <Link to="/shop">this week’s list</Link>.
+              On <Link to="/shop">this week’s plan</Link>.
             </>
           )}
         </p>

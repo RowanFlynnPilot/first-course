@@ -1,6 +1,7 @@
 // A row with a checkbox that saves itself: the grocery list, the pantry and
-// the kit. The box changes only once the write has succeeded; a failed write
-// says why under the row and leaves the box as it was.
+// the kit. The box changes only once the write has succeeded, and says
+// "Saving…" until then, so a slow tap in a store is not tapped again; a
+// failed write says why under the row and leaves the box as it was.
 
 import type { ReactNode } from 'react'
 import { useWrite } from './useWrite'
@@ -11,6 +12,7 @@ export function CheckRow({
   label,
   note,
   aside,
+  error: asideError,
 }: {
   checked: boolean
   onChange: (checked: boolean) => Promise<void>
@@ -18,6 +20,8 @@ export function CheckRow({
   note?: ReactNode
   /** Sits beside the label, outside it, so a button there does not tick the box. */
   aside?: ReactNode
+  /** Why a write from the aside failed, shown under the row like the box's own. */
+  error?: string | null
 }) {
   const { busy, error, run } = useWrite()
   return (
@@ -27,15 +31,18 @@ export function CheckRow({
           <input type="checkbox" checked={checked} disabled={busy} onChange={() => void run(() => onChange(!checked))} />
           <span>
             <span className="row-title">{label}</span>
-            {note !== undefined && <span className="row-note">{note}</span>}
+            {busy ? <span className="row-note">Saving…</span> : note !== undefined && <span className="row-note">{note}</span>}
           </span>
         </label>
         {aside}
       </div>
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
+      {[error, asideError ?? null].map(
+        (message) =>
+          message !== null && (
+            <p key={message} className="notice notice-error" role="alert">
+              {message}
+            </p>
+          ),
       )}
     </li>
   )

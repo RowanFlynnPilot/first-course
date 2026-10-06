@@ -28,40 +28,46 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
   const timers = useCookTimers(recipe.id)
   usePageTitle(`${step === 0 ? 'Before you start' : `Step ${step} of ${last}`}: ${recipe.title}`)
   const screenStaysOn = useWakeLock()
-  const elsewhere = timers.steps.filter((other) => other !== step)
 
-  // Leaving cook mode stops every timer for this recipe.
-  function confirmLeave(event: MouseEvent) {
-    if (timers.running && !window.confirm('A timer is still running. Leaving cook mode stops it.')) {
-      event.preventDefault()
-      return
+  // Leaving cook mode, or logging the cook, stops every timer for this recipe. Ask first if one is running.
+  function confirmStop(question: string) {
+    return (event: MouseEvent) => {
+      if (timers.running && !window.confirm(question)) {
+        event.preventDefault()
+        return
+      }
+      clearTimers(sessionStorage, recipe.id)
     }
-    clearTimers(sessionStorage, recipe.id)
   }
 
   const current = step === 0 ? null : content.steps[step - 1]
   if (current === undefined) throw new Error(`${recipe.title} has no step ${step}`)
   const timer = current === null ? null : current.timer
   const note = lastNote(recipe.id, logs)
+  const elsewhere = timers.labels.filter((label) => label !== timer?.label)
 
-  // A running timer always belongs to a step that has one.
-  function timerLabel(other: number): string {
-    const label = content.steps[other - 1]?.timer?.label
-    if (label === undefined) throw new Error(`${recipe.title} has no timer on step ${other}`)
-    return label
+  // A running timer belongs to the step whose timer has its label.
+  function stepOfTimer(label: string): number {
+    const index = content.steps.findIndex((candidate) => candidate.timer?.label === label)
+    if (index === -1) throw new Error(`${recipe.title} has no timer called ${label}`)
+    return index + 1
   }
-  const left = timers.secondsLeft(step)
+  const left = timer === null ? null : timers.secondsLeft(timer.label)
 
   // One mis-tap with wet fingers should not lose a long timer.
-  function stopTimer(remaining: number) {
+  function stopTimer(label: string, remaining: number) {
     if (remaining > 60 && !window.confirm(`Stop the timer? It still has ${formatClock(remaining)} to go.`)) return
-    timers.stop(step)
+    timers.stop(label)
   }
+
+  // What comes after this step, so the cook can look ahead without tapping away.
+  const following = content.steps[step]
+  const nextLine = following === undefined ? 'log how it went.' : firstSentence(following.text)
 
   return (
     <main className="page cook">
       <header className="cook-head">
-        <Link to={`/recipe/${recipe.id}`} onClick={confirmLeave}>
+        <Link to={`/recipe/${recipe.id}`} onClick={confirmStop('A timer is still running. Leaving cook mode stops it.')}>
           Leave cook mode
         </Link>
         <p className="cook-count">
@@ -70,6 +76,11 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
         <progress className="cook-progress" value={step} max={last} aria-label="Progress through the recipe" />
       </header>
 
+      {timers.soundError !== null && (
+        <p className="notice notice-error" role="alert">
+          The timer could not make a sound: {timers.soundError}
+        </p>
+      )}
       {timers.needsTap && (
         <p className="notice timer-sound" role="status">
           The page reloaded. Tap anywhere so your timers can chime.
@@ -78,12 +89,15 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
 
       {elsewhere.length > 0 && (
         <ul className="timer-strip">
-          {elsewhere.map((other) => {
-            const remaining = timers.secondsLeft(other)
+          {elsewhere.map((label) => {
+            const remaining = timers.secondsLeft(label)
             return (
-              <li key={other}>
-                <Link className={remaining === 0 ? 'timer-chip timer-chip-done' : 'timer-chip'} to={`/cook/${recipe.id}/${other}`}>
-                  {timerLabel(other)}: {remaining === 0 ? 'time is up' : formatClock(remaining ?? 0)}
+              <li key={label}>
+                <Link
+                  className={remaining === 0 ? 'timer-chip timer-chip-done' : 'timer-chip'}
+                  to={`/cook/${recipe.id}/${stepOfTimer(label)}`}
+                >
+                  {label}: {remaining === 0 ? 'time is up' : formatClock(remaining ?? 0)}
                 </Link>
               </li>
             )
@@ -108,7 +122,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
           {timer !== null && (
             <div className="timer" role="timer" aria-live="off">
               {left === null ? (
-                <button className="button timer-start" type="button" onClick={() => timers.start(step, timer.seconds)}>
+                <button className="button timer-start" type="button" onClick={() => timers.start(timer.label, timer.seconds)}>
                   Start {formatClock(timer.seconds)} timer
                 </button>
               ) : (
@@ -116,7 +130,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
                   <p className={left === 0 ? 'timer-clock timer-clock-done' : 'timer-clock'}>
                     {left === 0 ? 'Time is up' : formatClock(left)}
                   </p>
-                  <button className="link-button" type="button" onClick={() => stopTimer(left)}>
+                  <button className="link-button" type="button" onClick={() => stopTimer(timer.label, left)}>
                     Stop timer
                   </button>
                 </>
@@ -132,6 +146,7 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
             <summary>Ingredients and amounts</summary>
             <IngredientList ingredients={content.ingredients} />
           </details>
+          <p className="row-note cook-next">Next: {nextLine}</p>
         </section>
       )}
 
@@ -150,7 +165,11 @@ export function CookScreen({ logs, kit }: { logs: readonly CookLog[]; kit: Reado
             {step === 0 ? 'Everything is out' : 'Next step'}
           </Link>
         ) : (
-          <Link className="button" to={`/cook/${recipe.id}/log`}>
+          <Link
+            className="button"
+            to={`/cook/${recipe.id}/log`}
+            onClick={confirmStop('A timer is still running. Logging the cook now stops it.')}
+          >
             Finish and log it
           </Link>
         )}
@@ -201,4 +220,10 @@ function useWakeLock(): boolean | null {
   }, [])
 
   return held
+}
+
+/** "Roast the potatoes on their own." from a step's text: the first sentence. */
+function firstSentence(text: string): string {
+  const end = text.search(/[.!?](\s|$)/)
+  return end === -1 ? text : text.slice(0, end + 1)
 }

@@ -3,8 +3,10 @@
 // The art for each is in components/badgeArt.ts.
 
 import { RECIPES } from '../curriculum/recipes'
+import { DISCIPLINES, type DisciplineId } from '../curriculum/techniques'
 import type { Recipe, Tier } from '../curriculum/types'
 import { totalKeptCents, type Prices } from './cost'
+import { COURSE_NAMES } from './format'
 import { disciplineStats } from './leveling'
 import { goodCooks, learnedTechniques, recipeState, type CookLog } from './progress'
 import { longestStreak } from './streak'
@@ -16,8 +18,6 @@ export interface Badge {
   readonly how: string
   readonly earned: (logs: readonly CookLog[], prices: Prices) => boolean
 }
-
-const COURSES: readonly Tier[] = [1, 2, 3, 4]
 
 /** The badge for cooking each dish of the usual, by recipe id. */
 export const USUAL_BADGES = {
@@ -47,14 +47,41 @@ const usual = (id: string, name: string, dish: string): Omit<Badge, 'id'> => {
   }
 }
 
-const courseLearned = (logs: readonly CookLog[]) => {
-  const learned = learnedTechniques(logs)
-  return COURSES.some((tier) =>
-    RECIPES.filter((recipe: Recipe) => recipe.tier === tier).every((recipe) =>
-      recipe.teaches.every((technique) => learned.has(technique)),
-    ),
-  )
+/** One per course: every skill that course teaches is learned. */
+const course = (tier: Exclude<Tier, 5>): Omit<Badge, 'id'> => {
+  const name = COURSE_NAMES[tier]
+  return {
+    name: `${name} cleared`,
+    how: `Learn every skill the ${name.toLowerCase()} teaches.`,
+    earned: (logs) => {
+      const learned = learnedTechniques(logs)
+      return RECIPES.filter((recipe: Recipe) => recipe.tier === tier).every((recipe) =>
+        recipe.teaches.every((technique) => learned.has(technique)),
+      )
+    },
+  }
 }
+
+/** One per discipline: every skill of that kind is learned. */
+const discipline = (id: DisciplineId): Omit<Badge, 'id'> => {
+  const { name } = DISCIPLINES[id]
+  return {
+    name: `${name} specialist`,
+    how: `Learn every ${name.toLowerCase()} skill.`,
+    earned: (logs) => {
+      const stat = disciplineStats(logs).find((candidate) => candidate.id === id)
+      if (stat === undefined) throw new Error(`No discipline ${id}`)
+      return stat.learned === stat.skills.length
+    },
+  }
+}
+
+/** Money kept, at today's prices. */
+const kept = (dollars: number): Omit<Badge, 'id'> => ({
+  name: `$${dollars.toLocaleString('en-US')} kept`,
+  how: `Keep $${dollars.toLocaleString('en-US')} by cooking instead of ordering.`,
+  earned: (logs, prices) => totalKeptCents(logs, prices) >= dollars * 100,
+})
 
 const DEFINITIONS = {
   'first-cook': { name: 'First cook', how: 'Log your first cook.', earned: (logs) => logs.length > 0 },
@@ -68,30 +95,29 @@ const DEFINITIONS = {
     how: 'Master a recipe: three good cooks, one of them “Nailed it”.',
     earned: (logs) => RECIPES.some((recipe) => recipeState(recipe, logs) === 'mastered'),
   },
-  'course-cleared': {
-    name: 'Course cleared',
-    how: 'Learn every skill one course teaches.',
-    earned: courseLearned,
-  },
-  specialist: {
-    name: 'Specialist',
-    how: 'Learn every skill of one kind: prep, pan, pot, oven, sauce or palate.',
-    earned: (logs) => disciplineStats(logs).some((stat) => stat.learned === stat.skills.length),
-  },
-  'kept-100': {
-    name: '$100 kept',
-    how: 'Keep $100 by cooking instead of ordering.',
-    earned: (logs, prices) => totalKeptCents(logs, prices) >= 100_00,
-  },
-  'kept-500': {
-    name: '$500 kept',
-    how: 'Keep $500 by cooking instead of ordering.',
-    earned: (logs, prices) => totalKeptCents(logs, prices) >= 500_00,
-  },
+  'course-1': course(1),
+  'course-2': course(2),
+  'course-3': course(3),
+  'course-4': course(4),
+  'prep-specialist': discipline('prep'),
+  'pan-specialist': discipline('pan'),
+  'pot-specialist': discipline('pot'),
+  'oven-specialist': discipline('oven'),
+  'sauce-specialist': discipline('sauce'),
+  'palate-specialist': discipline('palate'),
+  'kept-100': kept(100),
+  'kept-500': kept(500),
+  'kept-1000': kept(1000),
+  'kept-2500': kept(2500),
   'four-weeks': {
     name: 'Four weeks running',
     how: 'Cook at least once a week, four weeks in a row.',
     earned: (logs) => longestStreak(logs) >= 4,
+  },
+  'every-recipe': {
+    name: 'The whole menu',
+    how: 'Cook every recipe on the menu at least once, the usual included.',
+    earned: (logs) => RECIPES.every((recipe) => logs.some((log) => log.recipeId === recipe.id)),
   },
   'usual-burger': usual('double-smash-burger', 'Double smash', 'the double smash burger'),
   'usual-chicken-sandwich': usual('crispy-chicken-sandwich', 'Crispy chicken', 'the crispy chicken sandwich'),

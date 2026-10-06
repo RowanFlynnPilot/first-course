@@ -33,8 +33,27 @@ export async function fetchCookLogs(): Promise<CookLog[]> {
   return (data as CookLogRow[]).map(toCookLog)
 }
 
-/** `cookedOn` is the cook's local date (YYYY-MM-DD), never the server's. */
+/**
+ * A new cook's id, made by the log form once. A random version-4 UUID from
+ * getRandomValues, which, unlike crypto.randomUUID, also works on the
+ * plain-HTTP address used to test on a phone.
+ */
+export function newCookId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+/**
+ * `cookedOn` is the cook's local date (YYYY-MM-DD), never the server's. `id`
+ * comes from the form, made once: when a save lands but its answer is lost
+ * on weak signal, the retry finds that cook already saved (a duplicate key)
+ * and returns it, instead of logging the cook twice.
+ */
 export async function insertCookLog(input: {
+  id: string
   recipeId: string
   cookedOn: string
   rating: Rating
@@ -43,6 +62,7 @@ export async function insertCookLog(input: {
   const { data, error } = await supabase
     .from('cook_logs')
     .insert({
+      id: input.id,
       recipe_id: input.recipeId,
       cooked_on: input.cookedOn,
       rating: input.rating,
@@ -50,7 +70,14 @@ export async function insertCookLog(input: {
     })
     .select(COLUMNS)
     .single()
+  if (error?.code === '23505') return fetchCookLog(input.id)
   if (error) throw new Error(`Could not save this cook: ${error.message}`)
+  return toCookLog(data as CookLogRow)
+}
+
+async function fetchCookLog(id: string): Promise<CookLog> {
+  const { data, error } = await supabase.from('cook_logs').select(COLUMNS).eq('id', id).single()
+  if (error) throw new Error(`Could not check whether this cook was saved: ${error.message}`)
   return toCookLog(data as CookLogRow)
 }
 

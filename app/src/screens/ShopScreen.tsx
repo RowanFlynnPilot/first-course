@@ -10,19 +10,21 @@ import { EQUIPMENT } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
-import { formatAmount, formatCents, inSentence, listOf, packagesOf, plural, skillList } from '../lib/format'
+import { cookCostPerServingCents } from '../lib/cost'
+import { formatAmount, formatCents, formatMinutes, inSentence, listOf, packagesOf, plural, skillList } from '../lib/format'
 import { groceryList, groceryText, type GroceryLine } from '../lib/grocery'
 import { missingKit } from '../lib/kit'
-import { missingTechniques, recipeState, type CookLog } from '../lib/progress'
+import { missingTechniques, readyToPlan, recipeState, type CookLog } from '../lib/progress'
 import {
   checkOff,
   clearFromPantry,
-  clearStaleChecks,
   finishShopping,
+  planRecipe,
   removeFromPlan,
   resetPrice,
   setPrice,
   shopForAgain,
+  stockPantry,
   toShopFor,
   uncheck,
   withoutPlanned,
@@ -42,6 +44,17 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
   const toBuy = notInCart.length
   const finish = useWrite()
   const [finished, setFinished] = useState<string | null>(null)
+  // Ticks still saving. Done shopping waits for them, so a staple ticked a
+  // moment ago still reaches the pantry.
+  const [saving, setSaving] = useState(0)
+  async function track(write: () => Promise<void>) {
+    setSaving((count) => count + 1)
+    try {
+      await write()
+    } finally {
+      setSaving((count) => count - 1)
+    }
+  }
 
   async function doneShopping() {
     const left = listOf(notInCart.map((line) => inSentence(INGREDIENTS[line.ingredientId].name)))
@@ -65,6 +78,102 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
     })
   }
 
+  // In the store, the list comes first; at home, the plan.
+  const shopping = toShop.length > 0
+  const ready = readyToPlan(logs, shop.plan).slice(0, SUGGESTIONS)
+
+  const listSection = (
+    <section className="section">
+      <h2 className="section-title">Grocery list</h2>
+      <p className="section-note">
+        {inCart.length} of {plural(list.lines.length, 'thing', 'things')} in the cart.
+      </p>
+      {toBuy > 0 && <ShareButton text={groceryText(toShop, list, shop.checks)} />}
+      {list.sections.map((section) => (
+        <div className="aisle" key={section.id}>
+          <h3 className="aisle-title">{section.name}</h3>
+          <ul className="checks checks-cart">
+            {section.lines.map((line) => (
+              <GroceryRow key={line.ingredientId} line={line} shop={shop} track={track} onShopChange={onShopChange} />
+            ))}
+          </ul>
+        </div>
+      ))}
+      <dl className="tab">
+        <div className="tab-kept">
+          <dt>Checkout total</dt>
+          <dd>{formatCents(list.totalCents)}</dd>
+        </div>
+      </dl>
+      {toBuy === 0 && (
+        <p className="notice">
+          Everything is in the cart. Tap “Done shopping” to put the staples in your pantry and mark the plan bought.
+        </p>
+      )}
+      {finish.error !== null && (
+        <p className="notice notice-error" role="alert">
+          {finish.error}
+        </p>
+      )}
+      <div className="actions">
+        <button
+          className="button"
+          type="button"
+          disabled={finish.busy || saving > 0}
+          onClick={() => void doneShopping()}
+        >
+          Done shopping
+        </button>
+      </div>
+      <p className="section-note">
+        Clears the list and puts the staples you checked off into your pantry. The plan stays until you cook.
+      </p>
+      {list.inPantry.length > 0 && (
+        <>
+          <p className="section-note">
+            Left off because your <Link to="/pantry">pantry</Link> has them. Out of one? Put it on the list.
+          </p>
+          <ul className="rows">
+            {list.inPantry.map((line) => (
+              <InPantryRow key={line.ingredientId} id={line.ingredientId} qty={line.qty} onShopChange={onShopChange} />
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="section-note">
+        What you pay at the register, in whole packages. Tap a price to correct it. A first shop costs far more than
+        the per-serving prices on each recipe: the oil, spices and sauces you buy now last for many cooks.
+      </p>
+    </section>
+  )
+
+  const planSection = (
+    <section className="section">
+      <h2 className="section-title">The plan</h2>
+      {planned.length === 0 ? (
+        <p className="section-note">Nothing planned yet. Add what you will cook this week, then shop for it.</p>
+      ) : (
+        <>
+          <p className="section-note">Each recipe leaves the plan when you log a cook of it.</p>
+          <ul className="rows">
+            {planned.map((recipe) => (
+              <PlanRow key={recipe.id} recipe={recipe} shop={shop} logs={logs} onShopChange={onShopChange} />
+            ))}
+          </ul>
+        </>
+      )}
+      {!shopping && planned.length > 0 && (
+        <p className="section-note">Everything on the plan is bought. Add a recipe and its groceries go on a new list.</p>
+      )}
+      {needKit.length > 0 && (
+        <p className="notice">
+          To cook these you also need: {listOf(needKit.map((id) => inSentence(EQUIPMENT[id].name)))}.{' '}
+          <Link to="/kit">Your kit</Link>
+        </p>
+      )}
+    </section>
+  )
+
   return (
     <main className="page">
       <nav className="back">
@@ -76,101 +185,57 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
           {finished}
         </p>
       )}
-
-      <section className="section">
-        <h2 className="section-title">The plan</h2>
-        {planned.length === 0 ? (
-          <p className="section-note">
-            Nothing planned yet. Open a recipe you can cook and choose “Add to this week”.
-          </p>
-        ) : (
-          <>
-            <p className="section-note">Each recipe leaves the plan when you log a cook of it.</p>
-            <ul className="rows">
-              {planned.map((recipe) => (
-                <PlanRow key={recipe.id} recipe={recipe} shop={shop} logs={logs} onShopChange={onShopChange} />
-              ))}
-            </ul>
-          </>
-        )}
-        {needKit.length > 0 && (
-          <p className="notice">
-            To cook these you also need: {listOf(needKit.map((id) => inSentence(EQUIPMENT[id].name)))}.{' '}
-            <Link to="/kit">Your kit</Link>
-          </p>
-        )}
-      </section>
-
-      {planned.length > 0 && toShop.length === 0 && (
+      {shopping ? listSection : planSection}
+      {shopping && planSection}
+      {ready.length > 0 && (
         <section className="section">
-          <h2 className="section-title">Grocery list</h2>
-          <p className="section-note">
-            Everything on the plan is bought. Add a recipe and its groceries go on a new list.
-          </p>
-        </section>
-      )}
-
-      {toShop.length > 0 && (
-        <section className="section">
-          <h2 className="section-title">Grocery list</h2>
-          <p className="section-note">
-            What you pay at the register, in whole packages. A first shop costs far more than the per-serving prices
-            on each recipe: the oil, spices and sauces you buy now last for many cooks.
-          </p>
-          {list.inPantry.length > 0 && (
-            <>
-              <p className="section-note">
-                Left off because your <Link to="/pantry">pantry</Link> has them. Out of one? Put it on the list.
-              </p>
-              <ul className="rows">
-                {list.inPantry.map((id) => (
-                  <InPantryRow key={id} id={id} onShopChange={onShopChange} />
-                ))}
-              </ul>
-            </>
-          )}
-          {toBuy > 0 && <ShareButton text={groceryText(toShop, list, shop.checks)} />}
-          {list.sections.map((section) => (
-            <div className="aisle" key={section.id}>
-              <h3 className="aisle-title">{section.name}</h3>
-              <ul className="checks checks-cart">
-                {section.lines.map((line) => (
-                  <GroceryRow key={line.ingredientId} line={line} shop={shop} onShopChange={onShopChange} />
-                ))}
-              </ul>
-            </div>
-          ))}
-          <dl className="tab">
-            <div className="tab-kept">
-              <dt>Checkout total</dt>
-              <dd>{formatCents(list.totalCents)}</dd>
-            </div>
-          </dl>
-          <p className="section-note">
-            {inCart.length} of {plural(list.lines.length, 'thing', 'things')} in the cart. Tap a price to correct it.
-          </p>
-          {toBuy === 0 && (
-            <p className="notice">
-              Everything is in the cart. Tap “Done shopping” to put the staples in your pantry and mark the plan
-              bought.
-            </p>
-          )}
-          {finish.error !== null && (
-            <p className="notice notice-error" role="alert">
-              {finish.error}
-            </p>
-          )}
-          <div className="actions">
-            <button className="button" type="button" disabled={finish.busy} onClick={() => void doneShopping()}>
-              Done shopping
-            </button>
-          </div>
-          <p className="section-note">
-            Clears the list and puts the staples you checked off into your pantry. The plan stays until you cook.
-          </p>
+          <h2 className="section-title">Ready to cook</h2>
+          <p className="section-note">Recipes you can cook now, in the order the menu suggests them.</p>
+          <ul className="rows">
+            {ready.map((recipe) => (
+              <ReadyRow key={recipe.id} recipe={recipe} shop={shop} onShopChange={onShopChange} />
+            ))}
+          </ul>
         </section>
       )}
     </main>
+  )
+}
+
+/** How many unplanned recipes This week offers to add. */
+const SUGGESTIONS = 4
+
+/** A recipe that could go on the plan, with what it takes, and one tap to add it. */
+function ReadyRow({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop; onShopChange: ShopChange }) {
+  const { busy, error, run } = useWrite()
+  return (
+    <li>
+      <div className="plan-row">
+        <span>
+          <Link className="row-title" to={`/recipe/${recipe.id}`}>
+            {recipe.title}
+          </Link>
+          <span className="row-note">
+            {formatMinutes(recipe.content.totalMinutes)}, {formatCents(cookCostPerServingCents(recipe.content, shop.prices))} a
+            serving
+          </span>
+        </span>
+        <button
+          className="link-button"
+          type="button"
+          disabled={busy}
+          aria-label={`Add ${recipe.title} to this week`}
+          onClick={() => void run(() => planRecipe(shop, recipe.id, onShopChange))}
+        >
+          Add
+        </button>
+      </div>
+      {error !== null && (
+        <p className="notice notice-error" role="alert">
+          {error}
+        </p>
+      )}
+    </li>
   )
 }
 
@@ -251,17 +316,7 @@ function PlanRow({
           type="button"
           disabled={busy}
           onClick={() =>
-            void run(async () => {
-              // Old ticks go first, so the list this recipe goes back on does not open with them.
-              const checks = await clearStaleChecks(shop)
-              onShopChange((previous) => ({ ...previous, checks }))
-              await shopForAgain(recipe.id)
-              onShopChange((previous) => {
-                const next = new Set(previous.shopped)
-                next.delete(recipe.id)
-                return { ...previous, shopped: next }
-              })
-            })
+            void run(() => shopForAgain(shop, recipe.id, onShopChange))
           }
         >
           Put it back on the list
@@ -276,19 +331,22 @@ function PlanRow({
   )
 }
 
-/** A staple left off the list because the pantry has it, with a way to say it ran out. */
-function InPantryRow({ id, onShopChange }: { id: IngredientId; onShopChange: ShopChange }) {
+/** A staple left off the list because the pantry has it, with how much this list uses, and a way to say it ran out. */
+function InPantryRow({ id, qty, onShopChange }: { id: IngredientId; qty: number; onShopChange: ShopChange }) {
   const { busy, error, run } = useWrite()
-  const { name } = INGREDIENTS[id]
+  const { name, unit } = INGREDIENTS[id]
   return (
     <li>
       <div className="plan-row">
-        <span>{name}</span>
+        <span>
+          <span className="row-title">{name}</span>
+          <span className="row-note">This list uses {formatAmount(qty, unit)}</span>
+        </span>
         <button
           className="link-button"
           type="button"
           disabled={busy}
-          aria-label={`Put ${inSentence(name)} on the list`}
+          aria-label={`Put it on the list: ${inSentence(name)}`}
           onClick={() =>
             void run(async () => {
               await clearFromPantry(id)
@@ -312,7 +370,19 @@ function InPantryRow({ id, onShopChange }: { id: IngredientId; onShopChange: Sho
   )
 }
 
-function GroceryRow({ line, shop, onShopChange }: { line: GroceryLine; shop: Shop; onShopChange: ShopChange }) {
+function GroceryRow({
+  line,
+  shop,
+  track,
+  onShopChange,
+}: {
+  line: GroceryLine
+  shop: Shop
+  /** Counts the write while it runs, so Done shopping can wait for it. */
+  track: (write: () => Promise<void>) => Promise<void>
+  onShopChange: ShopChange
+}) {
+  const have = useWrite()
   const [editing, setEditing] = useState(false)
   const ingredient = INGREDIENTS[line.ingredientId]
   const checked = shop.checks.has(line.ingredientId)
@@ -339,26 +409,48 @@ function GroceryRow({ line, shop, onShopChange }: { line: GroceryLine; shop: Sho
       checked={checked}
       label={ingredient.name}
       note={`${packagesOf(line.packages, ingredient.package.label)}${uses}`}
-      onChange={async (next) => {
-        await (next ? checkOff(line.ingredientId) : uncheck(line.ingredientId))
-        onShopChange((previous) => {
-          const checks = new Set(previous.checks)
-          if (next) checks.add(line.ingredientId)
-          else checks.delete(line.ingredientId)
-          return { ...previous, checks }
+      onChange={(next) =>
+        track(async () => {
+          await (next ? checkOff(line.ingredientId) : uncheck(line.ingredientId))
+          onShopChange((previous) => {
+            const checks = new Set(previous.checks)
+            if (next) checks.add(line.ingredientId)
+            else checks.delete(line.ingredientId)
+            return { ...previous, checks }
+          })
         })
-      }}
-      aside={
-        <button
-          className="price-button"
-          type="button"
-          aria-label={`Correct the price of ${ingredient.name}`}
-          onClick={() => setEditing(true)}
-        >
-          {formatCents(line.totalCents)}
-          {corrected && <span className="row-note">your price</span>}
-        </button>
       }
+      aside={
+        <span className="line-actions">
+          <button
+            className="price-button"
+            type="button"
+            aria-label={`${formatCents(line.totalCents)}${corrected ? ' your price' : ''}: correct the price of ${inSentence(ingredient.name)}`}
+            onClick={() => setEditing(true)}
+          >
+            {formatCents(line.totalCents)}
+            {corrected && <span className="row-note">your price</span>}
+          </button>
+          {ingredient.staple && (
+            // A staple the cook already has goes into the pantry, and off this list and the next.
+            <button
+              className="link-button"
+              type="button"
+              disabled={have.busy}
+              aria-label={`Have it: ${inSentence(ingredient.name)}`}
+              onClick={() =>
+                void have.run(async () => {
+                  await stockPantry(line.ingredientId)
+                  onShopChange((previous) => ({ ...previous, pantry: new Set([...previous.pantry, line.ingredientId]) }))
+                })
+              }
+            >
+              Have it
+            </button>
+          )}
+        </span>
+      }
+      error={have.error}
     />
   )
 }

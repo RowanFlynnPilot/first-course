@@ -84,6 +84,10 @@ test.describe('the chef', () => {
       logs: [{ recipe: 'grilled-cheese', rating: 2 }, { recipe: 'seared-chicken-thighs', rating: 2 }, ...burgers],
     })
     await rateAndSave(page, 'Decent')
-    await expect(noticeLines(page)).toContainText(['New extra for Remy: Red clogs. Put it on from the chef sheet.'])
+    const line = noticeLines(page).filter({ hasText: 'New extra for Remy: Red clogs.' })
+    // Nothing is on the feet yet, so it goes on from right here.
+    await line.getByRole('button', { name: 'Wear it' }).click()
+    await expect(line).toContainText('Wearing it.')
+    expect(kitchen.backend.table('chefs')).toMatchObject([{ extras: ['red-clogs'] }])
   })
 })

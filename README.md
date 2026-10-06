@@ -13,7 +13,7 @@ things they currently order. Built so far:
   changing or deleting a cook.
 - **Phase 3, cook mode hardened and leveling.** Timers that survive a reload
   and chime when you come back, installing to the home screen, the
-  promotion moment, the idle chef, the cooking streak, and 15 badges.
+  promotion moment, the idle chef, the cooking streak, and 26 badges.
 - **The character creator.** Hairstyle, facial hair, glasses and more
   colors, and 8 extras (tools in hand, clogs, a towel, a patch) earned by
   cooking each kind of dish and worn over the rank's outfit.
@@ -112,13 +112,13 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 104 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 109 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, XP and levels, costs and
       corrected prices, the grocery list, the kit, timers, the streak and
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 117 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 129 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired email link, creating
     and changing the chef, the character
@@ -129,6 +129,8 @@ The deploy workflow runs these, and nothing deploys unless all pass:
   - timers across steps, reloads and leaving
   - the plan, the grocery list, sharing it, prices, Done shopping, the
     pantry, the kit and the spice guide
+  - a save retried after its answer was lost, catching up after time away,
+    and no screen running off the side at 200% zoom
   - each screen's title and where focus lands, and that nothing loads from
     another site
   - changing and deleting a cook

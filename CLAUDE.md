@@ -126,9 +126,9 @@ app/
       progress.ts              the rules: learned, state, mastery, next, cookable, progressLost
       leveling.ts              the chef: XP, level, rank (and its costume), discipline stats
       streak.ts                weeks in a row with a cook, from cooked_on
-      badges.ts                the 15 badges and the rule for each, read off the log
+      badges.ts                the 26 badges and the rule for each, read off the log
       notice.ts                what one cook earned: lines, level-up, promotion, badges, the usual
-      timers.ts                cook-mode timers in sessionStorage
+      timers.ts                cook-mode timers in sessionStorage, keyed by label
       cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
       grocery.ts               the grocery list: whole packages per store section, checkout total
       kit.ts                   what equipment a set of recipes needs, and what is missing
@@ -389,14 +389,26 @@ makes more than two servings.
 
 `lib/badges.ts` (derived, never stored, so editing a cook can take one away):
 
-- First cook, Nailed it (any cook rated 3), Mastered (any recipe mastered),
-  Course cleared (every skill one course teaches), Specialist (every skill
-  of one discipline), $100 kept, $500 kept (at today's prices), Four weeks
-  running (longest streak 4 or more), and one per dish of the usual for a
-  good cook of it.
+- 26 since October 5, 2026: First cook, Nailed it (any cook rated 3),
+  Mastered (any recipe mastered), one per course cleared (every skill that
+  course teaches, I to IV), one per discipline (every prep, pan, pot, oven,
+  sauce or palate skill), $100, $500, $1,000 and $2,500 kept (at today's
+  prices), Four weeks running (longest streak 4 or more), The whole menu
+  (every recipe cooked once, the usual included), and one per dish of the
+  usual for a good cook of it. The fifteen before then all arrived by about
+  week 8 and then nothing came for months; the course, discipline and money
+  badges spread the rest out.
 - The after-cook notice shows the badges that cook earned
   (`earnedBadges(after)` minus `earnedBadges(before)`) as their art, whose
   label names them; the notice's lines do not repeat them.
+- The notice's first line names the dish and the rating ("Sheet-pan sausage
+  and vegetables: Decent. +70 XP."), recipes it unlocked are links, and a
+  new extra has "Wear it" when its slot is free ("Swap it in" when not).
+- The log form says, before saving, what the rating decides
+  (`whatTheRatingDecides` in `progress.ts`): the skills a good cook
+  teaches, or how far the recipe is from mastery. Menu rows say the same in
+  short: "Rough so far. A Decent cook teaches heat control", "2 of 3 good
+  cooks", "3 good cooks. A “Nailed it” masters it".
 
 The moments after a cook (`notice.ts`, played by `MenuScreen` and
 `Beats.tsx`): a promotion holds the whole screen first, then each dish of
@@ -524,7 +536,9 @@ constraints, which columns a cook may update, whether rows can be deleted,
 and own-rows RLS. An unknown column, a write the grants forbid, or a request
 the fake does not understand fails the test, as do uncaught page errors and
 console errors. When a migration changes a table, change `TABLES` in the fake
-to match. A request to any other site fails the test too. `kitchen.ts` is the fixture
+to match. Besides `failNext`, the fake can carry out a request and lose its
+answer (`loseNextAnswer`), and write a row as another device would
+(`writeElsewhere`). A request to any other site fails the test too. `kitchen.ts` is the fixture
 (`kitchen.open(route, seed)`), the seeds and the shared steps. The deploy workflow runs the suite before the
 build; a failed run keeps its traces as an artifact.
 
@@ -538,11 +552,20 @@ build; a failed run keeps its traces as an artifact.
   page, and given up 2 minutes after the first ring. While it rings, Safari
   16.4 and later get `navigator.audioSession.type = 'playback'`, which should
   sound with the ring switch off and pauses other audio; it goes back to
-  `'auto'` when the ring stops. Not yet verified on an iPhone. "Start
-  timer" is a full-width solid button above the Why, and "Stop timer" asks
-  first when more than a minute is left.
+  `'auto'` once each ring's beeps end. A ring that was queued while the
+  phone woke plays only if a timer still wants it, and a phone that refuses
+  to play says so in cook mode. Not yet verified on an iPhone. The audio
+  context is one per page load, kept outside the hook, so going to the log
+  form and back does not lose the sound. "Start timer" is a full-width
+  solid button above the Why, and "Stop timer" asks first when more than a
+  minute is left. "Finish and log it", like "Leave cook mode", asks first
+  when a timer is running. Each step ends with "Next:" and the first
+  sentence of the next one.
 - **Timers are end times in `sessionStorage`** (`lib/timers.ts`), one entry
-  per recipe, keyed by step, each `{ endsAt, rang }`. They survive moving
+  per recipe, keyed by the timer's label (unique in a recipe, which
+  `curriculum.test.ts` checks), each `{ endsAt, rang }`. Not by step number:
+  a deploy that splits a step mid-cook would move the timer to the wrong
+  step. The storage key names the format (`timers-by-label`). They survive moving
   between steps, a reload, and a phone discarding a backgrounded tab.
   `components/useCookTimers.ts` plays every ring from one check that runs on
   a quarter-second tick and again on `visibilitychange`, so a timer that ran
@@ -585,16 +608,46 @@ build; a failed run keeps its traces as an artifact.
 - **A failed load offers "Try again".** If any of the opening reads fails,
   the message stays on screen with a button that loads everything again,
   for a phone with weak signal.
+- **The app catches up after a while away.** Back from 10 minutes or more
+  hidden (`REFRESH_AFTER_MS` in `App.tsx`), it loads the log, the chef and
+  the shop again, so a cook logged or a recipe planned on another device
+  shows up: an installed app is never reloaded otherwise. A failed catch-up
+  keeps what is on screen and says so above the page, with "Try again".
+- **A save is never logged twice.** The log form makes the cook's id once
+  (`newCookId` in `cookLogs.ts`), and sends it with the insert. When a save
+  lands but its answer is lost on weak signal, the retry hits the
+  duplicate key and returns the cook already saved. The e2e fake can lose
+  an answer on purpose (`loseNextAnswer`).
+- **A cook is never dated after today**: `checkCookedOn` in `format.ts`
+  throws, on both cook forms, as well as the date field's `max`.
 - **Email links come back in the hash**, where the hash router would take
-  them for a page. `supabase.ts` reads the hash before supabase-js does. A
-  password reset link (`type=recovery`) signs the cook in (supabase-js
-  clears the tokens from the address), and `App.tsx` shows "Set a new
-  password" before anything else. A failed link (`error_description`, most
-  often "Email link is invalid or has expired") is left in the address by
-  supabase-js, so `supabase.ts` clears it and the sign-in screen shows the
-  message. The reset email goes to the Supabase project's Site URL, the
-  Pages URL, so a reset asked for on localhost lands on the live site.
-  Supabase's built-in email sender allows only a few emails an hour.
+  them for a page. The client is created with `detectSessionInUrl: false`,
+  and `supabase.ts` reads the hash itself, removes it with `replaceState`
+  (so neither the tokens nor an error stay one Back away in the history),
+  and signs in from the tokens with `setSession` (`landingSignIn`).
+  `App.tsx` shows nothing until that finishes, then "Set a new password"
+  for a reset link (`type=recovery`) before anything else. A failed link is
+  shown in the app's own words ("That email link has expired.", from
+  `error_code`), never the link's text, which anyone could write; the
+  screen then says how to get a new link. The reset email goes to the
+  Supabase project's Site URL, the Pages URL, so a reset asked for on
+  localhost lands on the live site. Supabase's built-in email sender allows
+  only a few emails an hour.
+- **Sign in, create an account and reset are three modes of one screen.**
+  Creating an account has its own form ("New here? Create an account"),
+  with `autocomplete="new-password"` and the 8-character hint.
+- **Before the first cook**, the menu shows "Where to start": tick the kit,
+  tick the pantry, plan, shop, cook, each ticked off from the data. Until
+  any kit is ticked, equipment lists show one pointer to the kit instead of
+  "Not in your kit yet" on every tool.
+- **The menu folds a course** whose every recipe is mastered, behind "All N
+  recipes mastered", and its suggestion card has "Add to this week".
+- **Money reads like money** ("$1,338.32", `formatCents`), and times of an
+  hour or more read in hours ("2 hours 45 minutes", `formatMinutes`).
+- **Zoomed far in** (a page about 200 CSS pixels wide, as at 200% on a
+  phone), the gutters slim down and cook mode's buttons, the price lines and
+  the chef sheet's head stack; the e2e suite checks that no screen runs off
+  the side.
 - **A cook can be changed or deleted** at `/cook-log/:id`, reached from
   "Your cooks" on the recipe page. The date, rating and notes change; the
   recipe never does. Because progress is derived, the screen first says what
@@ -606,8 +659,10 @@ build; a failed run keeps its traces as an artifact.
   `startTransition`, or React draws the screen once without its data and
   reports error 520. The e2e suite catches this as a page error.
 - **Shop writes are not optimistic.** A checkbox changes only after Supabase
-  says the write succeeded; a failure shows its message under the row. In a
-  store with weak signal that is slower, and it is never wrong.
+  says the write succeeded, and says "Saving…" until then; a failure shows
+  its message under the row. In a store with weak signal that is slower,
+  and it is never wrong. "Done shopping" waits until no tick is saving, so
+  a staple ticked a moment ago still reaches the pantry.
 - **The chef can be changed but not deleted.** Name, look and extras are
   editable at `/chef/edit`. The grant is column-level, so `user_id` and
   `created_at` cannot be updated even by the owner. Supabase refuses an
@@ -718,9 +773,15 @@ Behavior:
   gone off), and the menu suggests it first. A planned recipe that a
   deleted cook locks again says "Locked again: needs …", and the
   change-cook screen warns that it is on the plan.
-- **Grocery list** (`lib/grocery.ts`, `/shop`). Sum `qty` per ingredient
+- **Grocery list** (`lib/grocery.ts`, `/shop`). In the store the list comes
+  first (the count, Share, the aisles, Done shopping), then the plan; at
+  home, the plan first. Under both, "Ready to cook" offers up to four
+  unplanned recipes in the menu's order (`readyToPlan` in `progress.ts`),
+  each with "Add". A staple line has "Have it", which puts it in the
+  pantry. Sum `qty` per ingredient
   across the plan's recipes not yet shopped for, drop what the pantry has
-  (and list each, with "Put it on the list" for one that ran out), packages =
+  (and list each with what this list uses, and "Put it on the list" for
+  one that ran out), packages =
   `ceil(qty / package.units)`, grouped by `section` in store order: produce,
   meat, dairy, bakery, pantry, frozen. Each line shows the package, the
   count when it is more than one, and what the plan uses when that is not
@@ -787,7 +848,7 @@ precisely" and "Design").
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all six migrations are
-on the live project, and every push runs 104 unit tests and 117 e2e tests before it deploys.
+on the live project, and every push runs 109 unit tests and 129 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

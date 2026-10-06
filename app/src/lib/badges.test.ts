@@ -13,8 +13,8 @@ function log(recipeId: string, rating: Rating, cookedOn = '2026-10-01'): CookLog
 const FIRST_COURSE = RECIPES.filter((recipe) => recipe.tier === 1).map((recipe) => log(recipe.id, 2))
 
 describe('badges', () => {
-  it('number about a dozen, with one for each dish of the usual', () => {
-    expect(BADGES.length).toBe(15)
+  it('number 26: one per course, discipline and dish of the usual, and four for money kept', () => {
+    expect(BADGES.length).toBe(26)
     const usual = RECIPES.filter((recipe) => recipe.tier === 5)
     expect(BADGES.filter((badge) => badge.id.startsWith('usual-'))).toHaveLength(usual.length)
   })
@@ -31,21 +31,31 @@ describe('badges', () => {
     expect(earnedBadges(mastered.slice(0, 2), ESTIMATES)).not.toContain('mastered')
   })
 
-  it('clear a course once every skill it teaches is learned', () => {
-    expect(earnedBadges(FIRST_COURSE.slice(1), ESTIMATES)).not.toContain('course-cleared')
-    expect(earnedBadges(FIRST_COURSE, ESTIMATES)).toContain('course-cleared')
+  it('clear a course once every skill it teaches is learned, each course its own badge', () => {
+    expect(earnedBadges(FIRST_COURSE.slice(1), ESTIMATES)).not.toContain('course-1')
+    expect(earnedBadges(FIRST_COURSE, ESTIMATES)).toContain('course-1')
+    expect(earnedBadges(FIRST_COURSE, ESTIMATES)).not.toContain('course-2')
   })
 
-  it('make a specialist of a cook who learns every skill of one kind', () => {
+  it('make a specialist of each kind separately', () => {
     // Prep is knife basics (salad), mise en place (aglio e olio) and velveting (Fourth course).
-    expect(earnedBadges(FIRST_COURSE, ESTIMATES)).not.toContain('specialist')
+    expect(earnedBadges(FIRST_COURSE, ESTIMATES)).not.toContain('prep-specialist')
     // Pot is boiling pasta, steamed rice and simmering (marinara).
-    expect(earnedBadges([...FIRST_COURSE, log('marinara-pasta', 2)], ESTIMATES)).toContain('specialist')
+    const withMarinara = earnedBadges([...FIRST_COURSE, log('marinara-pasta', 2)], ESTIMATES)
+    expect(withMarinara).toContain('pot-specialist')
+    expect(withMarinara).not.toContain('pan-specialist')
+  })
+
+  it('keep counting money past $500, and crown a cook who has cooked everything', () => {
+    expect(BADGES.map((badge) => badge.name)).toEqual(expect.arrayContaining(['$1,000 kept', '$2,500 kept']))
+    const everything = RECIPES.map((recipe) => log(recipe.id, 1))
+    expect(earnedBadges(everything.slice(1), ESTIMATES)).not.toContain('every-recipe')
+    expect(earnedBadges(everything, ESTIMATES)).toContain('every-recipe')
   })
 
   it('count kept money at today’s prices', () => {
     const sauces = Array.from({ length: 3 }, () => log('weeknight-meat-sauce', 2))
-    // Each meat sauce keeps $41.59 at the estimates: two dinners not ordered, not four.
+    // Each meat sauce keeps about $41 at the estimates: two dinners not ordered, not four.
     expect(earnedBadges(sauces.slice(1), ESTIMATES)).not.toContain('kept-100')
     expect(earnedBadges(sauces, ESTIMATES)).toContain('kept-100')
     expect(earnedBadges(sauces, ESTIMATES)).not.toContain('kept-500')

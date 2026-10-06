@@ -20,28 +20,47 @@ import { RecipeScreen } from './screens/RecipeScreen'
 import { SetPasswordScreen } from './screens/SetPasswordScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { SpicesScreen } from './screens/SpicesScreen'
-import { fromPasswordReset, linkError, supabase } from './supabase'
+import { fromPasswordReset, landingSignIn, linkError, supabase } from './supabase'
 
 export default function App() {
   // undefined = still asking Supabase; null = signed out.
   const [session, setSession] = useState<Session | null | undefined>(undefined)
   // A password reset link signs the cook in, and the new password comes before anything else.
   const [settingPassword, setSettingPassword] = useState(fromPasswordReset)
+  // An email link's sign-in finishes before anything shows, so the sign-in screen never flashes first.
+  const [landed, setLanded] = useState(landingSignIn === null)
+  const [landingError, setLandingError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (landingSignIn === null) return
+    landingSignIn.then(
+      () => setLanded(true),
+      (cause: Error) => {
+        // A reset link that did not sign anyone in leaves no password to set.
+        setSettingPassword(false)
+        setLandingError(cause.message)
+        setLanded(true)
+      },
+    )
+  }, [])
 
   useEffect(() => {
     // Fires once on subscribe with the stored session, then on every change.
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next)
-      // A reset link that did not sign anyone in leaves nothing to set.
-      if (next === null) setSettingPassword(false)
-    })
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
     return () => data.subscription.unsubscribe()
   }, [])
 
-  if (session === undefined) return <p className="status">Loading…</p>
-  if (session === null) return <AuthScreen linkError={linkError} />
+  if (session === undefined || !landed) return <p className="status">Loading…</p>
+  if (session === null) return <AuthScreen linkError={landingError ?? linkError} />
   if (settingPassword) return <SetPasswordScreen email={session.user.email} onDone={() => setSettingPassword(false)} />
   return <Kitchen key={session.user.id} userId={session.user.id} />
+}
+
+/** Away from the app this long, and it loads everything again on return. */
+const REFRESH_AFTER_MS = 10 * 60 * 1000
+
+function loadKitchen() {
+  return Promise.all([fetchCookLogs(), fetchChef(), fetchShop()])
 }
 
 function Kitchen({ userId }: { userId: string }) {
@@ -54,7 +73,7 @@ function Kitchen({ userId }: { userId: string }) {
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
-    Promise.all([fetchCookLogs(), fetchChef(), fetchShop()])
+    loadKitchen()
       .then(([loadedLogs, loadedChef, loadedShop]) => {
         setLogs(loadedLogs)
         setChef(loadedChef)
@@ -62,6 +81,40 @@ function Kitchen({ userId }: { userId: string }) {
       })
       .catch((cause: Error) => setError(cause.message))
   }, [attempt])
+
+  // Back after a while away, catch up with whatever another device did
+  // meanwhile. An installed app is never reloaded, so this is how it learns.
+  // A failed catch-up keeps what is on screen and says so; it does not
+  // replace the screen, so a cook in the middle of a recipe keeps cooking.
+  const [refreshes, setRefreshes] = useState(0)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
+  useEffect(() => {
+    let hiddenAt: number | null = null
+    function onVisibility() {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now()
+        return
+      }
+      if (hiddenAt === null) return
+      const away = Date.now() - hiddenAt
+      hiddenAt = null
+      if (away < REFRESH_AFTER_MS) return
+      setRefreshError(null)
+      setRefreshes((count) => count + 1)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+  useEffect(() => {
+    if (refreshes === 0) return
+    loadKitchen()
+      .then(([loadedLogs, loadedChef, loadedShop]) => {
+        setLogs(loadedLogs)
+        setChef(loadedChef)
+        setShop(loadedShop)
+      })
+      .catch((cause: Error) => setRefreshError(cause.message))
+  }, [refreshes])
 
   if (error !== null) {
     return (
@@ -95,6 +148,23 @@ function Kitchen({ userId }: { userId: string }) {
 
   return (
     <HashRouter>
+      {refreshError !== null && (
+        <div className="page page-alert">
+          <p className="notice notice-error" role="alert">
+            Could not catch up with your other devices: {refreshError}
+          </p>
+          <button
+            className="link-button"
+            type="button"
+            onClick={() => {
+              setRefreshError(null)
+              setRefreshes(refreshes + 1)
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
       <Pages
         userId={userId}
         chef={chef}
@@ -162,7 +232,20 @@ function Pages({
 
   return (
     <Routes>
-      <Route path="/" element={<MenuScreen chef={chef} logs={logs} shop={shop} notice={notice} />} />
+      <Route
+        path="/"
+        element={
+          <MenuScreen
+            userId={userId}
+            chef={chef}
+            logs={logs}
+            shop={shop}
+            notice={notice}
+            onChefSaved={onChefSaved}
+            onShopChange={onShopChange}
+          />
+        }
+      />
       <Route path="/chef" element={<ChefScreen chef={chef} logs={logs} prices={shop.prices} />} />
       <Route
         path="/chef/edit"

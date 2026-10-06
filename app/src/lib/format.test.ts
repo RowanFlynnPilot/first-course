@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatClock, formatDuration, inSentence, packagesOf } from './format'
+import { checkCookedOn, formatCents, formatClock, formatDuration, formatMinutes, inSentence, packagesOf } from './format'
 
 describe('format', () => {
   it('reads a clock under an hour as m:ss and an hour or more as h:mm:ss', () => {
@@ -26,6 +26,20 @@ describe('format', () => {
     expect(packagesOf(2, '1 dozen')).toBe('2 dozen')
     expect(packagesOf(2, '1.5 lb pack')).toBe('2 × 1.5 lb pack')
     expect(packagesOf(2, '1 bunch (about 6)')).toBe('2 × 1 bunch (about 6)')
+  })
+
+  it('writes money with a thousands comma, and long times in hours', () => {
+    expect(formatCents(0)).toBe('$0.00')
+    expect(formatCents(133_832)).toBe('$1,338.32')
+    expect(formatMinutes(35)).toBe('35 minutes')
+    expect(formatMinutes(165)).toBe('2 hours 45 minutes')
+  })
+
+  it('takes a cook dated today or earlier, and nothing else', () => {
+    expect(() => checkCookedOn('2026-10-05', '2026-10-05')).not.toThrow()
+    expect(() => checkCookedOn('2026-09-30', '2026-10-05')).not.toThrow()
+    expect(() => checkCookedOn('2026-10-06', '2026-10-05')).toThrow('after today')
+    expect(() => checkCookedOn('', '2026-10-05')).toThrow('Choose the date')
   })
 
   it('keeps a proper noun capitalized in the middle of a sentence', () => {

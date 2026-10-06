@@ -84,7 +84,13 @@ async function remove(table: string, column: string, value: string, what: string
   if (error) throw new Error(`Could not ${what}: ${error.message}`)
 }
 
-export const addToPlan = (recipeId: string) => add('plan_items', { recipe_id: recipeId }, 'add it to this week')
+/** Adds a recipe to this week, and says whether it was already there and shopped for (on another device). */
+async function addToPlan(recipeId: string): Promise<{ shopped: boolean }> {
+  await add('plan_items', { recipe_id: recipeId }, 'add it to this week')
+  const { data, error } = await supabase.from('plan_items').select('shopped').eq('recipe_id', recipeId).single()
+  if (error) throw new Error(`Could not add it to this week: ${error.message}`)
+  return { shopped: (data as { shopped: boolean }).shopped }
+}
 export const removeFromPlan = (recipeId: string) =>
   remove('plan_items', 'recipe_id', recipeId, 'take it off this week')
 
@@ -99,22 +105,53 @@ export const uncheck = (id: IngredientId) => remove('grocery_checks', 'ingredien
  * Clears ticks the current list no longer shows: left from a shop that never
  * got "Done shopping", for recipes since cooked or taken off. Called before
  * the list grows, so a new list never opens with things ticked that were
- * never bought for it. Returns the ticks that are left.
+ * never bought for it. Returns the ticks it cleared.
  */
-export async function clearStaleChecks(shop: Shop): Promise<ReadonlySet<IngredientId>> {
+async function clearStaleChecks(shop: Shop): Promise<IngredientId[]> {
   const listed = new Set(groceryList(toShopFor(shop), shop.pantry, shop.prices).lines.map((line) => line.ingredientId))
   const stale = [...shop.checks].filter((id) => !listed.has(id))
-  if (stale.length > 0) {
-    const { error } = await supabase.from('grocery_checks').delete().in('ingredient_id', stale)
-    if (error) throw new Error(`Could not clear old ticks from the list: ${error.message}`)
-  }
-  return new Set([...shop.checks].filter((id) => listed.has(id)))
+  if (stale.length === 0) return stale
+  const { error } = await supabase.from('grocery_checks').delete().in('ingredient_id', stale)
+  if (error) throw new Error(`Could not clear old ticks from the list: ${error.message}`)
+  return stale
 }
 
-/** A recipe already shopped for goes back on the grocery list: the groceries were not bought, or went off. */
-export async function shopForAgain(recipeId: string) {
-  const { error } = await supabase.from('plan_items').update({ shopped: false }).eq('recipe_id', recipeId)
+/** The shop without these ticks, applied to the latest shop so a tick saved meanwhile survives. */
+function withoutChecks(shop: Shop, ids: readonly IngredientId[]): Shop {
+  return { ...shop, checks: new Set([...shop.checks].filter((id) => !ids.includes(id))) }
+}
+
+/**
+ * "Add to this week", from any screen: old ticks go first, then the recipe,
+ * as the database has it (already there and shopped for, if another device
+ * did that).
+ */
+export async function planRecipe(shop: Shop, recipeId: string, onShopChange: ShopChange) {
+  const stale = await clearStaleChecks(shop)
+  onShopChange((previous) => withoutChecks(previous, stale))
+  const { shopped } = await addToPlan(recipeId)
+  onShopChange((previous) => ({
+    ...previous,
+    plan: previous.plan.includes(recipeId) ? previous.plan : [...previous.plan, recipeId],
+    shopped: shopped ? new Set([...previous.shopped, recipeId]) : previous.shopped,
+  }))
+}
+
+/**
+ * A recipe already shopped for goes back on the grocery list: the groceries
+ * were not bought, or went off. Old ticks go first, as when adding.
+ */
+export async function shopForAgain(shop: Shop, recipeId: string, onShopChange: ShopChange) {
+  const stale = await clearStaleChecks(shop)
+  onShopChange((previous) => withoutChecks(previous, stale))
+  const { data, error } = await supabase.from('plan_items').update({ shopped: false }).eq('recipe_id', recipeId).select('recipe_id')
   if (error) throw new Error(`Could not put it back on the list: ${error.message}`)
+  if (data.length !== 1) throw new Error('It is not on this week’s plan any more: it was cooked or taken off on another device.')
+  onShopChange((previous) => {
+    const shopped = new Set(previous.shopped)
+    shopped.delete(recipeId)
+    return { ...previous, shopped }
+  })
 }
 
 export const addToKit = (id: EquipmentId) => add('kit_items', { equipment_id: id }, 'add it to your kit')

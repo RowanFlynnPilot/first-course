@@ -30,8 +30,8 @@ export interface GroceryList {
   readonly sections: readonly { readonly id: Section; readonly name: string; readonly lines: readonly GroceryLine[] }[]
   readonly lines: readonly GroceryLine[]
   readonly totalCents: number
-  /** Ingredients the plan uses that the pantry already has, so they are left off. */
-  readonly inPantry: readonly IngredientId[]
+  /** Ingredients the plan uses that the pantry already has, so they are left off, with what the plan uses. */
+  readonly inPantry: readonly { readonly ingredientId: IngredientId; readonly qty: number }[]
 }
 
 export function groceryList(plan: readonly string[], pantry: ReadonlySet<IngredientId>, prices: Prices): GroceryList {
@@ -43,10 +43,10 @@ export function groceryList(plan: readonly string[], pantry: ReadonlySet<Ingredi
   }
 
   const lines: GroceryLine[] = []
-  const inPantry: IngredientId[] = []
+  const inPantry: { ingredientId: IngredientId; qty: number }[] = []
   for (const [ingredientId, qty] of needed) {
     if (pantry.has(ingredientId)) {
-      inPantry.push(ingredientId)
+      inPantry.push({ ingredientId, qty })
       continue
     }
     const packages = Math.ceil(qty / INGREDIENTS[ingredientId].package.units)

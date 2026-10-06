@@ -15,17 +15,18 @@ describe('the after-cook notice', () => {
     const notice = cookNotice(recipeById('chopped-salad'), [], log('chopped-salad', 2), 'Remy', ESTIMATES)
     expect(notice.xpBefore).toBe(0)
     expect(notice.lines).toEqual([
-      '+120 XP. Level 2.',
+      'Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.',
       'Kept $22.50 by not ordering.',
       'Learned knife basics and seasoning to taste.',
-      'Now ready to cook: Sheet-pan sausage and vegetables.',
     ])
+    // What opened up is a list of recipes, so the menu can link each one.
+    expect(notice.readyNow.map((recipe) => recipe.id)).toEqual(['sheet-pan-sausage'])
     expect(notice).toMatchObject({ levelUp: 2, promotion: null, badges: ['first-cook'], usualUnlocked: [] })
   })
 
   it('says what a rough cook still owes', () => {
     const notice = cookNotice(recipeById('soft-scrambled-eggs'), [], log('soft-scrambled-eggs', 1), 'Remy', ESTIMATES)
-    expect(notice.lines[0]).toBe('+10 XP.')
+    expect(notice.lines[0]).toBe('Soft scrambled eggs on toast: Rough. +10 XP.')
     expect(notice.lines).toContain('Cook it again at “Decent” or better to learn heat control.')
   })
 
@@ -33,7 +34,7 @@ describe('the after-cook notice', () => {
     // 260 XP before; the next good cook crosses 300, which is level 3 and prep cook.
     const before = [log('chopped-salad', 2), log('soft-scrambled-eggs', 2), log('grilled-cheese', 2)]
     const notice = cookNotice(recipeById('sheet-pan-sausage'), before, log('sheet-pan-sausage', 2), 'Remy', ESTIMATES)
-    expect(notice.lines[0]).toBe('+70 XP. Level 3.')
+    expect(notice.lines[0]).toBe('Sheet-pan sausage and vegetables: Decent. +70 XP. Level 3.')
     expect(notice.lines[1]).toBe('Remy is promoted to prep cook.')
     expect(notice).toMatchObject({ levelUp: 3, promotion: 1 })
   })
@@ -41,7 +42,7 @@ describe('the after-cook notice', () => {
   it('names what a good cook opened up', () => {
     const before = [log('chopped-salad', 2), log('soft-scrambled-eggs', 2)]
     const notice = cookNotice(recipeById('aglio-e-olio'), before, log('aglio-e-olio', 2), 'Remy', ESTIMATES)
-    expect(notice.lines).toContain('Now ready to cook: Pasta with quick marinara and Pasta al limone.')
+    expect(notice.readyNow.map((recipe) => recipe.title)).toEqual(['Pasta with quick marinara', 'Pasta al limone'])
   })
 
   it('opens a Fourth-course recipe only once a Third-course skill it needs is learned', () => {
@@ -49,7 +50,7 @@ describe('the after-cook notice', () => {
     const before = ['chopped-salad', 'soft-scrambled-eggs', 'aglio-e-olio', 'pasta-al-limone', 'seared-chicken-thighs', 'oven-fries-aioli']
       .map((id) => log(id, 2))
     const notice = cookNotice(recipeById('chicken-pan-sauce'), before, log('chicken-pan-sauce', 2), 'Remy', ESTIMATES)
-    expect(notice.lines.find((line) => line.startsWith('Now ready to cook:'))).toContain('Spaghetti carbonara')
+    expect(notice.readyNow.map((recipe) => recipe.id)).toContain('carbonara')
   })
 
   it('announces mastery and the end of XP for a recipe', () => {
@@ -57,13 +58,15 @@ describe('the after-cook notice', () => {
     const two = [log(eggs.id, 2), log(eggs.id, 2)]
     expect(cookNotice(eggs, two, log(eggs.id, 3), 'Remy', ESTIMATES).lines).toContain('Soft scrambled eggs on toast is mastered.')
     const five = [...two, log(eggs.id, 3), log(eggs.id, 3), log(eggs.id, 3)]
-    expect(cookNotice(eggs, five, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe('No XP this time. A recipe pays out for its first 5 cooks.')
+    expect(cookNotice(eggs, five, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe(
+      'Soft scrambled eggs on toast: Nailed it. No XP this time. A recipe pays out for its first 5 cooks.',
+    )
   })
 
   it('names an extra the cook just earned', () => {
     const before = [log('smash-cheeseburger', 2), log('smash-cheeseburger', 2), log('onion-melt', 2), log('onion-melt', 3)]
     const notice = cookNotice(recipeById('smash-cheeseburger'), before, log('smash-cheeseburger', 2), 'Remy', ESTIMATES)
-    expect(notice.lines).toContain('New extra for Remy: Red clogs. Put it on from the chef sheet.')
+    expect(notice.newExtras).toEqual(['red-clogs'])
   })
 
   it('makes a dish of the usual coming into reach its own moment, not a line', () => {
@@ -78,7 +81,8 @@ describe('the after-cook notice', () => {
     const before = [log('chopped-salad', 2)]
     const notice = cookNotice(recipeById('chopped-salad'), before, log('chopped-salad', 3), 'Remy', ESTIMATES)
     expect(notice.badges).toEqual(['nailed-it'])
-    expect(notice.lines.some((line) => line.includes('Nailed it'))).toBe(false)
+    // The first line names the rating; no line repeats the badge.
+    expect(notice.lines.slice(1).some((line) => line.includes('Nailed it'))).toBe(false)
     expect(notice.levelUp).toBeNull()
   })
 })

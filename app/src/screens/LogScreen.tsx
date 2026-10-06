@@ -3,11 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
 import type { Chef } from '../lib/chefs'
-import { insertCookLog } from '../lib/cookLogs'
+import { insertCookLog, newCookId } from '../lib/cookLogs'
 import type { Prices } from '../lib/cost'
-import { localDateString } from '../lib/format'
+import { checkCookedOn, localDateString } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
-import { cookable, type CookLog, type Rating } from '../lib/progress'
+import { cookable, whatTheRatingDecides, type CookLog, type Rating } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
 
 export function LogScreen({
@@ -32,6 +32,8 @@ export function LogScreen({
   // Today where the cook is, unless they are logging one from another day. Read the clock once.
   const [today] = useState(() => localDateString(new Date()))
   const [cookedOn, setCookedOn] = useState(today)
+  // One id for this cook, however many times Save is tapped.
+  const [cookId] = useState(newCookId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,8 +42,8 @@ export function LogScreen({
     if (rating === null) return
     setBusy(true)
     try {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(cookedOn)) throw new Error('Choose the date you cooked it.')
-      const log = await insertCookLog({ recipeId: recipe.id, cookedOn, rating, notes: notes.trim() })
+      checkCookedOn(cookedOn, today)
+      const log = await insertCookLog({ id: cookId, recipeId: recipe.id, cookedOn, rating, notes: notes.trim() })
       // The cook is over: its timers are done.
       clearTimers(sessionStorage, recipe.id)
       onLogged(log, cookNotice(recipe, logs, log, chef.name, prices))
@@ -60,6 +62,7 @@ export function LogScreen({
       </nav>
       <h1 className="title">How did it go?</h1>
       <form className="form" onSubmit={save}>
+        <p className="section-note">{whatTheRatingDecides(recipe, logs)}</p>
         <RatingPicker value={rating} onChange={setRating} />
         <label className="field">
           Notes for next time

@@ -36,6 +36,9 @@ test.describe('signing in and creating a chef', () => {
 
   test('creates an account and goes straight to creating a chef', async ({ page, kitchen }) => {
     await kitchen.open('./', { signedIn: false })
+    await page.getByRole('button', { name: 'New here? Create an account' }).click()
+    await expect(page).toHaveTitle('Create an account · First Course')
+    await expect(page.getByLabel('Password')).toHaveAttribute('autocomplete', 'new-password')
     await expect(page.getByRole('button', { name: 'Create account' })).toBeDisabled()
     await page.getByLabel('Email').fill('new-cook@example.test')
     await page.getByLabel('Password').fill('a long enough password')
@@ -45,6 +48,7 @@ test.describe('signing in and creating a chef', () => {
 
   test('with email confirmation on, as on the live site, sign-up says to check email', async ({ page, kitchen }) => {
     await kitchen.open('./', { signedIn: false, confirmEmail: true })
+    await page.getByRole('button', { name: 'New here? Create an account' }).click()
     await page.getByLabel('Email').fill('new-cook@example.test')
     await page.getByLabel('Password').fill('a long enough password')
     await page.getByRole('button', { name: 'Create account' }).click()
@@ -99,7 +103,7 @@ test.describe('signing in and creating a chef', () => {
     await kitchen.open('./#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired', {
       signedIn: false,
     })
-    await expect(page.getByRole('alert')).toHaveText('Email link is invalid or has expired')
+    await expect(page.getByRole('alert')).toHaveText('That email link has expired.')
     await expect(page.getByText(/^Email links expire\./)).toBeVisible()
     // Left in the address, the router would take the error for a page.
     expect(new URL(page.url()).hash).toBe('')
@@ -130,5 +134,16 @@ test.describe('signing in and creating a chef', () => {
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
     await expect(page.getByText('$22.50')).toBeVisible()
+  })
+
+  test('Back after a reset link never lands on the link, or keeps its tokens in history', async ({ page, kitchen }) => {
+    await page.goto('about:blank')
+    await kitchen.open(`./${kitchen.backend.recoveryHash()}`, { signedIn: false })
+    await page.getByLabel('New password').fill('a brand new password')
+    await page.getByRole('button', { name: 'Save new password' }).click()
+    await page.getByRole('button', { name: 'Go to the menu' }).click()
+    await expect(page.getByText('Cook this next')).toBeVisible()
+    await page.goBack()
+    expect(page.url()).not.toContain('access_token')
   })
 })

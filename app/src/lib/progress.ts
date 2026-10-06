@@ -3,6 +3,7 @@
 
 import { RECIPES, recipeById } from '../curriculum/recipes'
 import type { TechniqueId } from '../curriculum/techniques'
+import { skillList } from './format'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 
 export type Rating = 1 | 2 | 3
@@ -55,6 +56,35 @@ export function recipeState(recipe: Recipe, logs: readonly CookLog[]): RecipeSta
   const nailedOnce = own.some((log) => log.rating === 3)
   if (goodCooks(recipe, logs) >= MASTERED_COOKS && nailedOnce) return 'mastered'
   return 'cooked'
+}
+
+/**
+ * Unlocked recipes not on this week's plan, in the order the menu suggests
+ * them: those without a good cook first, then those not yet mastered.
+ */
+export function readyToPlan(logs: readonly CookLog[], plan: readonly string[]): Recipe[] {
+  const open = RECIPES.filter((recipe) => !plan.includes(recipe.id) && recipeState(recipe, logs) !== 'locked')
+  return [
+    ...open.filter((recipe) => goodCooks(recipe, logs) === 0),
+    ...open.filter((recipe) => goodCooks(recipe, logs) > 0 && recipeState(recipe, logs) !== 'mastered'),
+  ]
+}
+
+/**
+ * What this cook's rating decides, said before it is saved: the skills a
+ * good cook teaches, or how far the recipe is from mastery.
+ */
+export function whatTheRatingDecides(recipe: Recipe, logs: readonly CookLog[]): string {
+  const learned = learnedTechniques(logs)
+  const toLearn = recipe.teaches.filter((technique) => !learned.has(technique))
+  if (toLearn.length > 0) return `Decent or better teaches ${skillList(toLearn)}.`
+  if (recipeState(recipe, logs) === 'mastered') return 'Mastered already. Every cook still counts toward what you keep.'
+  const good = goodCooks(recipe, logs)
+  const nailed = logs.some((log) => log.recipeId === recipe.id && log.rating === 3)
+  const more = Math.max(0, MASTERED_COOKS - good)
+  if (more === 0) return 'A “Nailed it” masters it.'
+  const cooks = more === 1 ? 'One more good cook' : `${more} more good cooks`
+  return nailed ? `${cooks} masters it.` : `${cooks}, one of them “Nailed it”, master it.`
 }
 
 /** The one recipe that teaches a skill (locked decision 3). */

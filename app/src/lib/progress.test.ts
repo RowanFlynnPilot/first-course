@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { recipeById } from '../curriculum/recipes'
-import { cookable, lastNote, learnedTechniques, nextRecipe, recipeState, type CookLog, type Rating } from './progress'
+import {
+  cookable,
+  lastNote,
+  learnedTechniques,
+  nextRecipe,
+  readyToPlan,
+  recipeState,
+  whatTheRatingDecides,
+  type CookLog,
+  type Rating,
+} from './progress'
 
 let counter = 0
 function log(recipeId: string, rating: Rating): CookLog {
@@ -67,5 +77,23 @@ describe('progress', () => {
     expect(lastNote(eggs.id, [noted('2026-10-01', ''), log('chopped-salad', 2)])).toBeNull()
     const logs = [noted('2026-10-02', 'Lower heat.'), noted('2026-09-01', 'Older.'), noted('2026-10-02', 'More butter.'), noted('2026-10-03', '')]
     expect(lastNote(eggs.id, logs)).toBe('More butter.')
+  })
+
+  it('says before saving what the rating decides', () => {
+    const salad = recipeById('chopped-salad')
+    expect(whatTheRatingDecides(salad, [])).toBe('Decent or better teaches knife basics and seasoning to taste.')
+    expect(whatTheRatingDecides(salad, [log(salad.id, 2)])).toBe('2 more good cooks, one of them “Nailed it”, master it.')
+    expect(whatTheRatingDecides(salad, [log(salad.id, 2), log(salad.id, 3)])).toBe('One more good cook masters it.')
+    expect(whatTheRatingDecides(salad, [log(salad.id, 2), log(salad.id, 2), log(salad.id, 2)])).toBe('A “Nailed it” masters it.')
+    expect(whatTheRatingDecides(salad, [log(salad.id, 2), log(salad.id, 2), log(salad.id, 3)])).toMatch(/^Mastered already/)
+  })
+
+  it('offers unplanned recipes in the order the menu suggests them', () => {
+    const logs = [log('chopped-salad', 2)]
+    const ready = readyToPlan(logs, ['soft-scrambled-eggs']).map((recipe) => recipe.id)
+    expect(ready).not.toContain('soft-scrambled-eggs')
+    expect(ready).not.toContain('grilled-cheese')
+    // Not yet cooked well comes before cooked and not mastered.
+    expect(ready.indexOf('sheet-pan-sausage')).toBeLessThan(ready.indexOf('chopped-salad'))
   })
 })

@@ -35,7 +35,7 @@ describe('the grocery list', () => {
   it('leaves off what the pantry has, and says so', () => {
     const list = groceryList(['grilled-cheese'], new Set<IngredientId>(['butter']), ESTIMATES)
     expect(list.lines.map((line) => line.ingredientId)).toEqual(['cheddar', 'sandwich-bread'])
-    expect(list.inPantry).toEqual(['butter'])
+    expect(list.inPantry).toEqual([{ ingredientId: 'butter', qty: 1 }])
   })
 
   it('charges the price the cook corrected', () => {

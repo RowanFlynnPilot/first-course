@@ -116,6 +116,8 @@ describe('written recipes', () => {
       for (const step of content.steps) {
         if (step.timer === null) continue
         formatDuration(step.timer.seconds) // throws unless it is whole minutes, as the recipe page prints it
+        // Unique in the recipe: cook mode keeps its timers by label.
+        expect(content.steps.filter((other) => other.timer?.label === step.timer?.label), `${id}: ${step.timer.label}`).toHaveLength(1)
         // Short enough for a chip at the top of cook mode, beside its clock.
         expect(step.timer.label.length, `${id}: ${step.timer.label}`).toBeGreaterThan(0)
         expect(step.timer.label.length, `${id}: ${step.timer.label}`).toBeLessThanOrEqual(16)

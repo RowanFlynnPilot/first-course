@@ -1,4 +1,4 @@
-import { cookThrough, expect, FRESH, noticeLines, rateAndSave, test } from './kitchen'
+import { cookThrough, expect, FRESH, noticeLines, rateAndSave, SALAD_DONE, test } from './kitchen'
 
 // An evening cook in Wausau. In UTC it is already October 4, which is why the
 // client sends its own date (locked decision 10).
@@ -40,7 +40,7 @@ test.describe('cooking and logging', () => {
     await rateAndSave(page, 'Decent', 'More lemon next time.')
 
     await expect(noticeLines(page)).toHaveText([
-      '+120 XP. Level 2.',
+      'Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.',
       'Kept $22.50 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
@@ -51,8 +51,9 @@ test.describe('cooking and logging', () => {
     // The yolk lands on the plate just cooked, and only there.
     await expect(page.locator('.plate-celebrate')).toHaveCount(1)
     await expect(page.getByRole('link', { name: /Chopped salad/ }).locator('.plate-celebrate')).toHaveCount(1)
-    // What unlocked is now ready on the menu.
-    await expect(page.getByRole('link', { name: /Sheet-pan sausage/ })).toContainText('Teaches roasting')
+    // What unlocked is linked from the notice, and ready on the menu.
+    await expect(page.getByRole('status').getByRole('link', { name: 'Sheet-pan sausage and vegetables' })).toBeVisible()
+    await expect(page.locator('a.row').filter({ hasText: 'Sheet-pan sausage' })).toContainText('Teaches roasting')
 
     expect(kitchen.backend.table('cook_logs')).toMatchObject([
       { recipe_id: 'chopped-salad', rating: 2, notes: 'More lemon next time.', cooked_on: '2026-10-03' },
@@ -64,7 +65,7 @@ test.describe('cooking and logging', () => {
     await page.getByRole('link', { name: 'Start cooking' }).click()
     await cookThrough(page)
     await rateAndSave(page, 'Decent')
-    await expect(noticeLines(page).first()).toHaveText('+120 XP. Level 2.')
+    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.')
     await page.goBack()
     await expect(page.getByText('Step 8 of 8')).toBeVisible()
     expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
@@ -84,11 +85,12 @@ test.describe('cooking and logging', () => {
     await kitchen.open('#/cook/soft-scrambled-eggs/log', FRESH)
     await rateAndSave(page, 'Rough')
     await expect(noticeLines(page)).toHaveText([
-      '+10 XP.',
+      'Soft scrambled eggs on toast: Rough. +10 XP.',
       'Kept $17.15 by not ordering.',
       'Cook it again at “Decent” or better to learn heat control.',
     ])
-    await expect(page.getByRole('link', { name: /Soft scrambled eggs/ })).toContainText('Cooked 1 time')
+    // The menu row says what a Decent cook would do.
+    await expect(page.getByRole('link', { name: /Soft scrambled eggs/ })).toContainText('Rough so far. A Decent cook teaches heat control')
     await expect(page.getByRole('link', { name: /Grilled cheese/ })).toContainText('Needs heat control')
   })
 
@@ -122,7 +124,40 @@ test.describe('cooking and logging', () => {
     await expect(page.getByRole('alert')).toHaveText('Could not save this cook: the database is asleep')
     expect(kitchen.backend.table('cook_logs')).toHaveLength(0)
     await page.getByRole('button', { name: 'Save this cook' }).click()
-    await expect(noticeLines(page).first()).toHaveText('+130 XP. Level 2.')
+    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Nailed it. +130 XP. Level 2.')
     expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
+  })
+
+  test('a save whose answer is lost on weak signal is not logged twice when tried again', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/chopped-salad/log', FRESH)
+    kitchen.backend.loseNextAnswer('cook_logs', 'POST')
+    await rateAndSave(page, 'Decent')
+    await expect(page.getByRole('alert')).toContainText('Could not save this cook')
+    // The first try landed; only its answer was lost.
+    expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
+    await page.getByRole('button', { name: 'Save this cook' }).click()
+    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.')
+    expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
+  })
+
+  test('a cook cannot be dated after today, even where the phone ignores the date limit', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/chopped-salad/log', FRESH)
+    await page.getByLabel('Cooked on').evaluate((input) => input.removeAttribute('max'))
+    await page.getByLabel('Cooked on').fill('2099-01-01')
+    await rateAndSave(page, 'Decent')
+    await expect(page.getByRole('alert')).toHaveText('A cook cannot be dated after today.')
+    expect(kitchen.backend.table('cook_logs')).toEqual([])
+  })
+
+  test('the log form says what the rating decides', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/chopped-salad/log', FRESH)
+    await expect(page.getByText('Decent or better teaches knife basics and seasoning to taste.')).toBeVisible()
+  })
+
+  test('cook mode shows what comes next', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/sheet-pan-sausage/2', SALAD_DONE)
+    await expect(page.getByText('Next: Roast the potatoes on their own.')).toBeVisible()
+    await page.goto('#/cook/sheet-pan-sausage/7')
+    await expect(page.getByText('Next: log how it went.')).toBeVisible()
   })
 })
