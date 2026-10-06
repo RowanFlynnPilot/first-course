@@ -9,7 +9,7 @@ export function formatCents(cents: number): string {
 }
 
 // Every eighth, so any sum of recipe quantities prints: the grocery list adds
-// the plan's amounts together (⅛ teaspoon of pepper plus ¼ is ⅜).
+// the plan's amounts together (⅛ plus ¼ is ⅜).
 const FRACTIONS: Record<string, string> = {
   '0.125': '⅛',
   '0.25': '¼',

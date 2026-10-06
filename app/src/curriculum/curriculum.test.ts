@@ -111,6 +111,10 @@ describe('written recipes', () => {
         expect(line.qty, `${id} ${line.ingredientId}`).toBeGreaterThan(0)
         // Whole eighths, so any sum of them prints on the grocery list too.
         expect(Number.isInteger(line.qty * 8), `${id} ${line.ingredientId} is not a whole number of eighths`).toBe(true)
+        // A standard set of measuring spoons stops at ¼ teaspoon.
+        if (INGREDIENTS[line.ingredientId].unit === 'tsp') {
+          expect(Number.isInteger(line.qty * 4), `${id} ${line.ingredientId} is not a whole number of quarter teaspoons`).toBe(true)
+        }
         formatAmount(line.qty, INGREDIENTS[line.ingredientId].unit) // throws on an unprintable fraction
       }
       for (const step of content.steps) {

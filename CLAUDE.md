@@ -272,7 +272,8 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   in oil, a strip of chicken on a spoon) the tip must sit in the middle of
   the meat: a tip that pokes out reads the oil or the spoon.
 - Measure in spoons a standard set has: "1½ teaspoons", never "½
-  tablespoon".
+  tablespoon". Teaspoon amounts come in quarters, because a standard set
+  stops at ¼ teaspoon. (The eggs once used ⅛ teaspoon of pepper.)
 - A step that starts a long timer the cook should not wait on (a dough's
   rise while the oven heats) says to go straight on to the next step. An
   instruction due partway through a long timer ("with 30 minutes left")
@@ -319,8 +320,9 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   thermometer check (the tip or probe, "stops climbing", what to do if it
   is lower); a step that separates an egg uses `pasteurized-eggs`; a timer
   of 30 minutes or more says to go on, or what happens meanwhile; pouring
-  into the colander names oven mitts and "away from you"; and no recipe
-  uses a whole package of a staple (that is not a staple).
+  into the colander names oven mitts and "away from you"; teaspoon
+  amounts are whole quarters; and no recipe uses a whole package of a
+  staple (that is not a staple).
 - A sauce that simmers tomatoes for 20 minutes or more goes in a saucepan,
   not the skillet: the kit steers a buyer to cast iron, and long acid
   simmers strip its seasoning and taste of metal.

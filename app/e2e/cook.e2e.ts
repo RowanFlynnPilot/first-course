@@ -86,7 +86,7 @@ test.describe('cooking and logging', () => {
     await rateAndSave(page, 'Rough')
     await expect(noticeLines(page)).toHaveText([
       'Soft scrambled eggs on toast: Rough. +10 XP.',
-      'Kept $17.15 by not ordering.',
+      'Kept $17.12 by not ordering.',
       'Cook it again at “Decent” or better to learn heat control.',
     ])
     // The menu row says what a Decent cook would do.

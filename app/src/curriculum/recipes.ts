@@ -104,7 +104,7 @@ export const RECIPES: readonly Recipe[] = [
         { ingredientId: 'butter', qty: 1.5, prep: '1 for the pan, ½ for the toast' },
         { ingredientId: 'sandwich-bread', qty: 2, prep: null },
         { ingredientId: 'kosher-salt', qty: 0.25, prep: null },
-        { ingredientId: 'black-pepper', qty: 0.125, prep: null },
+        { ingredientId: 'black-pepper', qty: 0.25, prep: null },
       ],
       steps: [
         {
@@ -1311,7 +1311,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
       ],
-      delivery: { label: 'Double cheeseburger', menuPriceCents: 1350 },
+      delivery: { label: 'Two cheeseburgers', menuPriceCents: 1350 },
       pairing: {
         wine: 'Zinfandel',
         principle: 'Char and fat want ripe fruit',
