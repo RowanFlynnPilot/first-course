@@ -175,11 +175,20 @@ export const resetPrice = (id: IngredientId) =>
   remove('price_overrides', 'ingredient_id', id, 'go back to the estimate')
 
 /**
- * "Done shopping": bought staples go into the pantry, the checks are cleared,
- * and the plan is marked shopped. One transaction. The plan itself stays until
- * each recipe is cooked.
+ * "Done shopping": bought staples go into the pantry, the ticks this list
+ * showed are cleared, and the recipes it covered are marked shopped. One
+ * transaction (00007). Only what this device saw changes, so a recipe or a
+ * tick added on another device meanwhile is left alone.
  */
-export async function finishShopping(boughtStaples: readonly IngredientId[]) {
-  const { error } = await supabase.rpc('finish_shopping', { bought_staples: boughtStaples })
+export async function finishShopping(done: {
+  boughtStaples: readonly IngredientId[]
+  shoppedRecipes: readonly string[]
+  seenChecks: readonly IngredientId[]
+}) {
+  const { error } = await supabase.rpc('finish_shopping', {
+    bought_staples: done.boughtStaples,
+    shopped_recipes: done.shoppedRecipes,
+    seen_checks: done.seenChecks,
+  })
   if (error) throw new Error(`Could not finish shopping: ${error.message}`)
 }

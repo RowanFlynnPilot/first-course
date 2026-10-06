@@ -256,4 +256,18 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(tray.getByRole('button', { name: 'Add to this week' })).toHaveCount(0)
     expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'chopped-salad' }])
   })
+
+  test('Done shopping leaves alone what another device added meanwhile', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['chopped-salad'], checks: ['lemon'] })
+    await expect(page.getByRole('checkbox', { name: /Lemon/ })).toBeChecked()
+    // The laptop plans the eggs and ticks the butter after the phone loaded its list.
+    kitchen.backend.writeElsewhere('plan_items', { recipe_id: 'soft-scrambled-eggs', shopped: false })
+    kitchen.backend.writeElsewhere('grocery_checks', { ingredient_id: 'butter' })
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByRole('status')).toHaveText(/^Done shopping\./)
+    const plan = Object.fromEntries(kitchen.backend.table('plan_items').map((row) => [row.recipe_id, row.shopped]))
+    expect(plan).toEqual({ 'chopped-salad': true, 'soft-scrambled-eggs': false })
+    expect(kitchen.backend.table('grocery_checks').map((row) => row.ingredient_id)).toEqual(['butter'])
+  })
 })

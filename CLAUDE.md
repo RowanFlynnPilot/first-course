@@ -102,6 +102,8 @@ supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                  more colors, chosen extras)
                                00006_keep_the_plan.sql (Done shopping marks the plan
                                  shopped; saving a cook takes its recipe off)
+                               00007_shop_what_you_saw.sql (Done shopping changes only
+                                 the recipes and ticks this device showed)
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
@@ -675,10 +677,16 @@ build; a failed run keeps its traces as an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **All six migrations are applied to the live project** (00001 to 00005
-  on October 4, 2026, 00006 on October 5). Rowan pushed each one before the
-  app code that needs it deployed: a migration always goes first. `00006`
-  was checked on a throwaway stack first
+- **Migrations 00001 to 00006 are applied to the live project** (00001 to
+  00005 on October 4, 2026, 00006 on October 5). `00007_shop_what_you_saw.sql`
+  is written and checked, and waits for Rowan to run `npx supabase db push`
+  before the app code that needs it deploys: a migration always goes first.
+  `00007` was checked on a throwaway stack (14 checks: only the listed
+  recipes are marked shopped and only the seen ticks cleared, a recipe and
+  a tick added elsewhere survive, the one-argument function is gone, anon
+  refused, the 00006 trigger still fires, and a cook can carry its own id,
+  which a second insert refuses with 23505). `00006` was checked on a
+  throwaway stack first
   (30 checks: Done shopping keeps the plan and marks only the caller's rows
   shopped, a recipe added afterwards is not shopped, saving a cook takes
   only that cook's recipe off only their plan, a cook of an unplanned
@@ -743,7 +751,10 @@ Migration `00004_shop_kit_and_cook_edits.sql` (applied), all tables keyed by
   `(user_id, ingredient_id)`; select, insert, update, delete
 - `kit_items (user_id, equipment_id)`, primary key both
 - `finish_shopping(bought_staples text[])`: "Done shopping" in one
-  transaction, security invoker, executable by `authenticated` only
+  transaction, security invoker, executable by `authenticated` only (since
+  00007, `finish_shopping(bought_staples, shopped_recipes, seen_checks)`:
+  it marks shopped only the recipes the list covered and clears only the
+  ticks it showed, so another device's additions are left alone)
 - `cook_logs` gains update of `cooked_on`, `rating` and `notes` (never
   `recipe_id`) and delete
 
@@ -847,8 +858,8 @@ precisely" and "Design").
 ## Where things stand, and what comes next
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), all six migrations are
-on the live project, and every push runs 109 unit tests and 129 e2e tests before it deploys.
+recipes are written (four courses and the usual), migrations 00001 to
+00006 are on the live project (00007 is ready to push), and every push runs 109 unit tests and 130 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

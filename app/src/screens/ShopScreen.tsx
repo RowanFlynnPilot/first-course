@@ -62,12 +62,13 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
       return
     }
     const staples = inCart.map((line) => line.ingredientId).filter((id) => INGREDIENTS[id].staple)
+    const seenChecks = [...shop.checks]
     await finish.run(async () => {
-      await finishShopping(staples)
+      await finishShopping({ boughtStaples: staples, shoppedRecipes: toShop, seenChecks })
       onShopChange((previous) => ({
         ...previous,
-        shopped: new Set(previous.plan),
-        checks: new Set(),
+        shopped: new Set([...previous.shopped, ...toShop]),
+        checks: new Set([...previous.checks].filter((id) => !seenChecks.includes(id))),
         pantry: new Set([...previous.pantry, ...staples]),
       }))
       setFinished(

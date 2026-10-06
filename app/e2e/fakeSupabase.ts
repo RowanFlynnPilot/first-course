@@ -536,20 +536,25 @@ export class FakeSupabase {
     const args = request.postDataJSON() as Record<string, unknown>
 
     if (fn === 'finish_shopping') {
-      const staples = args.bought_staples
-      if (Object.keys(args).join() !== 'bought_staples' || !Array.isArray(staples) || !staples.every((id) => typeof id === 'string')) {
+      const { bought_staples: staples, shopped_recipes: recipes, seen_checks: seen } = args
+      const texts = (value: unknown): value is string[] => Array.isArray(value) && value.every((id) => typeof id === 'string')
+      if (Object.keys(args).sort().join() !== 'bought_staples,seen_checks,shopped_recipes' || !texts(staples) || !texts(recipes) || !texts(seen)) {
         return json(route, request, 404, {
           code: 'PGRST202',
           message: `Could not find the function public.finish_shopping(${Object.keys(args).join(', ')})`,
         })
       }
-      // 00006: stock the pantry with the bought staples, clear the checks, and mark the plan shopped.
+      // 00007: stock the pantry with the bought staples, clear the ticks the device saw, and mark the recipes it covered shopped.
       for (const ingredient_id of new Set(staples)) {
         const stocked = this.table('pantry_items').some((row) => row.user_id === userId && row.ingredient_id === ingredient_id)
         if (!stocked) this.insertRow('pantry_items', { user_id: userId, ingredient_id })
       }
-      this.rows.grocery_checks = this.table('grocery_checks').filter((row) => row.user_id !== userId)
-      for (const row of this.table('plan_items')) if (row.user_id === userId) row.shopped = true
+      this.rows.grocery_checks = this.table('grocery_checks').filter(
+        (row) => row.user_id !== userId || !seen.includes(String(row.ingredient_id)),
+      )
+      for (const row of this.table('plan_items')) {
+        if (row.user_id === userId && recipes.includes(String(row.recipe_id))) row.shopped = true
+      }
       // A function returning void answers 204.
       return route.fulfill({ status: 204, headers: corsHeaders(request) })
     }

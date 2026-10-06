@@ -47,7 +47,7 @@ cd C:\Users\rpfly\Projects\first-course; npx supabase link --project-ref <your-p
 npx supabase db push
 ```
 
-Applies six migrations, each with explicit grants and row-level security so
+Applies seven migrations, each with explicit grants and row-level security so
 a cook touches only their own rows:
 
 - `00001_phase1_foundation.sql`: the cook log
@@ -59,6 +59,8 @@ a cook touches only their own rows:
   hair colors, and the extras the chef wears
 - `00006_keep_the_plan.sql`: Done shopping marks the plan shopped instead of
   clearing it, and saving a cook takes its recipe off the plan
+- `00007_shop_what_you_saw.sql`: Done shopping changes only the recipes and
+  ticks the device showed, so another device's additions are left alone
 
 If earlier migrations are already pushed, the same command applies only the
 new ones. `npx supabase db push --dry-run` shows which first.
@@ -118,7 +120,7 @@ The deploy workflow runs these, and nothing deploys unless all pass:
       the badges.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 129 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 130 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired email link, creating
     and changing the chef, the character
