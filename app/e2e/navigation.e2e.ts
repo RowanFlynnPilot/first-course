@@ -3,7 +3,7 @@
 
 import { recipeById } from '../src/curriculum/recipes'
 import { pathTo } from '../src/lib/progress'
-import { expect, FRESH, SALAD_DONE, test } from './kitchen'
+import { awayFor, expect, FRESH, SALAD_DONE, test } from './kitchen'
 
 test.describe('moving between screens', () => {
   test('each screen has its own title, and focus moves to the new heading', async ({ page, kitchen }) => {
@@ -132,15 +132,28 @@ test.describe('moving between screens', () => {
     await kitchen.open('./', FRESH)
     await expect(page.locator('.kept')).toHaveText('$0.00 kept by cooking')
     kitchen.backend.writeElsewhere('cook_logs', { recipe_id: 'chopped-salad', rating: 2, cooked_on: '2026-10-03', notes: '' })
-    const show = (state: 'hidden' | 'visible') =>
-      page.evaluate((next) => {
-        Object.defineProperty(document, 'visibilityState', { configurable: true, value: next })
-        document.dispatchEvent(new Event('visibilitychange'))
-      }, state)
-    await show('hidden')
-    await page.clock.fastForward('11:00')
-    await show('visible')
+    await awayFor(page, 11)
     await expect(page.locator('.kept')).toHaveText('$16.76 kept by cooking')
+  })
+
+  test('every control is a full-size tap target, 3rem each way, the ways back included', async ({ page, kitchen }) => {
+    await kitchen.open('./', { ...SALAD_DONE, plan: ['sheet-pan-sausage'] })
+    const routes = ['./', '#/recipe/sheet-pan-sausage', '#/cook/sheet-pan-sausage/3', '#/shop', '#/chef', '#/kit', '#/pantry', '#/spices']
+    for (const route of routes) {
+      await page.goto(route)
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      // Links inside a sentence are exempt; every control on its own is not.
+      const small = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('button, a.button, .link-button, .back a, .cook-head > a, .timer-chip, .row, summary')]
+          .filter((element) => element.offsetParent !== null)
+          .filter((element) => {
+            const box = element.getBoundingClientRect()
+            return box.height < 47.5 || box.width < 47.5
+          })
+          .map((element) => (element.textContent ?? '').trim()),
+      )
+      expect(small, route).toEqual([])
+    }
   })
 
   test('with text at 200%, no screen runs off the side', async ({ page, kitchen }) => {

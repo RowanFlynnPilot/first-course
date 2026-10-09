@@ -1,22 +1,9 @@
-import type { Page } from '@playwright/test'
-import { cookNotice, expect, FRESH, noticeLines, SALAD_DONE, test } from './kitchen'
+import { awayFor, cookNotice, expect, FRESH, noticeLines, SALAD_DONE, test } from './kitchen'
 
 // Weak signal and a second device: answers that arrive late or never, and a
 // catch-up that brings in what another device did.
 
 const EVENING = new Date('2026-10-03T18:00:00-05:00')
-
-/** The phone is put away for some minutes, then looked at again. */
-async function awayFor(page: Page, minutes: number) {
-  const show = (state: 'hidden' | 'visible') =>
-    page.evaluate((next) => {
-      Object.defineProperty(document, 'visibilityState', { configurable: true, value: next })
-      document.dispatchEvent(new Event('visibilitychange'))
-    }, state)
-  await show('hidden')
-  await page.clock.fastForward(`${String(minutes).padStart(2, '0')}:00`)
-  await show('visible')
-}
 
 const isRead = (table: string) => (request: { url: () => string; method: () => string }) =>
   request.url().includes(`/rest/v1/${table}`) && request.method() === 'GET'

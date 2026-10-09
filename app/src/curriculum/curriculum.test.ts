@@ -6,7 +6,8 @@ import { cookCostPerServingCents, ESTIMATES, orderCostPerServingCents } from '..
 import { formatAmount, formatDuration } from '../lib/format'
 import { EQUIPMENT, type EquipmentId } from './equipment'
 import { INGREDIENTS, type Ingredient, type IngredientId, type MeatSafety } from './ingredients'
-import { RECIPES } from './recipes'
+import { pathTo } from '../lib/progress'
+import { RECIPES, recipeById } from './recipes'
 import { SPICE_HABITS, SPICES, SPICES_LATER } from './spices'
 import { DISCIPLINES, TECHNIQUES, type TechniqueId } from './techniques'
 import type { RecipeContent } from './types'
@@ -185,6 +186,35 @@ describe('written recipes', () => {
     }
   })
 
+  it('measure in spoons a standard set has: never a fraction of a tablespoon', () => {
+    for (const { id, content } of written) {
+      const words = [...content.steps.flatMap((step) => [step.text, step.why ?? '']), ...content.ingredients.map((line) => line.prep ?? '')]
+      // "1½ tablespoons" is a tablespoon and a half; "½ tablespoon" needs a spoon most sets lack.
+      for (const text of words) expect(text, id).not.toMatch(/(?<!\d)[¼½¾⅓⅔] tablespoon/)
+    }
+  })
+
+  it('say how to peel garlic in every recipe that uses it and can come before the aglio, which teaches it', () => {
+    const aglio = recipeById('aglio-e-olio')
+    for (const recipe of RECIPES) {
+      const garlic = recipe.content.ingredients.some((line) => line.ingredientId === 'garlic')
+      if (!garlic || recipe === aglio || pathTo(recipe, []).includes(aglio)) continue
+      expect(recipe.content.steps.map((step) => step.text).join(' '), recipe.id).toMatch(/\bpeel/i)
+    }
+  })
+
+  it('simmer tomatoes for 20 minutes or more in a saucepan, never the skillet', () => {
+    // The kit steers a buyer to cast iron, and a long acid simmer strips its seasoning.
+    for (const { id, content } of written) {
+      if (!content.ingredients.some((line) => line.ingredientId === 'crushed-tomatoes')) continue
+      for (const step of content.steps) {
+        if (step.timer === null || step.timer.seconds < 20 * 60 || !/simmer/i.test(step.text)) continue
+        expect(step.text, `${id}: ${step.timer.label}`).not.toMatch(/skillet/)
+        expect(content.equipment.some((item) => item.endsWith('saucepan')), id).toBe(true)
+      }
+    }
+  })
+
   it('never say "until done": every doneness cue is something you can see, smell, hear or measure', () => {
     for (const { id, content } of written) {
       for (const step of content.steps) expect(step.text, id).not.toMatch(/until (it is |they are )?done/i)
@@ -316,8 +346,9 @@ describe('written recipes', () => {
 
   it('split an ingredient into parts that add up to the list', () => {
     // "1 for the beef, ½ for the sauce, 6 for the pasta water" is 7½.
-    const amount = String.raw`(\d+)?\s*([⅛¼⅜½⅝¾⅞])?`
-    const GLYPHS: Record<string, number> = { '⅛': 0.125, '¼': 0.25, '⅜': 0.375, '½': 0.5, '⅝': 0.625, '¾': 0.75, '⅞': 0.875 }
+    // Quantities are whole quarters (above), so a split never prints an eighth.
+    const amount = String.raw`(\d+)?\s*([¼½¾])?`
+    const GLYPHS: Record<string, number> = { '¼': 0.25, '½': 0.5, '¾': 0.75 }
     for (const { id, content } of written) {
       for (const line of content.ingredients) {
         // "1 for each batch" is a count, not a part: leave those notes to the reader.

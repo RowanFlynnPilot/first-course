@@ -5,6 +5,7 @@
 import { RECIPES } from '../curriculum/recipes'
 import { SPICES, type SpiceId } from '../curriculum/spices'
 import type { Recipe, Tier } from '../curriculum/types'
+import { byFirstCourse } from './courses'
 
 export interface ShelfSpice {
   readonly id: SpiceId
@@ -12,19 +13,13 @@ export interface ShelfSpice {
   readonly firstIn: Recipe
 }
 
-export function spiceShelf(): { tier: Tier; spices: ShelfSpice[] }[] {
+export function spiceShelf(): { tier: Tier; items: ShelfSpice[] }[] {
   const shelf = (Object.keys(SPICES) as SpiceId[]).map((id) => {
     const firstIn = RECIPES.find((recipe) => recipe.content.ingredients.some((line) => line.ingredientId === id))
     if (firstIn === undefined) throw new Error(`The spice guide lists ${id}, but no recipe uses it`)
     return { id, firstIn }
   })
-  const tiers: Tier[] = [1, 2, 3, 4, 5]
-  return tiers
-    .map((tier) => ({
-      tier,
-      spices: shelf
-        .filter((spice) => spice.firstIn.tier === tier)
-        .sort((a, b) => RECIPES.indexOf(a.firstIn) - RECIPES.indexOf(b.firstIn)),
-    }))
-    .filter((course) => course.spices.length > 0)
+  // In the order the menu first uses them.
+  const ordered = shelf.toSorted((a, b) => RECIPES.indexOf(a.firstIn) - RECIPES.indexOf(b.firstIn))
+  return byFirstCourse(ordered, (spice) => spice.firstIn.tier)
 }

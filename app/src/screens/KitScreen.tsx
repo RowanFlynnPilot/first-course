@@ -7,10 +7,10 @@ import { useWrite } from '../components/useWrite'
 import { usePageTitle } from '../components/usePageTitle'
 import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import type { Tier } from '../curriculum/types'
-import { COURSE_NAMES } from '../lib/format'
 import { hasKit, kitByCourse } from '../lib/kit'
 import { addAllToKit, setInKit, type Shop, type ShopChange } from '../lib/shop'
 import { useKitchen } from '../kitchen'
+import { courseHeading } from '../lib/courses'
 import { MenuLink } from '../components/MenuLink'
 
 export function KitScreen() {
@@ -31,7 +31,7 @@ export function KitScreen() {
         return (
           <section className="section" key={tier}>
             <h2 className="section-title">
-              {tier === 1 ? 'To start' : tier === 5 ? 'For the usual' : `New for the ${COURSE_NAMES[tier].toLowerCase()}`}
+              {courseHeading(tier)}
             </h2>
             <HaveCount tier={tier} have={items.length - missing.length} of={items.length} />
             {missing.length > 0 && <HaveAll tier={tier} items={items} shop={shop} onShopChange={onShopChange} />}

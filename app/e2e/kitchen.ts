@@ -91,6 +91,18 @@ export async function rateAndSave(page: Page, rating: 'Rough' | 'Decent' | 'Nail
 }
 
 /** The lines of the after-cook notice on the menu. */
+/** The phone is put away for some minutes, then looked at again. Needs page.clock installed. */
+export async function awayFor(page: Page, minutes: number) {
+  const show = (state: 'hidden' | 'visible') =>
+    page.evaluate((next) => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: next })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }, state)
+  await show('hidden')
+  await page.clock.fastForward(`${String(minutes).padStart(2, '0')}:00`)
+  await show('visible')
+}
+
 /** An init script that counts every oscillator the page starts: one per beep. */
 export const COUNT_BEEPS = () => {
   const counter = window as unknown as { beeps: number }

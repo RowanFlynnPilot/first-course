@@ -5,7 +5,6 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { CheckRow } from '../components/CheckRow'
 import { focusAfter, focusNext, useFocusTarget } from '../components/useFocusTarget'
-import { useNow } from '../components/useNow'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
@@ -15,18 +14,7 @@ import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
 import { cookCostPerServingCents } from '../lib/cost'
 import { cookBy, dayName } from '../lib/freshness'
-import {
-  formatAmount,
-  formatCents,
-  formatCookedOn,
-  formatMinutes,
-  inSentence,
-  listOf,
-  localDateString,
-  packagesOf,
-  parseCents,
-  plural,
-} from '../lib/format'
+import { formatAmount, formatCents, formatCookedOn, formatMinutes, inSentence, listOf, packagesOf, parseCents, plural } from '../lib/format'
 import { groceryList, groceryText, type GroceryLine } from '../lib/grocery'
 import { missingKit } from '../lib/kit'
 import { pathTo, readyToPlan, recipeState, type CookLog } from '../lib/progress'
@@ -45,6 +33,7 @@ import {
   type Shop,
   type ShopChange,
 } from '../lib/shop'
+import { useToday } from '../components/useNow'
 import { useKitchen } from '../kitchen'
 import { MenuLink } from '../components/MenuLink'
 
@@ -53,7 +42,7 @@ export function ShopScreen() {
   usePageTitle('This week')
   // Where the cook is standing, kept current: a recipe cooked in the last week is offered last, and Done
   // shopping dates the groceries.
-  const today = localDateString(new Date(useNow()))
+  const today = useToday()
   const planned = shop.plan.map(recipeById)
   // Only what is not yet bought goes on the list.
   const toShop = toShopFor(shop)

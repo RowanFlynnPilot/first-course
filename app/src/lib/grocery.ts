@@ -4,8 +4,9 @@
 
 import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId, type Section } from '../curriculum/ingredients'
-import { RECIPES, recipeById } from '../curriculum/recipes'
+import { recipeById } from '../curriculum/recipes'
 import type { Recipe, Tier } from '../curriculum/types'
+import { byFirstCourse, firstTierUsing } from './courses'
 import { packagePriceCents, type Prices } from './cost'
 import { listOf, packagesOf } from './format'
 
@@ -124,14 +125,7 @@ export function boughtFor(
  * the kit is filed, so week one is not a list of curry paste and tamarind.
  * In store order, then by name.
  */
-export function staplesByCourse(): { tier: Tier; staples: IngredientId[] }[] {
-  const firstTier = (id: IngredientId): Tier => {
-    const tiers = RECIPES.filter((recipe) => recipe.content.ingredients.some((line) => line.ingredientId === id)).map(
-      (recipe) => recipe.tier,
-    )
-    if (tiers.length === 0) throw new Error(`${id} is a staple that no recipe uses`)
-    return Math.min(...tiers) as Tier
-  }
+export function staplesByCourse(): { tier: Tier; items: IngredientId[] }[] {
   const order = SECTIONS.map((section) => section.id)
   const staples = (Object.keys(INGREDIENTS) as IngredientId[])
     .filter((id) => INGREDIENTS[id].staple)
@@ -140,8 +134,7 @@ export function staplesByCourse(): { tier: Tier; staples: IngredientId[] }[] {
         order.indexOf(INGREDIENTS[a].section) - order.indexOf(INGREDIENTS[b].section) ||
         INGREDIENTS[a].name.localeCompare(INGREDIENTS[b].name),
     )
-  const tiers: Tier[] = [1, 2, 3, 4, 5]
-  return tiers
-    .map((tier) => ({ tier, staples: staples.filter((id) => firstTier(id) === tier) }))
-    .filter((course) => course.staples.length > 0)
+  return byFirstCourse(staples, (id) =>
+    firstTierUsing((recipe) => recipe.content.ingredients.some((line) => line.ingredientId === id), `the staple ${id}`),
+  )
 }

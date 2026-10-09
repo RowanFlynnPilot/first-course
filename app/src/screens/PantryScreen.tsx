@@ -6,10 +6,10 @@ import { Link } from 'react-router'
 import { CheckRow } from '../components/CheckRow'
 import { usePageTitle } from '../components/usePageTitle'
 import { INGREDIENTS } from '../curriculum/ingredients'
-import { COURSE_NAMES } from '../lib/format'
 import { staplesByCourse } from '../lib/grocery'
 import { setInPantry } from '../lib/shop'
 import { useKitchen } from '../kitchen'
+import { courseHeading } from '../lib/courses'
 import { MenuLink } from '../components/MenuLink'
 
 export function PantryScreen() {
@@ -26,10 +26,10 @@ export function PantryScreen() {
         out, uncheck it. New to spices? The <Link to="/spices">spice guide</Link> says what to buy and how to start
         using it.
       </p>
-      {courses.map(({ tier, staples }) => (
+      {courses.map(({ tier, items: staples }) => (
         <section className="section" key={tier}>
           <h2 className="section-title">
-            {tier === 1 ? 'To start' : tier === 5 ? 'For the usual' : `New for the ${COURSE_NAMES[tier].toLowerCase()}`}
+            {courseHeading(tier)}
           </h2>
           <p className="section-note">
             {staples.filter((id) => shop.pantry.has(id)).length} of {staples.length} at home

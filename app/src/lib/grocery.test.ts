@@ -96,7 +96,7 @@ describe('the grocery list', () => {
 
   it('files every staple under the first course that uses it, once', () => {
     const filed = staplesByCourse()
-    const all = filed.flatMap((course) => course.staples)
+    const all = filed.flatMap((course) => course.items)
     expect(new Set(all).size).toBe(all.length)
     // A retired staple is used by no recipe, so it is filed nowhere.
     const current = (Object.keys(INGREDIENTS) as IngredientId[]).filter((id) => {
@@ -104,7 +104,7 @@ describe('the grocery list', () => {
       return ingredient.staple && ingredient.retired !== true
     })
     expect(all.sort()).toEqual(current.sort())
-    for (const { tier, staples } of filed) {
+    for (const { tier, items: staples } of filed) {
       for (const id of staples) {
         const tiers = RECIPES.filter((recipe) => recipe.content.ingredients.some((line) => line.ingredientId === id)).map((recipe) => recipe.tier)
         expect(Math.min(...tiers), id).toBe(tier)

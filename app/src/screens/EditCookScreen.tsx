@@ -9,8 +9,9 @@ import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { recipeById } from '../curriculum/recipes'
 import { deleteCookLog, NOTES_MAX, updateCookLog } from '../lib/cookLogs'
-import { checkCookedOn, EARLIEST_COOK, listOf, localDateString, skillList } from '../lib/format'
+import { checkCookedOn, EARLIEST_COOK, listOf, skillList } from '../lib/format'
 import { progressLost, type CookLog, type Rating } from '../lib/progress'
+import { useToday } from '../components/useNow'
 import { useKitchen } from '../kitchen'
 import { MenuLink } from '../components/MenuLink'
 
@@ -64,7 +65,7 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
   const [notes, setNotes] = useState(log.notes)
   const [cookedOn, setCookedOn] = useState(log.cookedOn)
   // A cook cannot be dated in the future. Read the clock once, not on every render.
-  const [today] = useState(() => localDateString(new Date()))
+  const today = useToday()
   const save = useWrite()
   const remove = useWrite()
   // A date the form will not take is said beside the field, which it is tied to.

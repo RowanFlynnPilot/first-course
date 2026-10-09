@@ -7,7 +7,8 @@
 import { defineConfig } from '@playwright/test'
 import { SUPABASE_KEY, SUPABASE_URL } from './e2e/fakeSupabase'
 
-const PORT = 4173
+// Not 4173, which `npm run preview` takes by default: the two can run at once.
+const PORT = 4183
 
 export default defineConfig({
   testDir: 'e2e',

@@ -7,11 +7,12 @@ import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { clearCooking, loadCooking } from '../lib/cooking'
 import { insertCookLog, newCookId, NOTES_MAX } from '../lib/cookLogs'
-import { checkCookedOn, EARLIEST_COOK, localDateString } from '../lib/format'
+import { checkCookedOn, EARLIEST_COOK } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
 import { cookable, whatTheRatingDecides, type Rating } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
 import type { Recipe } from '../curriculum/types'
+import { useToday } from '../components/useNow'
 import { useKitchen } from '../kitchen'
 
 /** `onNotice` gets what the cook earned, for the menu to show once. */
@@ -34,7 +35,7 @@ function LogForm({ recipe, onNotice }: LogProps & { recipe: Recipe }) {
   const [rating, setRating] = useState<Rating | null>(null)
   const [notes, setNotes] = useState('')
   // Today where the cook is, unless they are logging one from another day. Read the clock once.
-  const [today] = useState(() => localDateString(new Date()))
+  const today = useToday()
   const [cookedOn, setCookedOn] = useState(today)
   // One id for this cook, however many times Save is tapped.
   const [cookId] = useState(newCookId)

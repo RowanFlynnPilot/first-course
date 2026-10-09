@@ -5,16 +5,16 @@ import { Link } from 'react-router'
 import { usePageTitle } from '../components/usePageTitle'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import { SPICE_HABITS, SPICES, SPICES_LATER } from '../curriculum/spices'
-import { COURSE_NAMES } from '../lib/format'
 import { spiceShelf } from '../lib/spices'
 import { useKitchen } from '../kitchen'
+import { courseHeading } from '../lib/courses'
 import { MenuLink } from '../components/MenuLink'
 
 export function SpicesScreen() {
   const { shop } = useKitchen()
   // Worked out here, not when the file loads: a throw then would blank the page before the error screen is up.
   const shelf = spiceShelf()
-  const count = shelf.reduce((sum, course) => sum + course.spices.length, 0)
+  const count = shelf.reduce((sum, course) => sum + course.items.length, 0)
   usePageTitle('Spices')
   return (
     <main className="page">
@@ -37,12 +37,12 @@ export function SpicesScreen() {
         </dl>
       </section>
 
-      {shelf.map(({ tier, spices }) => {
+      {shelf.map(({ tier, items: spices }) => {
         const have = spices.filter(({ id }) => shop.pantry.has(id)).length
         return (
           <section className="section" key={tier}>
             <h2 className="section-title">
-              {tier === 1 ? 'To start' : `New for the ${COURSE_NAMES[tier].toLowerCase()}`}
+              {courseHeading(tier)}
             </h2>
             <p className="section-note">
               {have === spices.length ? 'All of them are in your pantry.' : `${have} of ${spices.length} in your pantry.`}

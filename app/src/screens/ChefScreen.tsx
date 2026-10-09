@@ -1,6 +1,5 @@
 // The chef sheet: who your chef is, how far along, and every skill on the menu.
 
-import { useState } from 'react'
 import { Link } from 'react-router'
 import { BadgeArt } from '../components/BadgeArt'
 import { ChefSprite } from '../components/ChefSprite'
@@ -11,7 +10,7 @@ import { DISCIPLINES, TECHNIQUES } from '../curriculum/techniques'
 import { BADGES, earnedBadges } from '../lib/badges'
 import { totalKeptCents } from '../lib/cost'
 import { EXTRAS, trackCooks, unlockedExtras, wornExtras } from '../lib/extras'
-import { formatCents, localDateString, plural } from '../lib/format'
+import { formatCents, plural } from '../lib/format'
 import {
   disciplineStats,
   levelForXp,
@@ -25,6 +24,7 @@ import {
 } from '../lib/leveling'
 import { recipeState, teacherOf } from '../lib/progress'
 import { currentStreak, longestStreak } from '../lib/streak'
+import { useToday } from '../components/useNow'
 import { useKitchen } from '../kitchen'
 import { MenuLink } from '../components/MenuLink'
 
@@ -37,7 +37,7 @@ export function ChefScreen() {
   const rank = rankIndexForLevel(level)
   const nextRank = RANKS[rank + 1]
   const mastered = RECIPES.filter((recipe) => recipeState(recipe, logs) === 'mastered').length
-  const [today] = useState(() => localDateString(new Date()))
+  const today = useToday()
   const streak = currentStreak(logs, today)
   const earned = new Set(earnedBadges(logs, prices))
   const worn = wornExtras(chef.extras, logs)

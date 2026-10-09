@@ -1315,9 +1315,12 @@ input[aria-disabled='true'] {
   margin-top: -0.5rem;
 }
 
+/* A full tap target both ways, a short word ("Add") included. */
 .link-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 3rem;
   min-height: 3rem;
   padding: 0.5rem 0;
   border: 0;

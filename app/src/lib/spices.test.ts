@@ -6,7 +6,7 @@ import { spiceShelf } from './spices'
 describe('the spice shelf', () => {
   it('files every spice in the guide under the course that first uses it, once', () => {
     const shelf = spiceShelf()
-    const ids = shelf.flatMap((course) => course.spices.map((spice) => spice.id))
+    const ids = shelf.flatMap((course) => course.items.map((spice) => spice.id))
     expect(ids.toSorted()).toEqual((Object.keys(SPICES) as SpiceId[]).toSorted())
     // The Fourth course adds no new spice.
     expect(shelf.map((course) => course.tier)).toEqual([1, 2, 3])
@@ -14,10 +14,10 @@ describe('the spice shelf', () => {
 
   it('starts with salt, pepper and pepper flakes, and ends with paprika', () => {
     const shelf = spiceShelf()
-    expect(shelf[0]?.spices.map((spice) => spice.id)).toEqual(['kosher-salt', 'black-pepper', 'red-pepper-flakes'])
-    expect(shelf[0]?.spices[0]?.firstIn.id).toBe('chopped-salad')
-    expect(shelf.at(-1)?.spices.map((spice) => spice.id).at(-1)).toBe('paprika')
-    expect(shelf.at(-1)?.spices.at(-1)?.firstIn.id).toBe('chicken-tikka')
+    expect(shelf[0]?.items.map((spice) => spice.id)).toEqual(['kosher-salt', 'black-pepper', 'red-pepper-flakes'])
+    expect(shelf[0]?.items[0]?.firstIn.id).toBe('chopped-salad')
+    expect(shelf.at(-1)?.items.map((spice) => spice.id).at(-1)).toBe('paprika')
+    expect(shelf.at(-1)?.items.at(-1)?.firstIn.id).toBe('chicken-tikka')
   })
 
   it('only guides pantry staples, the things you keep a jar of', () => {

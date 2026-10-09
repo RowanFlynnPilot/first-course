@@ -3,6 +3,7 @@
 // view, since an installed app can sit open in the background overnight.
 
 import { useEffect, useState } from 'react'
+import { localDateString } from '../lib/format'
 
 const EVERY_MS = 60 * 1000
 
@@ -18,4 +19,9 @@ export function useNow(): number {
     }
   }, [])
   return now
+}
+
+/** Today's date where the cook is standing, YYYY-MM-DD, kept current like useNow. */
+export function useToday(): string {
+  return localDateString(new Date(useNow()))
 }

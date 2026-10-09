@@ -4,6 +4,7 @@
 import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { RECIPES } from '../curriculum/recipes'
 import type { Recipe, Tier } from '../curriculum/types'
+import { byFirstCourse, firstTierUsing } from './courses'
 
 const ORDER = Object.keys(EQUIPMENT) as EquipmentId[]
 
@@ -25,13 +26,5 @@ export function missingKit(recipes: readonly Recipe[], kit: ReadonlySet<Equipmen
 
 /** Each piece of equipment under the first course whose written recipes use it. */
 export function kitByCourse(): { tier: Tier; items: EquipmentId[] }[] {
-  const seen = new Set<EquipmentId>()
-  const tiers: Tier[] = [1, 2, 3, 4, 5]
-  return tiers
-    .map((tier) => {
-      const items = kitFor(RECIPES.filter((recipe) => recipe.tier === tier)).filter((id) => !seen.has(id))
-      for (const id of items) seen.add(id)
-      return { tier, items }
-    })
-    .filter((course) => course.items.length > 0)
+  return byFirstCourse(kitFor(RECIPES), (id) => firstTierUsing((recipe) => recipe.content.equipment.includes(id), id))
 }
