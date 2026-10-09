@@ -249,14 +249,24 @@ export function pathTo(recipe: Recipe, logs: readonly CookLog[]): Recipe[] {
 
 /**
  * What the menu suggests cooking next: the first unlocked recipe on this
- * week's plan, groceries bought before groceries still to buy, each in the
- * order added; else the first in suggestion order (a dish of the usual just
- * in reach, then a recipe without a good cook, then one not mastered, then
- * the mastered one that has waited longest; anything cooked in the last
- * week last). There is always one: the salad needs no skills.
+ * week's plan, groceries bought before groceries still to buy, and among the
+ * bought, the one whose meat should be cooked soonest first (`cookBy`, by
+ * recipe id: lib/freshness.ts), the rest in the order added; else the first
+ * in suggestion order (a dish of the usual just in reach, then a recipe
+ * without a good cook, then one not mastered, then the mastered one that has
+ * waited longest; anything cooked well in the last week last). There is
+ * always one: the eggs and the salad need no skills.
  */
-export function nextRecipe(logs: readonly CookLog[], plan: readonly string[], shopped: ReadonlySet<string>, today: string): Recipe {
-  const planned = [...plan.filter((id) => shopped.has(id)), ...plan.filter((id) => !shopped.has(id))]
+export function nextRecipe(
+  logs: readonly CookLog[],
+  plan: readonly string[],
+  shopped: ReadonlySet<string>,
+  cookBy: ReadonlyMap<string, string>,
+  today: string,
+): Recipe {
+  const bought = plan.filter((id) => shopped.has(id))
+  const soonest = bought.filter((id) => cookBy.has(id)).toSorted((a, b) => (cookBy.get(a) ?? '').localeCompare(cookBy.get(b) ?? ''))
+  const planned = [...soonest, ...bought.filter((id) => !cookBy.has(id)), ...plan.filter((id) => !shopped.has(id))]
     .map(recipeById)
     .find((recipe) => recipeState(recipe, logs) !== 'locked')
   if (planned !== undefined) return planned

@@ -162,3 +162,54 @@ test.describe('the timer’s controls', () => {
     await expect(page.getByRole('link', { name: /^Potatoes: 1[45]:\d\d$/ })).toBeFocused()
   })
 })
+
+test.describe('bought meat', () => {
+  const thighs = recipeById('seared-chicken-thighs')
+  // Everything up to the thighs cooked well, and the eggs too, which need nothing bought.
+  const OPEN = [...pathTo(thighs, []).map((recipe) => recipe.id), 'soft-scrambled-eggs'].map((recipe) => ({ recipe, rating: 2 as const }))
+  const SUNDAY = new Date('2026-10-04T17:00:00-05:00')
+
+  test('Done shopping dates the groceries and says when to cook the meat by', async ({ page, kitchen }) => {
+    await page.clock.install({ time: SUNDAY })
+    await kitchen.open('#/shop', { logs: OPEN, plan: [thighs.id], checks: everything(thighs.id) })
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByText(/^Done shopping\./)).toContainText(
+      'Seared chicken thighs with roasted broccoli: cook it by Tuesday, or freeze the meat tonight and thaw it in the fridge the night before you cook.',
+    )
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: true, shopped_on: '2026-10-04' }])
+    await expect(page.locator('.plan-row').filter({ hasText: 'Seared chicken thighs' })).toContainText('Groceries bought. Cook by Tuesday')
+  })
+
+  test('the menu suggests the meat to cook soonest first, with its day', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-05T17:00:00-05:00') })
+    await kitchen.open('./', {
+      logs: OPEN,
+      // The salad was planned and bought first; the thighs keep only until Tuesday.
+      plan: ['chopped-salad', thighs.id],
+      shopped: ['chopped-salad', thighs.id],
+      shoppedOn: { 'chopped-salad': '2026-10-04', [thighs.id]: '2026-10-04' },
+    })
+    const tray = page.locator('.tray')
+    await expect(tray.getByRole('heading', { name: `Groceries bought: ${thighs.title}` })).toBeVisible()
+    await expect(tray.locator('.tray-body')).toContainText('Cook it by tomorrow, while the meat is fresh.')
+  })
+
+  test('past the day the meat keeps, the card says to check it, and can put it back on the list', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-08T17:00:00-05:00') })
+    await kitchen.open('./', { logs: OPEN, plan: [thighs.id], shopped: [thighs.id], shoppedOn: { [thighs.id]: '2026-10-04' } })
+    const tray = page.locator('.tray')
+    await expect(tray.locator('.tray-body')).toContainText(
+      'Bought Oct 4, 2026, so check the date on the meat: if it has passed, put it back on the list.',
+    )
+    // Cooking does not lead: the meat may be off.
+    await expect(tray.locator('.actions > :not(.busy)').first()).toHaveText('Put it back on the list')
+    await tray.getByRole('button', { name: 'Put it back on the list' }).click()
+    await expect(tray.getByRole('heading', { name: `On this week’s plan: ${thighs.title}` })).toBeVisible()
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: false, shopped_on: null }])
+  })
+
+  test('a recipe bought before the date was kept says only that it is bought', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { logs: OPEN, plan: [thighs.id], shopped: [thighs.id] })
+    await expect(page.locator('.plan-row').filter({ hasText: 'Seared chicken thighs' }).locator('.row-note')).toHaveText('Groceries bought')
+  })
+})

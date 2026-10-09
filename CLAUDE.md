@@ -117,6 +117,8 @@ supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                  the recipes and ticks this device showed)
                                00008_grants_and_limits.sql (the grants the migrations
                                  meant, and limits on notes, ids, prices and dates)
+                               00009_shopped_on.sql (the day the groceries were bought;
+                                 finish_shopping takes it as a fourth argument)
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts (weeknight.e2e.ts:
@@ -151,6 +153,7 @@ app/
       memoryStorage.ts         a Storage for the tests of what the phone keeps
       cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
       grocery.ts               the grocery list: whole packages per store section, checkout total
+      freshness.ts             the day a bought recipe's meat should be cooked by
       kit.ts                   what equipment a set of recipes needs, and what is missing
       extras.ts                the 8 extras, the track and good-cook count that earns each, what is worn
       spices.ts                the spice shelf: each spice under the course that first uses it
@@ -268,8 +271,11 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   tongs, a saucepan…) its recipe does not list.
 - A step's text is at most `STEP_MAX` (360) characters, about ten lines in
   cook mode on a phone. Longer steps get split.
-- Every ingredient in the meat section declares `safeTempF`, and the type
-  requires it: a temperature for raw meat (chicken 165, ground beef 160, a
+- Every ingredient in the meat section declares `fridgeDays`, how long it
+  keeps in the fridge from the day it is bought (the USDA chart's short
+  end: raw poultry and ground meat 2, a whole cut of beef 3, bacon 7, a
+  smoked sausage 14), and `safeTempF`, and the type requires both. For
+  `safeTempF`: a temperature for raw meat (chicken 165, ground beef 160, a
   whole cut of beef such as flank steak 145), `'cured'` for bacon, or
   `'fully-cooked'` for the smoked sausage. Bacon is cured and cooked until
   crisp, so crisp is the cue, but it is still raw pork in the package, so it
@@ -974,6 +980,17 @@ an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
+- **00009 is written and tested, not yet live** (October 9, 2026). On a
+  throwaway stack left at the exposing default, as the live project is, 36
+  checks passed: the column and its four-digit-year limit, a cook updating
+  only their own `shopped_on`, the new four-argument `finish_shopping`
+  marking only the caller's listed recipes with the date, the old app's
+  three-argument call still finding it (the date defaults to null), the
+  three-argument function gone, anon refused, the old and new "Put it back
+  on the list" both working, `recipe_id`, `added_at` and `user_id` still
+  refused, the 00006 trigger still firing, and 00008's limits intact.
+  Rowan pushes it before the code that reads `shopped_on` deploys: until
+  then the app's read of that column fails.
 - **All eight migrations are applied to the live project** (00001 to
   00005 on October 4, 2026, 00006 and 00007 on October 5, 00008 on October
   6; a schema dump afterwards showed `anon` with no table grants,
@@ -1118,6 +1135,30 @@ the food was in the fridge:
   used either way. The app drops it from its own state when the save
   returns (`withoutPlanned` in `shop.ts`).
 
+Migration `00009_shopped_on.sql` (October 9, 2026) dates the shop, because
+"Groceries bought" had no date: chicken bought ten days ago still said
+"Start cooking", and raw meat could wait until the end of the week.
+
+- `plan_items` gains `shopped_on date` (update granted; a four-digit year).
+  `finish_shopping` takes `bought_on`, the cook's local date (decision 10),
+  as a fourth argument with a default, so an installed app still running the
+  code before it keeps working; "Put it back on the list" clears both the
+  mark and the date. Nothing ties the date to the mark, because the old app
+  clears only the mark: the app reads `shopped_on` only while `shopped` is
+  true.
+- The app works out the day to cook a bought recipe by (`cookBy` in
+  `lib/freshness.ts`: the bought day plus the `fridgeDays` of the meat that
+  keeps least, for meat that keeps a week or less). Done shopping says it
+  ("Seared chicken thighs with roasted broccoli: cook it by Tuesday, or
+  freeze the meat tonight and thaw it in the fridge the night before you
+  cook."), the plan row says "Groceries bought. Cook by Tuesday", and the
+  menu suggests the bought recipe whose meat is due soonest first, with
+  "Cook it by tomorrow, while the meat is fresh." Past that day the card
+  says "Bought Oct 4, so check the date on the meat: if it has passed, put
+  it back on the list", leads with that button, and does not lead with
+  cooking. A recipe bought before 00009 has no date and says only
+  "Groceries bought".
+
 Behavior:
 
 - **Plan.** "Add to this week" (and "Take off this week") on any unlocked
@@ -1211,7 +1252,7 @@ precisely" and "Design").
 
 As of October 9, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all eight migrations
-are on the live project, and every push runs 157 unit tests and 193 e2e tests before it deploys.
+are on the live project, and every push runs 163 unit tests and 198 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

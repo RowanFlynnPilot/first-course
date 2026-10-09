@@ -84,12 +84,20 @@ const TABLES: Record<string, TableSpec> = {
   },
   // 00004, with shopped from 00006
   plan_items: {
-    columns: ['user_id', 'recipe_id', 'added_at', 'shopped'],
+    columns: ['user_id', 'recipe_id', 'added_at', 'shopped', 'shopped_on'],
     key: ['user_id', 'recipe_id'],
-    defaults: (now) => ({ added_at: now, shopped: false }),
-    updatable: ['shopped'],
+    defaults: (now) => ({ added_at: now, shopped: false, shopped_on: null }),
+    // 00009: the date the groceries were bought, cleared with the mark.
+    updatable: ['shopped', 'shopped_on'],
     deletable: true,
-    check: (row) => (typeof row.shopped === 'boolean' ? idCheck('recipe_id')(row) : 'shopped must be true or false'),
+    check: (row) => {
+      if (typeof row.shopped !== 'boolean') return 'shopped must be true or false'
+      // 00009: a date with a four-digit year, as cooked_on.
+      if (row.shopped_on !== null && !(typeof row.shopped_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.shopped_on) && row.shopped_on >= '1900-01-01' && row.shopped_on <= '2999-12-31')) {
+        return 'new row for relation "plan_items" violates check constraint "plan_items_shopped_on_range"'
+      }
+      return idCheck('recipe_id')(row)
+    },
   },
   pantry_items: {
     columns: ['user_id', 'ingredient_id'],
@@ -160,6 +168,8 @@ export interface Seed {
   readonly plan?: readonly string[]
   /** Which of the plan's recipes are already shopped for ("Done shopping"). */
   readonly shopped?: readonly string[]
+  /** The day a shopped recipe's groceries were bought, by recipe id (00009). */
+  readonly shoppedOn?: Readonly<Record<string, string>>
   /** Ingredient ids. */
   readonly pantry?: readonly string[]
   /** Ingredient ids already in the cart, kept on the phone (lib/checks.ts). */
@@ -270,7 +280,12 @@ export class FakeSupabase {
       })
     }
     for (const recipe_id of seed.plan ?? []) {
-      this.insertRow('plan_items', { user_id, recipe_id, shopped: seed.shopped?.includes(recipe_id) ?? false })
+      this.insertRow('plan_items', {
+        user_id,
+        recipe_id,
+        shopped: seed.shopped?.includes(recipe_id) ?? false,
+        shopped_on: seed.shoppedOn?.[recipe_id] ?? null,
+      })
     }
     for (const ingredient_id of seed.pantry ?? []) this.insertRow('pantry_items', { user_id, ingredient_id })
     for (const [ingredient_id, price_cents] of Object.entries(seed.prices ?? {})) {
@@ -632,9 +647,13 @@ export class FakeSupabase {
     const args = request.postDataJSON() as Record<string, unknown>
 
     if (fn === 'finish_shopping') {
-      const { bought_staples: staples, shopped_recipes: recipes, seen_checks: seen } = args
+      const { bought_staples: staples, shopped_recipes: recipes, seen_checks: seen, bought_on: boughtOn = null } = args
       const texts = (value: unknown): value is string[] => Array.isArray(value) && value.every((id) => typeof id === 'string')
-      if (Object.keys(args).sort().join() !== 'bought_staples,seen_checks,shopped_recipes' || !texts(staples) || !texts(recipes) || !texts(seen)) {
+      // 00009: bought_on is a fourth argument with a default, so the app before it still finds the function.
+      const names = Object.keys(args).sort().join()
+      const known = names === 'bought_staples,seen_checks,shopped_recipes' || names === 'bought_on,bought_staples,seen_checks,shopped_recipes'
+      const date = boughtOn === null || (typeof boughtOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(boughtOn))
+      if (!known || !texts(staples) || !texts(recipes) || !texts(seen) || !date) {
         return json(route, request, 404, {
           code: 'PGRST202',
           message: `Could not find the function public.finish_shopping(${Object.keys(args).join(', ')})`,
@@ -649,7 +668,10 @@ export class FakeSupabase {
         (row) => row.user_id !== userId || !seen.includes(String(row.ingredient_id)),
       )
       for (const row of this.table('plan_items')) {
-        if (row.user_id === userId && recipes.includes(String(row.recipe_id))) row.shopped = true
+        if (row.user_id === userId && recipes.includes(String(row.recipe_id))) {
+          row.shopped = true
+          row.shopped_on = boughtOn
+        }
       }
       // A function returning void answers 204.
       return route.fulfill({ status: 204, headers: corsHeaders(request) })

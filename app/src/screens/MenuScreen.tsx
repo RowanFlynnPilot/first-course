@@ -20,6 +20,7 @@ import { updateChef, type Chef } from '../lib/chefs'
 import { clearCooking, loadCooking } from '../lib/cooking'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents } from '../lib/cost'
 import { extraById, wornExtras, type ExtraId } from '../lib/extras'
+import { cookByDates, dayName } from '../lib/freshness'
 import {
   COURSE_NAMES,
   formatCents,
@@ -44,7 +45,7 @@ import {
   rowNote,
   type CookLog,
 } from '../lib/progress'
-import { addAllToKit, planRecipe, readyTonight, type Shop, type ShopChange } from '../lib/shop'
+import { addAllToKit, planRecipe, readyTonight, shopForAgain, type Shop, type ShopChange } from '../lib/shop'
 import { currentStreak, type Streak } from '../lib/streak'
 import { clearTimers } from '../lib/timers'
 
@@ -93,7 +94,9 @@ export function MenuScreen({
   // the card says when dinner would be ready.
   const now = useNow()
   const today = localDateString(new Date(now))
-  const next = nextRecipe(logs, shop.plan, shop.shopped, today)
+  // Bought meat keeps only days: the one to cook soonest comes first.
+  const cookBy = cookByDates(shop.shoppedOn)
+  const next = nextRecipe(logs, shop.plan, shop.shopped, cookBy, today)
   const streak = currentStreak(logs, today)
 
   // Each moment holds the screen until the cook moves on. The menu's own
@@ -218,6 +221,7 @@ export function MenuScreen({
           logs={logs}
           shop={shop}
           now={now}
+          cookBy={cookBy.get(next.id) ?? null}
           onShopChange={onShopChange}
         />
         <Tonight except={next} logs={logs} shop={shop} now={now} />
@@ -525,6 +529,7 @@ function UpNext({
   logs,
   shop,
   now,
+  cookBy,
   onShopChange,
 }: {
   recipe: Recipe
@@ -533,14 +538,21 @@ function UpNext({
   logs: readonly CookLog[]
   shop: Shop
   now: number
+  /** The day its bought meat should be cooked by, or null (lib/freshness.ts). */
+  cookBy: string | null
   onShopChange: ShopChange
 }) {
   const add = useWrite()
+  const again = useWrite()
   const { content } = recipe
+  const today = localDateString(new Date(now))
+  // Past the day its meat keeps: the cook checks the package, and may need to shop again.
+  const stale = cookBy !== null && cookBy < today
+  const boughtOn = shop.shoppedOn.get(recipe.id)
   const state = recipeState(recipe, logs)
   const last = lastCooked(recipe, logs)
   // Bought, or all in the pantry: nothing to plan or buy, so cooking leads.
-  const cookNow = readyTonight(recipe, shop)
+  const cookNow = readyTonight(recipe, shop) && !stale
   const label =
     plan === 'bought'
       ? 'Groceries bought'
@@ -572,6 +584,12 @@ function UpNext({
           {formatMinutes(content.totalMinutes)}: start now and eat around {readyAt(now, content.totalMinutes)}.{' '}
           {formatCents(cookCostPerServingCents(content, shop.prices))} a serving instead of{' '}
           {formatCents(orderCostPerServingCents(content))} delivered.
+          {cookBy !== null &&
+            !stale &&
+            ` ${cookBy === today ? 'Cook it today' : `Cook it by ${dayName(cookBy, today)}`}, while the meat is fresh.`}
+          {stale &&
+            boughtOn !== undefined &&
+            ` Bought ${formatCookedOn(boughtOn)}, so check the date on the meat: if it has passed, put it back on the list.`}
           {/* Once it is all mastered, the suggestion is whatever has waited longest. */}
           {state === 'mastered' && last !== null && ` Mastered, and not cooked since ${formatCookedOn(last)}.`}
         </p>
@@ -588,6 +606,17 @@ function UpNext({
             </button>
           )}
           <Saving busy={add.busy} />
+          {stale && (
+            <button
+              className="button"
+              type="button"
+              aria-disabled={again.busy}
+              onClick={() => void again.run(() => focusAfter('tray-shop', () => shopForAgain(recipe.id, onShopChange)))}
+            >
+              Put it back on the list
+            </button>
+          )}
+          <Saving busy={again.busy} />
           {plan === 'planned' && !cookNow && <ShopForIt />}
           {!cookNow && start}
           <Link className="button button-quiet" to={`/recipe/${recipe.id}`}>
@@ -595,6 +624,7 @@ function UpNext({
           </Link>
         </div>
         <ErrorNotice error={add.error} />
+        <ErrorNotice error={again.error} />
       </div>
     </section>
   )

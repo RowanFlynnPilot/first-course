@@ -17,6 +17,8 @@ export interface Shop {
   readonly plan: readonly string[]
   /** Planned recipes whose groceries are bought ("Done shopping"), so they are off the grocery list. */
   readonly shopped: ReadonlySet<string>
+  /** The cook's local date each was bought, YYYY-MM-DD (00009); none for one bought before the date was kept. */
+  readonly shoppedOn: ReadonlyMap<string, string>
   readonly pantry: ReadonlySet<IngredientId>
   /** Ingredients already in the cart, kept on this phone (lib/checks.ts). */
   readonly checks: ReadonlySet<IngredientId>
@@ -41,7 +43,9 @@ export function readyTonight(recipe: Recipe, shop: Shop): boolean {
 export function withoutPlanned(shop: Shop, recipeId: string): Shop {
   const shopped = new Set(shop.shopped)
   shopped.delete(recipeId)
-  return { ...shop, plan: shop.plan.filter((id) => id !== recipeId), shopped }
+  const shoppedOn = new Map(shop.shoppedOn)
+  shoppedOn.delete(recipeId)
+  return { ...shop, plan: shop.plan.filter((id) => id !== recipeId), shopped, shoppedOn }
 }
 
 function toIngredientId(value: string, where: string): IngredientId {
@@ -61,17 +65,38 @@ async function load<Row>(table: string, columns: string, what: string, orderBy?:
   return data as Row[]
 }
 
+/** A row of this week's plan as Supabase has it. */
+interface PlanRow {
+  readonly recipe_id: string
+  readonly shopped: boolean
+  readonly shopped_on: string | null
+}
+
+function checkPlanRow(row: PlanRow) {
+  if (typeof row.shopped !== 'boolean') throw new Error(`This week’s plan has no shopped mark for ${row.recipe_id}`)
+  if (row.shopped_on !== null && !/^\d{4}-\d{2}-\d{2}$/.test(row.shopped_on)) {
+    throw new Error(`This week’s plan has a bought date that is not a date for ${row.recipe_id}: ${row.shopped_on}`)
+  }
+}
+
+/**
+ * The bought date of each shopped recipe. The app before 00009 marked a
+ * recipe shopped without a date and cleared the mark without clearing a
+ * date, so a date counts only on a row that is shopped.
+ */
+function boughtOn(rows: readonly PlanRow[]): Map<string, string> {
+  return new Map(rows.flatMap((row) => (row.shopped && row.shopped_on !== null ? [[row.recipe_id, row.shopped_on] as const] : [])))
+}
+
 /** The shop as Supabase has it, with the cart's checks from this phone. */
 export async function fetchShop(checks: ReadonlySet<IngredientId>): Promise<Shop> {
   const [plan, pantry, prices, kit] = await Promise.all([
-    load<{ recipe_id: string; shopped: boolean }>('plan_items', 'recipe_id, shopped', 'this week’s plan', 'added_at'),
+    load<PlanRow>('plan_items', 'recipe_id, shopped, shopped_on', 'this week’s plan', 'added_at'),
     load<{ ingredient_id: string }>('pantry_items', 'ingredient_id', 'your pantry'),
     load<{ ingredient_id: string; price_cents: number }>('price_overrides', 'ingredient_id, price_cents', 'your prices'),
     load<{ equipment_id: string }>('kit_items', 'equipment_id', 'your kit'),
   ])
-  for (const row of plan) {
-    if (typeof row.shopped !== 'boolean') throw new Error(`This week’s plan has no shopped mark for ${row.recipe_id}`)
-  }
+  for (const row of plan) checkPlanRow(row)
   for (const row of prices) {
     if (!Number.isInteger(row.price_cents) || row.price_cents <= 0) {
       throw new Error(`Your price for ${row.ingredient_id} is not a price: ${row.price_cents}`)
@@ -80,6 +105,7 @@ export async function fetchShop(checks: ReadonlySet<IngredientId>): Promise<Shop
   return {
     plan: plan.map((row) => recipeById(row.recipe_id).id),
     shopped: new Set(plan.filter((row) => row.shopped).map((row) => row.recipe_id)),
+    shoppedOn: boughtOn(plan),
     pantry: new Set(pantry.map((row) => toIngredientId(row.ingredient_id, 'Your pantry'))),
     checks,
     prices: new Map(prices.map((row) => [toIngredientId(row.ingredient_id, 'Your prices'), row.price_cents])),
@@ -111,22 +137,24 @@ function toggled<T>(set: ReadonlySet<T>, item: T, on: boolean): Set<T> {
 }
 
 /**
- * Adds a recipe to this week, and says whether it was already there and
- * shopped for (on another device). One trip when the recipe is new to the
- * plan, the usual case: the insert answers with the row. A second read only
- * when the row was already there, which the insert leaves alone.
+ * Adds a recipe to this week, and says how the plan has it: already there
+ * and shopped for (on another device), and when. One trip when the recipe is
+ * new to the plan, the usual case: the insert answers with the row. A second
+ * read only when the row was already there, which the insert leaves alone.
  */
-async function addToPlan(recipeId: string): Promise<{ shopped: boolean }> {
-  const { data, error } = await supabase
-    .from('plan_items')
-    .upsert({ recipe_id: recipeId }, { ignoreDuplicates: true })
-    .select('shopped')
+async function addToPlan(recipeId: string): Promise<PlanRow> {
+  const columns = 'recipe_id, shopped, shopped_on'
+  const { data, error } = await supabase.from('plan_items').upsert({ recipe_id: recipeId }, { ignoreDuplicates: true }).select(columns)
   if (error) throw new Error(`Could not add it to this week: ${plainMessage(error)}`)
-  const added = (data as { shopped: boolean }[])[0]
-  if (added !== undefined) return { shopped: added.shopped }
-  const { data: there, error: readError } = await supabase.from('plan_items').select('shopped').eq('recipe_id', recipeId).single()
+  const added = (data as PlanRow[])[0]
+  if (added !== undefined) {
+    checkPlanRow(added)
+    return added
+  }
+  const { data: there, error: readError } = await supabase.from('plan_items').select(columns).eq('recipe_id', recipeId).single()
   if (readError) throw new Error(`Could not add it to this week: ${plainMessage(readError)}`)
-  return { shopped: (there as { shopped: boolean }).shopped }
+  checkPlanRow(there as PlanRow)
+  return there as PlanRow
 }
 
 /** "Take off": the recipe leaves this week's plan, bought or not. */
@@ -182,13 +210,15 @@ function withoutStaleChecks(shop: Shop): Shop {
  * ticks cleared first.
  */
 export async function planRecipe(recipeId: string, onShopChange: ShopChange) {
-  const { shopped } = await addToPlan(recipeId)
+  const row = await addToPlan(recipeId)
+  const bought = boughtOn([row]).get(recipeId)
   onShopChange((previous) => {
     const cleared = withoutStaleChecks(previous)
     return {
       ...cleared,
       plan: cleared.plan.includes(recipeId) ? cleared.plan : [...cleared.plan, recipeId],
-      shopped: shopped ? new Set([...cleared.shopped, recipeId]) : cleared.shopped,
+      shopped: row.shopped ? new Set([...cleared.shopped, recipeId]) : cleared.shopped,
+      shoppedOn: bought === undefined ? cleared.shoppedOn : new Map(cleared.shoppedOn).set(recipeId, bought),
     }
   })
 }
@@ -198,12 +228,18 @@ export async function planRecipe(recipeId: string, onShopChange: ShopChange) {
  * were not bought, or went off. Old ticks are cleared first, as when adding.
  */
 export async function shopForAgain(recipeId: string, onShopChange: ShopChange) {
-  const { data, error } = await supabase.from('plan_items').update({ shopped: false }).eq('recipe_id', recipeId).select('recipe_id')
+  const { data, error } = await supabase
+    .from('plan_items')
+    .update({ shopped: false, shopped_on: null })
+    .eq('recipe_id', recipeId)
+    .select('recipe_id')
   if (error) throw new Error(`Could not put it back on the list: ${plainMessage(error)}`)
   if (data.length !== 1) throw new Error('It is not on this week’s plan any more: it was cooked or taken off on another device.')
   onShopChange((previous) => {
     const cleared = withoutStaleChecks(previous)
-    return { ...cleared, shopped: toggled(cleared.shopped, recipeId, false) }
+    const shoppedOn = new Map(cleared.shoppedOn)
+    shoppedOn.delete(recipeId)
+    return { ...cleared, shopped: toggled(cleared.shopped, recipeId, false), shoppedOn }
   })
 }
 
@@ -231,17 +267,19 @@ export function coveredRecipes(shop: Shop): string[] {
 }
 
 /**
- * "Done shopping" for the list this screen shows: the staples checked off go
- * into the pantry, and the recipes it covers are marked shopped, in one
- * transaction (00007). Ticks for what is still to buy stay on the phone; the
- * rest are cleared. Only the recipes this device listed change, so one added
- * on another device meanwhile is left alone. Says what went into the pantry
- * and which recipes are still on the list.
+ * "Done shopping" for the list this screen shows, on `today` (the cook's
+ * local date): the staples checked off go into the pantry, and the recipes
+ * it covers are marked shopped, with the day, in one transaction (00007,
+ * 00009). Ticks for what is still to buy stay on the phone; the rest are
+ * cleared. Only the recipes this device listed change, so one added on
+ * another device meanwhile is left alone. Says what went into the pantry,
+ * which recipes were bought, and which are still on the list.
  */
 export async function doneShopping(
   shop: Shop,
+  today: string,
   onShopChange: ShopChange,
-): Promise<{ staples: IngredientId[]; stillToShop: string[] }> {
+): Promise<{ staples: IngredientId[]; bought: string[]; stillToShop: string[] }> {
   const toShop = toShopFor(shop)
   const covered = coveredRecipes(shop)
   const staples = groceryList(toShop, shop.pantry, shop.prices)
@@ -252,6 +290,7 @@ export async function doneShopping(
     bought_staples: staples,
     shopped_recipes: covered,
     seen_checks: [],
+    bought_on: today,
   })
   if (error) throw new Error(`Could not finish shopping: ${plainMessage(error)} Your checks are kept on this phone.`)
   const stillToShop = toShop.filter((id) => !covered.includes(id))
@@ -260,8 +299,9 @@ export async function doneShopping(
   onShopChange((previous) => ({
     ...previous,
     shopped: new Set([...previous.shopped, ...covered]),
+    shoppedOn: new Map([...previous.shoppedOn, ...covered.map((id) => [id, today] as const)]),
     checks: new Set([...previous.checks].filter((id) => stillListed.has(id))),
     pantry: new Set([...previous.pantry, ...staples]),
   }))
-  return { staples, stillToShop }
+  return { staples, bought: covered, stillToShop }
 }

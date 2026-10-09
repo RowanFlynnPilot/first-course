@@ -6,6 +6,7 @@ import { Link } from 'react-router'
 import { BACK_TO_MENU } from '../components/menuScroll'
 import { CheckRow } from '../components/CheckRow'
 import { focusAfter, focusNext, useFocusTarget } from '../components/useFocusTarget'
+import { useNow } from '../components/useNow'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
@@ -14,9 +15,11 @@ import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
 import { cookCostPerServingCents } from '../lib/cost'
+import { cookBy, dayName } from '../lib/freshness'
 import {
   formatAmount,
   formatCents,
+  formatCookedOn,
   formatMinutes,
   inSentence,
   listOf,
@@ -45,8 +48,9 @@ import {
 
 export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: readonly CookLog[]; onShopChange: ShopChange }) {
   usePageTitle('This week')
-  // Where the cook is standing, read once: a recipe cooked in the last week is offered last.
-  const [today] = useState(() => localDateString(new Date()))
+  // Where the cook is standing, kept current: a recipe cooked in the last week is offered last, and Done
+  // shopping dates the groceries.
+  const today = localDateString(new Date(useNow()))
   const planned = shop.plan.map(recipeById)
   // Only what is not yet bought goes on the list.
   const toShop = toShopFor(shop)
@@ -79,13 +83,20 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
     if (toBuy > 0 && !window.confirm(question)) return
     await finish.run(() =>
       focusAfter('shop-done', async () => {
-        const { staples, stillToShop } = await doneShopping(shop, onShopChange)
+        const { staples, bought, stillToShop } = await doneShopping(shop, today, onShopChange)
         const pantry = staples.length === 0 ? '' : ` Into your pantry: ${listOf(staples.map((id) => inSentence(INGREDIENTS[id].name)))}.`
         const still =
           stillToShop.length === 0
             ? ''
             : ` ${titlesOf(stillToShop)} ${stillToShop.length === 1 ? 'stays' : 'stay'} on the list for what you did not check off.`
-        setFinished(`Done shopping.${pantry}${still}${pantry === '' && still === '' ? ' The list is cleared.' : ''}`)
+        // Raw meat keeps a couple of days: when to cook each, or the way to buy time.
+        const meat = bought.flatMap((id) => {
+          const by = cookBy(recipeById(id), today)
+          return by === null
+            ? []
+            : [` ${recipeById(id).title}: cook it by ${dayName(by, today)}, or freeze the meat tonight and thaw it in the fridge the night before you cook.`]
+        })
+        setFinished(`Done shopping.${pantry}${still}${meat.join('')}${pantry === '' && still === '' && meat.length === 0 ? ' The list is cleared.' : ''}`)
       }),
     )
   }
@@ -174,7 +185,7 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
           <p className="section-note">Each recipe leaves the plan when you log a cook of it.</p>
           <ul className="rows">
             {planned.map((recipe) => (
-              <PlanRow key={recipe.id} recipe={recipe} shop={shop} logs={logs} onShopChange={onShopChange} />
+              <PlanRow key={recipe.id} recipe={recipe} shop={shop} logs={logs} today={today} onShopChange={onShopChange} />
             ))}
           </ul>
         </>
@@ -311,11 +322,13 @@ function PlanRow({
   recipe,
   shop,
   logs,
+  today,
   onShopChange,
 }: {
   recipe: Recipe
   shop: Shop
   logs: readonly CookLog[]
+  today: string
   onShopChange: ShopChange
 }) {
   const { busy, error, run } = useWrite()
@@ -331,7 +344,7 @@ function PlanRow({
             {recipe.title}
           </Link>
           {locked && <OpensAfter recipe={recipe} logs={logs} />}
-          {shopped && <span className="row-note">Groceries bought</span>}
+          {shopped && <span className="row-note">{boughtNote(recipe, shop.shoppedOn.get(recipe.id), today)}</span>}
         </span>
         <button
           className="link-button"
@@ -357,6 +370,14 @@ function PlanRow({
       <ErrorNotice error={error} />
     </li>
   )
+}
+
+/** "Groceries bought", with when to cook its meat by, or that the meat may be past its date. */
+function boughtNote(recipe: Recipe, boughtOn: string | undefined, today: string): string {
+  const by = boughtOn === undefined ? null : cookBy(recipe, boughtOn)
+  if (boughtOn === undefined || by === null) return 'Groceries bought'
+  if (by < today) return `Bought ${formatCookedOn(boughtOn)}: check the date on the meat`
+  return `Groceries bought. Cook by ${dayName(by, today)}`
 }
 
 /** A staple left off the list because the pantry has it, with how much this list uses, and a way to say it ran out. */

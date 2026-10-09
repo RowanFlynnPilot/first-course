@@ -48,6 +48,14 @@ export type MeatSafety = number | 'cured' | 'fully-cooked'
 interface Meat extends IngredientBase {
   readonly section: 'meat'
   readonly safeTempF: MeatSafety
+  /**
+   * Days it keeps in the fridge from the day it is bought, unopened, by the
+   * USDA's cold storage chart, at the short end: raw poultry and ground meat
+   * 1 to 2 days, so 2; a whole cut of beef 3 to 5, so 3; bacon a week; a
+   * fully cooked smoked sausage 2 weeks. The menu says to cook a bought
+   * recipe by then, or freeze its meat (lib/freshness.ts).
+   */
+  readonly fridgeDays: number
 }
 
 interface NotMeat extends IngredientBase {
@@ -213,6 +221,7 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '13 oz rope', priceCents: 449, units: 1 },
     safeTempF: 'fully-cooked',
+    fridgeDays: 14,
   },
   'chicken-thighs': {
     name: 'Boneless skinless chicken thighs',
@@ -221,6 +230,7 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '1.5 lb pack', priceCents: 599, units: 1.5 },
     safeTempF: 165,
+    fridgeDays: 2,
   },
   'ground-beef': {
     name: '80% lean ground beef',
@@ -229,6 +239,7 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '1 lb pack', priceCents: 649, units: 1 },
     safeTempF: 160,
+    fridgeDays: 2,
   },
   'chicken-breasts': {
     name: 'Boneless skinless chicken breasts',
@@ -237,6 +248,7 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '1.5 lb pack (about 2 large)', priceCents: 749, units: 1.5 },
     safeTempF: 165,
+    fridgeDays: 2,
   },
   'flank-steak': {
     // A whole cut, not ground: safe at 145°F, where ground beef needs 160°F.
@@ -246,6 +258,7 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '1 steak, about 1¼ lb', priceCents: 1249, units: 1.25 },
     safeTempF: 145,
+    fridgeDays: 3,
   },
   bacon: {
     // Thick-cut runs about 1½ oz a slice, so the pack is about 11 slices.
@@ -255,6 +268,7 @@ export const INGREDIENTS = {
     staple: false,
     package: { label: '16 oz pack', priceCents: 749, units: 16 },
     safeTempF: 'cured',
+    fridgeDays: 7,
   },
 
   // Dairy
