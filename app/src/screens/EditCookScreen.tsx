@@ -3,7 +3,6 @@
 
 import { startTransition, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { BACK_TO_MENU } from '../components/menuScroll'
 import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
@@ -12,6 +11,8 @@ import { recipeById } from '../curriculum/recipes'
 import { deleteCookLog, NOTES_MAX, updateCookLog } from '../lib/cookLogs'
 import { checkCookedOn, EARLIEST_COOK, listOf, localDateString, skillList } from '../lib/format'
 import { progressLost, type CookLog, type Rating } from '../lib/progress'
+import { useKitchen } from '../kitchen'
+import { MenuLink } from '../components/MenuLink'
 
 
 function lostSentence(before: readonly CookLog[], after: readonly CookLog[], plan: readonly string[]): string | null {
@@ -35,23 +36,20 @@ type EditProps = {
   onDeleted: (id: string) => void
 }
 
-export function EditCookScreen(props: EditProps) {
+export function EditCookScreen() {
+  const { logs, shop, onLogUpdated, onLogDeleted } = useKitchen()
   const { id } = useParams()
-  const log = props.logs.find((candidate) => candidate.id === id)
+  const log = logs.find((candidate) => candidate.id === id)
   // Deleted on another device, and gone from the log when the app caught up.
   if (log === undefined) return <CookGone />
-  return <EditCook log={log} {...props} />
+  return <EditCook log={log} logs={logs} plan={shop.plan} onUpdated={onLogUpdated} onDeleted={onLogDeleted} />
 }
 
 function CookGone() {
   usePageTitle('Not in your log')
   return (
     <main className="page">
-      <nav className="back">
-        <Link to="/" state={BACK_TO_MENU}>
-          Menu
-        </Link>
-      </nav>
+      <MenuLink />
       <h1 className="title">That cook is not in your log</h1>
       <p className="notice notice-info">It may have been deleted on another device. Nothing else changed.</p>
     </main>

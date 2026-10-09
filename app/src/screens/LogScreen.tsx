@@ -5,34 +5,30 @@ import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
-import type { Chef } from '../lib/chefs'
 import { clearCooking, loadCooking } from '../lib/cooking'
 import { insertCookLog, newCookId, NOTES_MAX } from '../lib/cookLogs'
-import type { Prices } from '../lib/cost'
 import { checkCookedOn, EARLIEST_COOK, localDateString } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
-import { cookable, whatTheRatingDecides, type CookLog, type Rating } from '../lib/progress'
+import { cookable, whatTheRatingDecides, type Rating } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
 import type { Recipe } from '../curriculum/types'
+import { useKitchen } from '../kitchen'
 
-type LogProps = {
-  userId: string
-  chef: Chef
-  logs: readonly CookLog[]
-  prices: Prices
-  onLogged: (log: CookLog, earned: CookNotice) => void
-}
+/** `onNotice` gets what the cook earned, for the menu to show once. */
+type LogProps = { onNotice: (earned: CookNotice) => void }
 
-export function LogScreen(props: LogProps) {
+export function LogScreen({ onNotice }: LogProps) {
+  const { logs } = useKitchen()
   const { id } = useParams()
   if (id === undefined) throw new Error('Log route is missing its id')
   // Same gate as cook mode, checked before anything is written.
-  const gate = cookable(id, props.logs)
-  if (gate.content === null) return <LockedPage recipe={gate.recipe} logs={props.logs} />
-  return <LogForm recipe={gate.recipe} {...props} />
+  const gate = cookable(id, logs)
+  if (gate.content === null) return <LockedPage recipe={gate.recipe} logs={logs} />
+  return <LogForm recipe={gate.recipe} onNotice={onNotice} />
 }
 
-function LogForm({ recipe, userId, chef, logs, prices, onLogged }: LogProps & { recipe: Recipe }) {
+function LogForm({ recipe, onNotice }: LogProps & { recipe: Recipe }) {
+  const { userId, chef, logs, shop, onLogged } = useKitchen()
   const navigate = useNavigate()
   usePageTitle(`Log a cook: ${recipe.title}`)
   const [rating, setRating] = useState<Rating | null>(null)
@@ -68,7 +64,8 @@ function LogForm({ recipe, userId, chef, logs, prices, onLogged }: LogProps & { 
       if (loadCooking(localStorage, userId, Date.now())?.recipeId === recipe.id) clearCooking(localStorage, userId)
       // A save retried after a lost answer can find this cook already in the log, brought in by a catch-up.
       const before = logs.filter((other) => other.id !== log.id)
-      onLogged(log, cookNotice(recipe, before, log, chef.name, prices))
+      onLogged(log)
+      onNotice(cookNotice(recipe, before, log, chef.name, shop.prices))
       // Replace, so Back from the menu cannot land on this form and log twice.
       navigate('/', { replace: true })
     })

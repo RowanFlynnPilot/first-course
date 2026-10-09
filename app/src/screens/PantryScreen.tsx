@@ -3,25 +3,23 @@
 // asks about salt and oil, not curry paste.
 
 import { Link } from 'react-router'
-import { BACK_TO_MENU } from '../components/menuScroll'
 import { CheckRow } from '../components/CheckRow'
 import { usePageTitle } from '../components/usePageTitle'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import { COURSE_NAMES } from '../lib/format'
 import { staplesByCourse } from '../lib/grocery'
-import { setInPantry, type Shop, type ShopChange } from '../lib/shop'
+import { setInPantry } from '../lib/shop'
+import { useKitchen } from '../kitchen'
+import { MenuLink } from '../components/MenuLink'
 
-export function PantryScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
+export function PantryScreen() {
+  const { shop, onShopChange } = useKitchen()
   // Worked out here, not when the file loads: a throw then would blank the page before the error screen is up.
   const courses = staplesByCourse()
   usePageTitle('Your pantry')
   return (
     <main className="page">
-      <nav className="back">
-        <Link to="/" state={BACK_TO_MENU}>
-          Menu
-        </Link>
-      </nav>
+      <MenuLink />
       <h1 className="title">Your pantry</h1>
       <p className="lede">
         Staples you have at home stay off the grocery list. “Done shopping” adds the ones you bought. When one runs

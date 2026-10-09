@@ -3,7 +3,6 @@
 
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
-import { BACK_TO_MENU } from '../components/menuScroll'
 import { CheckRow } from '../components/CheckRow'
 import { focusAfter, focusNext, useFocusTarget } from '../components/useFocusTarget'
 import { useNow } from '../components/useNow'
@@ -46,8 +45,11 @@ import {
   type Shop,
   type ShopChange,
 } from '../lib/shop'
+import { useKitchen } from '../kitchen'
+import { MenuLink } from '../components/MenuLink'
 
-export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: readonly CookLog[]; onShopChange: ShopChange }) {
+export function ShopScreen() {
+  const { shop, logs, onShopChange } = useKitchen()
   usePageTitle('This week')
   // Where the cook is standing, kept current: a recipe cooked in the last week is offered last, and Done
   // shopping dates the groceries.
@@ -220,11 +222,7 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
 
   return (
     <main className="page">
-      <nav className="back">
-        <Link to="/" state={BACK_TO_MENU}>
-          Menu
-        </Link>
-      </nav>
+      <MenuLink />
       <h1 className="title">This week</h1>
       {/* Not role=status: focus moves here, which reads it, and a status would read it twice. */}
       {finished !== null && (

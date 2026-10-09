@@ -16,11 +16,14 @@ import type { Recipe, RecipeContent } from '../curriculum/types'
 import { clearCooking, saveCooking } from '../lib/cooking'
 import { formatClock, readyAt } from '../lib/format'
 import { cookable, lastNote, type CookLog } from '../lib/progress'
+import { useKitchen } from '../kitchen'
 
 /** A timer this long or longer gets a word about leaving the page. */
 const LONG_TIMER_SECONDS = 10 * 60
 
-export function CookScreen({ userId, logs, kit }: { userId: string; logs: readonly CookLog[]; kit: ReadonlySet<EquipmentId> }) {
+export function CookScreen() {
+  const { userId, logs, shop } = useKitchen()
+  const { kit } = shop
   const params = useParams()
   if (params.id === undefined || params.step === undefined) throw new Error('Cook route is missing its id or step')
   // The one gate for cooking and logging (locked decision 13).

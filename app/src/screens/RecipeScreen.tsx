@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router'
-import { BACK_TO_MENU } from '../components/menuScroll'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
 import { LockedNotice } from '../components/LockedNotice'
@@ -22,28 +21,13 @@ import {
 import { TRACK_NAMES } from '../lib/extras'
 import { FRIED_RICE, LEFTOVER_DAYS, makesRice } from '../lib/leftovers'
 import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, formatMinutes, plural } from '../lib/format'
-import {
-  goodCooks,
-  lastNote,
-  MASTERED_COOKS,
-  masteryLeft,
-  plannable,
-  ratingLabel,
-  recipeFromRoute,
-  recipeState,
-  type CookLog,
-} from '../lib/progress'
+import { goodCooks, lastNote, MASTERED_COOKS, masteryLeft, plannable, ratingLabel, recipeFromRoute, recipeState } from '../lib/progress'
 import { planRecipe, takeOffPlan, type Shop, type ShopChange } from '../lib/shop'
+import { useKitchen } from '../kitchen'
+import { MenuLink } from '../components/MenuLink'
 
-export function RecipeScreen({
-  logs,
-  shop,
-  onShopChange,
-}: {
-  logs: readonly CookLog[]
-  shop: Shop
-  onShopChange: ShopChange
-}) {
+export function RecipeScreen() {
+  const { logs, shop, onShopChange } = useKitchen()
   const { id } = useParams()
   if (id === undefined) throw new Error('Recipe route is missing its id')
   const recipe = recipeFromRoute(id)
@@ -58,11 +42,7 @@ export function RecipeScreen({
 
   return (
     <main className="page">
-      <nav className="back">
-        <Link to="/" state={BACK_TO_MENU}>
-          Menu
-        </Link>
-      </nav>
+      <MenuLink />
 
       <header className="recipe-head">
         <Plate state={state} goodCooks={good} size={64} />

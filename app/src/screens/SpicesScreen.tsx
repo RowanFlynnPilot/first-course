@@ -2,26 +2,23 @@
 // using it on everyday food.
 
 import { Link } from 'react-router'
-import { BACK_TO_MENU } from '../components/menuScroll'
 import { usePageTitle } from '../components/usePageTitle'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import { SPICE_HABITS, SPICES, SPICES_LATER } from '../curriculum/spices'
 import { COURSE_NAMES } from '../lib/format'
-import type { Shop } from '../lib/shop'
 import { spiceShelf } from '../lib/spices'
+import { useKitchen } from '../kitchen'
+import { MenuLink } from '../components/MenuLink'
 
-export function SpicesScreen({ shop }: { shop: Shop }) {
+export function SpicesScreen() {
+  const { shop } = useKitchen()
   // Worked out here, not when the file loads: a throw then would blank the page before the error screen is up.
   const shelf = spiceShelf()
   const count = shelf.reduce((sum, course) => sum + course.spices.length, 0)
   usePageTitle('Spices')
   return (
     <main className="page">
-      <nav className="back">
-        <Link to="/" state={BACK_TO_MENU}>
-          Menu
-        </Link>
-      </nav>
+      <MenuLink />
       <h1 className="title">Spices</h1>
       <p className="lede">
         These {count} spices and seasonings cover every recipe on the menu. Buy each one when the menu first needs it,

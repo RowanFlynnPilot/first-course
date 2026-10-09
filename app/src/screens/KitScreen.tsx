@@ -1,7 +1,6 @@
 // The kit: equipment the cook owns, filed under the first course that needs it.
 
 import { Link } from 'react-router'
-import { BACK_TO_MENU } from '../components/menuScroll'
 import { CheckRow } from '../components/CheckRow'
 import { focusAfter, useFocusTarget } from '../components/useFocusTarget'
 import { useWrite } from '../components/useWrite'
@@ -11,18 +10,17 @@ import type { Tier } from '../curriculum/types'
 import { COURSE_NAMES } from '../lib/format'
 import { hasKit, kitByCourse } from '../lib/kit'
 import { addAllToKit, setInKit, type Shop, type ShopChange } from '../lib/shop'
+import { useKitchen } from '../kitchen'
+import { MenuLink } from '../components/MenuLink'
 
-export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
+export function KitScreen() {
+  const { shop, onShopChange } = useKitchen()
   // Worked out here, not when the file loads: a throw then would blank the page before the error screen is up.
   const courses = kitByCourse()
   usePageTitle('Your kit')
   return (
     <main className="page">
-      <nav className="back">
-        <Link to="/" state={BACK_TO_MENU}>
-          Menu
-        </Link>
-      </nav>
+      <MenuLink />
       <h1 className="title">Your kit</h1>
       <p className="lede">
         Check off what you already own. Each course lists what it adds, so you can buy it before you need it, not halfway

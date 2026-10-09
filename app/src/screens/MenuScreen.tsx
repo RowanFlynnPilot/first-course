@@ -49,6 +49,7 @@ import {
 import { addAllToKit, planRecipe, readyTonight, shopForAgain, type Shop, type ShopChange } from '../lib/shop'
 import { currentStreak, type Streak } from '../lib/streak'
 import { clearTimers } from '../lib/timers'
+import { useKitchen } from '../kitchen'
 
 const COURSES: readonly Tier[] = [1, 2, 3, 4]
 
@@ -64,25 +65,8 @@ function momentsOf(notice: CookNotice | null): Moment[] {
   ]
 }
 
-export function MenuScreen({
-  userId,
-  chef,
-  logs,
-  shop,
-  notice,
-  onChefSaved,
-  onShopChange,
-  onSignOut,
-}: {
-  userId: string
-  chef: Chef
-  logs: readonly CookLog[]
-  shop: Shop
-  notice: CookNotice | null
-  onChefSaved: (chef: Chef) => void
-  onShopChange: ShopChange
-  onSignOut: () => Promise<void>
-}) {
+export function MenuScreen({ notice }: { notice: CookNotice | null }) {
+  const { userId, chef, logs, shop, onChefSaved, onShopChange, onSignOut } = useKitchen()
   usePageTitle(null)
   // Each course counts only the kit it adds, as the kit screen files it, so the numbers agree.
   const newKit = kitByCourse()

@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { useEffect, useRef, useState } from 'react'
+import { KitchenContext, type Kitchen } from './kitchen'
 import { HashRouter, Route, Routes, useLocation, useNavigationType } from 'react-router'
 import { loadChecks, saveChecks } from './lib/checks'
 import { fetchChef, type Chef } from './lib/chefs'
@@ -330,6 +331,28 @@ function Kitchen({
     })
   }
 
+  const kitchen: Kitchen = {
+    userId,
+    chef,
+    logs,
+    shop,
+    onShopChange: changeShop,
+    onChefSaved: chefSaved,
+    onLogged: (log) => {
+      // A save retried after a lost answer can find its cook already here, brought in by a catch-up.
+      changeLogs((previous) =>
+        previous.some((other) => other.id === log.id)
+          ? previous.map((other) => (other.id === log.id ? log : other))
+          : [...previous, log],
+      )
+      // Saving the cook took its recipe off the plan in the database (00006).
+      changeShop((previous) => withoutPlanned(previous, log.recipeId))
+    },
+    onLogUpdated: (log) => changeLogs((previous) => previous.map((other) => (other.id === log.id ? log : other))),
+    onLogDeleted: (id) => changeLogs((previous) => previous.filter((other) => other.id !== id)),
+    onSignOut,
+  }
+
   return (
     <HashRouter>
       {linkShown !== null && (
@@ -359,54 +382,15 @@ function Kitchen({
           </button>
         </div>
       )}
-      <Pages
-        userId={userId}
-        chef={chef}
-        logs={logs}
-        shop={shop}
-        onLogged={(log) => {
-          // A save retried after a lost answer can find its cook already here, brought in by a catch-up.
-          changeLogs((previous) =>
-            previous.some((other) => other.id === log.id)
-              ? previous.map((other) => (other.id === log.id ? log : other))
-              : [...previous, log],
-          )
-          // Saving the cook took its recipe off the plan in the database (00006).
-          changeShop((previous) => withoutPlanned(previous, log.recipeId))
-        }}
-        onLogUpdated={(log) => changeLogs((previous) => previous.map((other) => (other.id === log.id ? log : other)))}
-        onLogDeleted={(id) => changeLogs((previous) => previous.filter((other) => other.id !== id))}
-        onChefSaved={chefSaved}
-        onShopChange={changeShop}
-        onSignOut={onSignOut}
-      />
+      <KitchenContext value={kitchen}>
+        <Pages />
+      </KitchenContext>
     </HashRouter>
   )
 }
 
-function Pages({
-  userId,
-  chef,
-  logs,
-  shop,
-  onLogged,
-  onLogUpdated,
-  onLogDeleted,
-  onChefSaved,
-  onShopChange,
-  onSignOut,
-}: {
-  userId: string
-  chef: Chef
-  logs: readonly CookLog[]
-  shop: Shop
-  onLogged: (log: CookLog) => void
-  onLogUpdated: (log: CookLog) => void
-  onLogDeleted: (id: string) => void
-  onChefSaved: (chef: Chef) => void
-  onShopChange: ShopChange
-  onSignOut: () => Promise<void>
-}) {
+/** The screens, by route. Each reads the kitchen it needs (kitchen.ts); the after-cook notice is kept here. */
+function Pages() {
   const location = useLocation()
   const { pathname } = location
   const backToMenu = pathname === '/' && (location.state as { back?: unknown } | null)?.back === true
@@ -438,51 +422,17 @@ function Pages({
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          <MenuScreen
-            userId={userId}
-            chef={chef}
-            logs={logs}
-            shop={shop}
-            notice={notice}
-            onChefSaved={onChefSaved}
-            onShopChange={onShopChange}
-            onSignOut={onSignOut}
-          />
-        }
-      />
-      <Route path="/chef" element={<ChefScreen chef={chef} logs={logs} prices={shop.prices} />} />
-      <Route
-        path="/chef/edit"
-        element={<EditChefScreen userId={userId} chef={chef} logs={logs} onSaved={onChefSaved} />}
-      />
-      <Route path="/recipe/:id" element={<RecipeScreen logs={logs} shop={shop} onShopChange={onShopChange} />} />
-      <Route
-        path="/cook/:id/log"
-        element={
-          <LogScreen
-            userId={userId}
-            chef={chef}
-            logs={logs}
-            prices={shop.prices}
-            onLogged={(log, earned) => {
-              onLogged(log)
-              setNotice(earned)
-            }}
-          />
-        }
-      />
-      <Route path="/cook/:id/:step" element={<CookScreen userId={userId} logs={logs} kit={shop.kit} />} />
-      <Route
-        path="/cook-log/:id"
-        element={<EditCookScreen logs={logs} plan={shop.plan} onUpdated={onLogUpdated} onDeleted={onLogDeleted} />}
-      />
-      <Route path="/shop" element={<ShopScreen shop={shop} logs={logs} onShopChange={onShopChange} />} />
-      <Route path="/pantry" element={<PantryScreen shop={shop} onShopChange={onShopChange} />} />
-      <Route path="/kit" element={<KitScreen shop={shop} onShopChange={onShopChange} />} />
-      <Route path="/spices" element={<SpicesScreen shop={shop} />} />
+      <Route path="/" element={<MenuScreen notice={notice} />} />
+      <Route path="/chef" element={<ChefScreen />} />
+      <Route path="/chef/edit" element={<EditChefScreen />} />
+      <Route path="/recipe/:id" element={<RecipeScreen />} />
+      <Route path="/cook/:id/log" element={<LogScreen onNotice={setNotice} />} />
+      <Route path="/cook/:id/:step" element={<CookScreen />} />
+      <Route path="/cook-log/:id" element={<EditCookScreen />} />
+      <Route path="/shop" element={<ShopScreen />} />
+      <Route path="/pantry" element={<PantryScreen />} />
+      <Route path="/kit" element={<KitScreen />} />
+      <Route path="/spices" element={<SpicesScreen />} />
       <Route path="*" element={<NotOnTheMenu />} />
     </Routes>
   )

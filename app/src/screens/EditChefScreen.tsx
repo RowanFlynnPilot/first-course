@@ -1,22 +1,13 @@
 import { Link, useNavigate } from 'react-router'
 import { ChefEditor } from '../components/ChefEditor'
 import { usePageTitle } from '../components/usePageTitle'
-import { updateChef, type Chef } from '../lib/chefs'
+import { updateChef } from '../lib/chefs'
 import { unlockedExtras } from '../lib/extras'
 import { levelForXp, rankIndexForLevel, totalXp } from '../lib/leveling'
-import type { CookLog } from '../lib/progress'
+import { useKitchen } from '../kitchen'
 
-export function EditChefScreen({
-  userId,
-  chef,
-  logs,
-  onSaved,
-}: {
-  userId: string
-  chef: Chef
-  logs: readonly CookLog[]
-  onSaved: (chef: Chef) => void
-}) {
+export function EditChefScreen() {
+  const { userId, chef, logs, onChefSaved } = useKitchen()
   const navigate = useNavigate()
   usePageTitle('Change your chef')
   return (
@@ -31,7 +22,7 @@ export function EditChefScreen({
         unlocked={new Set(unlockedExtras(logs))}
         submitLabel="Save chef"
         onSubmit={async (next) => {
-          onSaved(await updateChef(userId, next))
+          onChefSaved(await updateChef(userId, next))
           navigate('/chef', { replace: true })
         }}
       />

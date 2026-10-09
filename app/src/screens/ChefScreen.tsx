@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { BACK_TO_MENU } from '../components/menuScroll'
 import { BadgeArt } from '../components/BadgeArt'
 import { ChefSprite } from '../components/ChefSprite'
 import { usePageTitle } from '../components/usePageTitle'
@@ -10,8 +9,7 @@ import { XpBar } from '../components/XpBar'
 import { RECIPES } from '../curriculum/recipes'
 import { DISCIPLINES, TECHNIQUES } from '../curriculum/techniques'
 import { BADGES, earnedBadges } from '../lib/badges'
-import type { Chef } from '../lib/chefs'
-import { totalKeptCents, type Prices } from '../lib/cost'
+import { totalKeptCents } from '../lib/cost'
 import { EXTRAS, trackCooks, unlockedExtras, wornExtras } from '../lib/extras'
 import { formatCents, localDateString, plural } from '../lib/format'
 import {
@@ -25,10 +23,14 @@ import {
   XP_PER_MASTERY,
   XP_PER_SKILL,
 } from '../lib/leveling'
-import { recipeState, teacherOf, type CookLog } from '../lib/progress'
+import { recipeState, teacherOf } from '../lib/progress'
 import { currentStreak, longestStreak } from '../lib/streak'
+import { useKitchen } from '../kitchen'
+import { MenuLink } from '../components/MenuLink'
 
-export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly CookLog[]; prices: Prices }) {
+export function ChefScreen() {
+  const { chef, logs, shop } = useKitchen()
+  const { prices } = shop
   usePageTitle('Chef sheet')
   const xp = totalXp(logs)
   const level = levelForXp(xp)
@@ -43,11 +45,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
 
   return (
     <main className="page">
-      <nav className="back">
-        <Link to="/" state={BACK_TO_MENU}>
-          Menu
-        </Link>
-      </nav>
+      <MenuLink />
 
       <header className="sheet-head">
         <ChefSprite rank={rank} look={chef} extras={worn} scale={5} idle />
