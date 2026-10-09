@@ -11,7 +11,8 @@ import {
   SKIN_TONES,
   type Look,
 } from '../components/chefSprites'
-import { supabase } from '../supabase'
+import type { Database } from '../database.types'
+import { db } from '../supabase'
 import { plainMessage } from './errors'
 import { extraById, isExtraId, type ExtraId } from './extras'
 
@@ -28,15 +29,11 @@ export const DEFAULT_LOOK: Look = { skin: 1, hair: 1, hairStyle: 0, facialHair: 
 
 const COLUMNS = 'name, skin, hair, hair_style, facial_hair, glasses, extras'
 
-interface ChefRow {
-  name: string
-  skin: number
-  hair: number
-  hair_style: number
-  facial_hair: number
-  glasses: number
-  extras: string[]
-}
+/** The columns read, as the migrations define them (database.types.ts). */
+type ChefRow = Pick<
+  Database['public']['Tables']['chefs']['Row'],
+  'name' | 'skin' | 'hair' | 'hair_style' | 'facial_hair' | 'glasses' | 'extras'
+>
 
 function index<T extends readonly unknown[]>(options: T, value: number, column: string) {
   if (!isIndexOf(options, value)) throw new Error(`Chef row has ${column} ${value}`)
@@ -82,9 +79,9 @@ function toRow(chef: Chef): ChefRow {
 
 /** null means this account has not created a chef yet. */
 export async function fetchChef(): Promise<Chef | null> {
-  const { data, error } = await supabase.from('chefs').select(COLUMNS).maybeSingle()
+  const { data, error } = await db.from('chefs').select(COLUMNS).maybeSingle()
   if (error) throw new Error(`Could not load your chef: ${plainMessage(error)}`)
-  return data === null ? null : toChef(data as ChefRow)
+  return data === null ? null : toChef(data)
 }
 
 /**
@@ -93,18 +90,18 @@ export async function fetchChef(): Promise<Chef | null> {
  * device. Either way that chef is the one to show.
  */
 export async function createChef(chef: Chef): Promise<Chef> {
-  const { data, error } = await supabase.from('chefs').insert(toRow(chef)).select(COLUMNS).single()
+  const { data, error } = await db.from('chefs').insert(toRow(chef)).select(COLUMNS).single()
   if (error?.code === '23505') {
     const existing = await fetchChef()
     if (existing === null) throw new Error(`Could not create your chef: ${plainMessage(error)}`)
     return existing
   }
   if (error) throw new Error(`Could not create your chef: ${plainMessage(error)}`)
-  return toChef(data as ChefRow)
+  return toChef(data)
 }
 
 export async function updateChef(userId: string, chef: Chef): Promise<Chef> {
-  const { data, error } = await supabase.from('chefs').update(toRow(chef)).eq('user_id', userId).select(COLUMNS).single()
+  const { data, error } = await db.from('chefs').update(toRow(chef)).eq('user_id', userId).select(COLUMNS).single()
   if (error) throw new Error(`Could not save your chef: ${plainMessage(error)}`)
-  return toChef(data as ChefRow)
+  return toChef(data)
 }

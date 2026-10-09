@@ -1,4 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
+// The two Supabase clients the app uses: Auth (accounts and the session)
+// and the Data API (the tables and finish_shopping). supabase-js would bring
+// Realtime, Storage and Functions too, which the app never calls: a third of
+// the download on weak signal.
+
+import { AuthClient } from '@supabase/auth-js'
+import { PostgrestClient } from '@supabase/postgrest-js'
+import type { Database } from './database.types'
 
 const url: string | undefined = import.meta.env.VITE_SUPABASE_URL
 const key: string | undefined = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -51,7 +58,34 @@ function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise
   return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
 }
 
-export const supabase = createClient(url, key, { auth: { detectSessionInUrl: false }, global: { fetch: fetchWithTimeout } })
+const base = new URL(url)
+
+/**
+ * Accounts and the session. The session is kept under the key supabase-js
+ * used, so a cook signed in before the app stopped using it stays signed in.
+ * It does not read the address bar: the email link is read above.
+ */
+export const auth = new AuthClient({
+  url: new URL('auth/v1', base).href,
+  headers: { Authorization: `Bearer ${key}`, apikey: key },
+  storageKey: `sb-${base.hostname.split('.')[0]}-auth-token`,
+  autoRefreshToken: true,
+  persistSession: true,
+  detectSessionInUrl: false,
+  fetch: fetchWithTimeout,
+})
+
+/** Every Data API request carries the key, and the signed-in cook's token, so row-level security knows whose rows. */
+async function fetchAsTheCook(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const { data } = await auth.getSession()
+  const headers = new Headers(init?.headers)
+  if (!headers.has('apikey')) headers.set('apikey', key ?? '')
+  if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${data.session?.access_token ?? key}`)
+  return fetchWithTimeout(input, { ...init, headers })
+}
+
+/** The tables and the database function, typed from the migrations (database.types.ts). */
+export const db = new PostgrestClient<Database>(new URL('rest/v1', base).href, { fetch: fetchAsTheCook })
 
 /**
  * Who an email link's token really signs in, as Supabase says: the token is
@@ -59,13 +93,13 @@ export const supabase = createClient(url, key, { auth: { detectSessionInUrl: fal
  * token that names any email) fails here. Never read the token's own claims.
  */
 export async function linkOwner(link: NonNullable<typeof emailLink>): Promise<{ id: string; email: string | null }> {
-  const { data, error } = await supabase.auth.getUser(link.accessToken)
+  const { data, error } = await auth.getUser(link.accessToken)
   if (error) throw new Error('That email link did not work.')
   return { id: data.user.id, email: data.user.email ?? null }
 }
 
 /** Signs in with an email link's tokens, checked by `linkOwner` first. Rejects with why it failed. */
 export async function signInFromLink(link: NonNullable<typeof emailLink>): Promise<void> {
-  const { error } = await supabase.auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
+  const { error } = await auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
   if (error) throw new Error('That email link did not sign you in.')
 }

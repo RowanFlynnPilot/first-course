@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { usePageTitle } from '../components/usePageTitle'
 import { Saving } from '../components/WriteStatus'
 import { plainMessage } from '../lib/errors'
-import { supabase } from '../supabase'
+import { auth } from '../supabase'
 
 /**
  * What the screen is for: signing in, creating an account (its own form, so
@@ -68,7 +68,7 @@ export function AuthScreen({
     event.preventDefault()
     void once(async () => {
       setConfirmationResent(false)
-      const { error: failure } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: failure } = await auth.signInWithPassword({ email, password })
       setError(failure ? plainMessage(failure) : null)
       setUnconfirmed(failure?.code === 'email_not_confirmed')
     })
@@ -76,7 +76,7 @@ export function AuthScreen({
 
   function resendConfirmation() {
     void once(async () => {
-      const { error: failure } = await supabase.auth.resend({ type: 'signup', email })
+      const { error: failure } = await auth.resend({ type: 'signup', email })
       setError(failure ? plainMessage(failure) : null)
       setUnconfirmed(failure !== null)
       setConfirmationResent(failure === null)
@@ -86,7 +86,7 @@ export function AuthScreen({
   function createAccount(event: FormEvent) {
     event.preventDefault()
     void once(async () => {
-      const { data, error: failure } = await supabase.auth.signUp({ email, password })
+      const { data, error: failure } = await auth.signUp({ email, password })
       setError(failure ? plainMessage(failure) : null)
       if (failure === null && data.session === null) {
         // Confirmation on: the account waits for its link, and then the cook signs in here.
@@ -100,7 +100,7 @@ export function AuthScreen({
     event.preventDefault()
     void once(async () => {
       // The link comes back to the Site URL set on the Supabase project: the deployed app.
-      const { error: failure } = await supabase.auth.resetPasswordForEmail(email)
+      const { error: failure } = await auth.resetPasswordForEmail(email)
       setError(failure ? plainMessage(failure) : null)
       setResetSent(failure === null)
     })

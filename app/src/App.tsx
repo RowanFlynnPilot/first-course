@@ -1,4 +1,4 @@
-import type { Session } from '@supabase/supabase-js'
+import type { Session } from '@supabase/auth-js'
 import { useEffect, useRef, useState } from 'react'
 import { KitchenContext, type Kitchen } from './kitchen'
 import { HashRouter, Route, Routes, useLocation, useNavigationType } from 'react-router'
@@ -28,7 +28,7 @@ import { clearFocusTarget } from './components/useFocusTarget'
 import { plainMessage } from './lib/errors'
 import { forgetOldTimers } from './lib/timers'
 import { usePageTitle } from './components/usePageTitle'
-import { emailLink, fromPasswordReset, linkError, linkOwner, signInFromLink, supabase } from './supabase'
+import { auth, emailLink, fromPasswordReset, linkError, linkOwner, signInFromLink } from './supabase'
 
 export default function App() {
   // undefined = still asking Supabase; null = signed out.
@@ -67,7 +67,7 @@ export default function App() {
     if (emailLink === null) return
     const link = emailLink
     // Who the link really signs in, checked by Supabase, against who is signed in here already.
-    Promise.all([supabase.auth.getSession(), linkOwner(link)]).then(([{ data }, owner]) => {
+    Promise.all([auth.getSession(), linkOwner(link)]).then(([{ data }, owner]) => {
       const current = data.session?.user
       if (current !== undefined && current.id !== owner.id) {
         setSwitching({ from: current.email ?? 'another account', to: owner.email ?? 'another account' })
@@ -79,7 +79,7 @@ export default function App() {
 
   useEffect(() => {
     // Fires once on subscribe with the stored session, then on every change.
-    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+    const { data } = auth.onAuthStateChange((event, next) => {
       if (event === 'SIGNED_OUT') signedOut.current = true
       if (next !== null) setSignOutProblem(null)
       setSession(next)
@@ -123,7 +123,7 @@ export default function App() {
       onSignOut={async () => {
         setSignOutProblem(null)
         signedOut.current = false
-        const { error } = await supabase.auth.signOut()
+        const { error } = await auth.signOut()
         if (error === null) return
         if (!signedOut.current) throw new Error(`Could not sign out: ${plainMessage(error)}`)
         const problem = 'Signed out on this phone, but the sign-out did not reach the server.'

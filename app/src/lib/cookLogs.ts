@@ -1,5 +1,6 @@
 import { recipeById } from '../curriculum/recipes'
-import { supabase } from '../supabase'
+import type { Database } from '../database.types'
+import { db } from '../supabase'
 import { plainMessage } from './errors'
 import type { CookLog, Rating } from './progress'
 
@@ -11,13 +12,8 @@ export const NOTES_MAX = 2000
 /** Rows per read. The Data API returns at most 1,000 at a time, and a keen cook passes that in a few years. */
 const PAGE = 1000
 
-interface CookLogRow {
-  id: string
-  recipe_id: string
-  cooked_on: string
-  rating: number
-  notes: string
-}
+/** The columns read, as the migrations define them (database.types.ts). */
+type CookLogRow = Pick<Database['public']['Tables']['cook_logs']['Row'], 'id' | 'recipe_id' | 'cooked_on' | 'rating' | 'notes'>
 
 // The one place database rows become app data.
 function toCookLog(row: CookLogRow): CookLog {
@@ -41,14 +37,14 @@ function toCookLog(row: CookLogRow): CookLog {
 export async function fetchCookLogs(): Promise<readonly CookLog[]> {
   const rows: CookLogRow[] = []
   for (;;) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('cook_logs')
       .select(COLUMNS)
       .order('created_at')
       .order('id')
       .range(rows.length, rows.length + PAGE - 1)
     if (error) throw new Error(`Could not load your cook log: ${plainMessage(error)}`)
-    rows.push(...(data as CookLogRow[]))
+    rows.push(...data)
     // Frozen: progress is kept per log array (progress.ts), so the array must never change in place.
     if (data.length < PAGE) return Object.freeze(rows.map(toCookLog))
   }
@@ -81,7 +77,7 @@ export async function insertCookLog(input: {
   rating: Rating
   notes: string
 }): Promise<CookLog> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('cook_logs')
     .insert({
       id: input.id,
@@ -96,7 +92,7 @@ export async function insertCookLog(input: {
     return updateCookLog(input.id, { cookedOn: input.cookedOn, rating: input.rating, notes: input.notes })
   }
   if (error) throw new Error(`Could not save this cook: ${plainMessage(error)}`)
-  return toCookLog(data as CookLogRow)
+  return toCookLog(data)
 }
 
 /** The date, rating and notes of a cook can change. Its recipe cannot: that would be a different cook. */
@@ -104,14 +100,14 @@ export async function updateCookLog(
   id: string,
   change: { cookedOn: string; rating: Rating; notes: string },
 ): Promise<CookLog> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('cook_logs')
     .update({ cooked_on: change.cookedOn, rating: change.rating, notes: change.notes })
     .eq('id', id)
     .select(COLUMNS)
     .single()
   if (error) throw new Error(`Could not save your changes: ${plainMessage(error)}`)
-  return toCookLog(data as CookLogRow)
+  return toCookLog(data)
 }
 
 /**
@@ -119,6 +115,6 @@ export async function updateCookLog(
  * retry after an answer lost on weak signal, or a delete on another device.
  */
 export async function deleteCookLog(id: string): Promise<void> {
-  const { error } = await supabase.from('cook_logs').delete().eq('id', id)
+  const { error } = await db.from('cook_logs').delete().eq('id', id)
   if (error) throw new Error(`Could not delete this cook: ${plainMessage(error)}`)
 }

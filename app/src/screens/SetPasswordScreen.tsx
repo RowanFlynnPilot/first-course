@@ -7,7 +7,7 @@ import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { plainMessage } from '../lib/errors'
-import { supabase } from '../supabase'
+import { auth } from '../supabase'
 
 export function SetPasswordScreen({ email, onDone }: { email: string | undefined; onDone: () => void }) {
   usePageTitle('Set a new password')
@@ -22,7 +22,7 @@ export function SetPasswordScreen({ email, onDone }: { email: string | undefined
     event.preventDefault()
     void run(() =>
       focusAfter('password-saved', async () => {
-        const { error: failure } = await supabase.auth.updateUser({ password })
+        const { error: failure } = await auth.updateUser({ password })
         if (failure) throw new Error(`Could not set the password: ${plainMessage(failure)}`)
         setSaved(true)
       }),
