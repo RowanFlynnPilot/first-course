@@ -119,7 +119,12 @@ export function useCookTimers(recipeId: string, plan: TimerPlan) {
         })
         .catch((cause: Error) => setSoundError(cause.message))
     }
-    /** Simmers that reached their next stir since the last check. The first look at one only notes where it is. */
+    /**
+     * Simmers that reached their next stir since the last check. One started
+     * on this page load counts from its start; the first look at one from
+     * before a reload only notes where it is, so a reload does not beep for
+     * stirs already past.
+     */
     function stirsDue(at: number): string[] {
       const due: string[] = []
       for (const [label, timer] of Object.entries(shownTimers(latest.current, at))) {
@@ -244,7 +249,8 @@ export function useCookTimers(recipeId: string, plan: TimerPlan) {
       setNow(Date.now())
       ringingSince.current.delete(label)
       announced.current.delete(label)
-      stirSeen.current.delete(label)
+      // Counted from the start, whenever the next check runs: a phone locked right after Start still stirs on time.
+      stirSeen.current.set(label, 0)
       setTimers((previous) => ({ ...previous, [label]: { endsAt: Date.now() + seconds * 1000, rang: false, stopped: false } }))
     },
     /** The cook stirred: the reminder goes until the next one. */

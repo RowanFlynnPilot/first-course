@@ -129,6 +129,22 @@ test.describe('a simmer that needs stirring', () => {
   })
 })
 
+test.describe('a simmer whose phone was locked right after Start', () => {
+  const marinara = recipeById('marinara-pasta')
+  const OPEN = { logs: pathTo(marinara, []).map((recipe) => ({ recipe: recipe.id, rating: 2 as const })) }
+
+  test('still counts its stirs from the start', async ({ page, kitchen }) => {
+    await page.clock.install({ time: SIX_PM })
+    await kitchen.open('#/cook/marinara-pasta/6', OPEN)
+    await expect(page.locator('.cook-count')).toHaveText(/^Step 6 of/)
+    // No check runs between the tap and the jump, as on a phone locked at once.
+    await page.clock.pauseAt(SIX_PM.getTime() + 60_000)
+    await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
+    await page.clock.fastForward('05:01')
+    await expect(page.getByRole('button', { name: 'Sauce: stir it now' })).toBeVisible()
+  })
+})
+
 test.describe('the timer’s controls', () => {
   test('starting and stopping a timer hands focus to the control that replaces it', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
