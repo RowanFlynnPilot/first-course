@@ -8,6 +8,7 @@ import { CheckRow } from '../components/CheckRow'
 import { focusAfter, focusNext, useFocusTarget } from '../components/useFocusTarget'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
+import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { EQUIPMENT } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
@@ -23,12 +24,12 @@ import {
   packagesOf,
   parseCents,
   plural,
-  skillList,
 } from '../lib/format'
 import { groceryList, groceryText, type GroceryLine } from '../lib/grocery'
 import { missingKit } from '../lib/kit'
-import { missingTechniques, readyToPlan, recipeState, type CookLog } from '../lib/progress'
+import { pathTo, readyToPlan, recipeState, type CookLog } from '../lib/progress'
 import {
+  coveredRecipes,
   doneShopping,
   planRecipe,
   resetPrice,
@@ -56,17 +57,6 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
   const toBuy = notInCart.length
   const finish = useWrite()
   const [finished, setFinished] = useState<string | null>(null)
-  // Ticks still saving. Done shopping waits for them, so a staple ticked a
-  // moment ago still reaches the pantry.
-  const [saving, setSaving] = useState(0)
-  async function track(write: () => Promise<void>) {
-    setSaving((count) => count + 1)
-    try {
-      await write()
-    } finally {
-      setSaving((count) => count - 1)
-    }
-  }
 
   const finishedRef = useFocusTarget<HTMLParagraphElement>('shop-done')
   // Where focus goes when a line leaves the list ("Have it"): the next line, or the one before, so the cook keeps their place.
@@ -80,20 +70,22 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
   const planTitle = useFocusTarget<HTMLHeadingElement>('plan-title')
 
   async function finishShopping() {
-    // A tick still saving would be left out of the pantry; a second tap while the first is out does nothing.
-    if (saving > 0 || finish.busy) return
+    if (finish.busy) return
+    // A recipe with a line left unchecked stays on the list: the store was out, or it is still to buy.
+    const covered = coveredRecipes(shop)
+    const staying = toShop.filter((id) => !covered.includes(id))
     const left = listOf(notInCart.map((line) => inSentence(INGREDIENTS[line.ingredientId].name)))
-    if (toBuy > 0 && !window.confirm(`Not checked off: ${left}. They come off the list. Finish shopping anyway?`)) {
-      return
-    }
+    const question = `Not checked off: ${left}. ${titlesOf(staying)} ${staying.length === 1 ? 'stays' : 'stay'} on the list for ${toBuy === 1 ? 'it' : 'them'}. Finish shopping?`
+    if (toBuy > 0 && !window.confirm(question)) return
     await finish.run(() =>
       focusAfter('shop-done', async () => {
-        const staples = await doneShopping(shop, onShopChange)
-        setFinished(
-          staples.length === 0
-            ? 'Done shopping. The list is cleared.'
-            : `Done shopping. Into your pantry: ${listOf(staples.map((id) => inSentence(INGREDIENTS[id].name)))}.`,
-        )
+        const { staples, stillToShop } = await doneShopping(shop, onShopChange)
+        const pantry = staples.length === 0 ? '' : ` Into your pantry: ${listOf(staples.map((id) => inSentence(INGREDIENTS[id].name)))}.`
+        const still =
+          stillToShop.length === 0
+            ? ''
+            : ` ${titlesOf(stillToShop)} ${stillToShop.length === 1 ? 'stays' : 'stay'} on the list for what you did not check off.`
+        setFinished(`Done shopping.${pantry}${still}${pantry === '' && still === '' ? ' The list is cleared.' : ''}`)
       }),
     )
   }
@@ -120,7 +112,6 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
                 key={line.ingredientId}
                 line={line}
                 shop={shop}
-                track={track}
                 onShopChange={onShopChange}
                 neighbor={neighborOf(line.ingredientId)}
               />
@@ -157,28 +148,16 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
           Everything is in the cart. Tap “Done shopping” to put the staples in your pantry and mark the plan bought.
         </p>
       )}
-      {finish.error !== null && (
-        <p className="notice notice-error" role="alert">
-          {finish.error}
-        </p>
-      )}
+      <ErrorNotice error={finish.error} />
       <div className="actions">
-        <button
-          className="button"
-          type="button"
-          aria-disabled={finish.busy || saving > 0}
-          onClick={() => void finishShopping()}
-        >
+        <button className="button" type="button" aria-disabled={finish.busy} onClick={() => void finishShopping()}>
           Done shopping
         </button>
-        {finish.busy && (
-          <span className="busy" role="status">
-            Saving…
-          </span>
-        )}
+        <Saving busy={finish.busy} />
       </div>
       <p className="section-note">
-        Clears the list and puts the staples you checked off into your pantry. The plan stays until you cook.
+        Marks the recipes you have everything for as bought, and puts the staples you checked off into your pantry.
+        The plan stays until you cook. Your checks are kept on this phone, so the list works with no signal.
       </p>
     </section>
   )
@@ -220,8 +199,9 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
         </Link>
       </nav>
       <h1 className="title">This week</h1>
+      {/* Not role=status: focus moves here, which reads it, and a status would read it twice. */}
       {finished !== null && (
-        <p className="notice" role="status" ref={finishedRef} tabIndex={-1}>
+        <p className="notice notice-info" ref={finishedRef} tabIndex={-1}>
           {finished} <Link to="/">Go to the menu to cook</Link>
         </p>
       )}
@@ -230,10 +210,12 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
       {ready.length > 0 && (
         <section className="section">
           <h2 className="section-title">Ready to cook</h2>
-          <p className="section-note">Recipes you can cook now, in the order the menu suggests them.</p>
+          <p className="section-note">
+            Recipes you can cook now, in the order the menu suggests them, then ones this week’s cooks will open.
+          </p>
           <ul className="rows">
             {ready.map((recipe) => (
-              <ReadyRow key={recipe.id} recipe={recipe} shop={shop} onShopChange={onShopChange} />
+              <ReadyRow key={recipe.id} recipe={recipe} logs={logs} shop={shop} onShopChange={onShopChange} />
             ))}
           </ul>
         </section>
@@ -245,8 +227,28 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
 /** How many unplanned recipes This week offers to add. */
 const SUGGESTIONS = 4
 
+/** Recipe titles as a list: "Soft scrambled eggs on toast and Spaghetti aglio e olio". */
+function titlesOf(ids: readonly string[]): string {
+  return listOf(ids.map((id) => recipeById(id).title))
+}
+
+/** A locked recipe on, or going on, the plan: the cooks that open it, in the order to cook them. */
+function OpensAfter({ recipe, logs }: { recipe: Recipe; logs: readonly CookLog[] }) {
+  return <span className="row-note">Opens after you cook {titlesOf(pathTo(recipe, logs).map((step) => step.id))}</span>
+}
+
 /** A recipe that could go on the plan, with what it takes, and one tap to add it. */
-function ReadyRow({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop; onShopChange: ShopChange }) {
+function ReadyRow({
+  recipe,
+  logs,
+  shop,
+  onShopChange,
+}: {
+  recipe: Recipe
+  logs: readonly CookLog[]
+  shop: Shop
+  onShopChange: ShopChange
+}) {
   const { busy, error, run } = useWrite()
   return (
     <li>
@@ -255,6 +257,7 @@ function ReadyRow({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop; 
           <Link className="row-title" to={`/recipe/${recipe.id}`}>
             {recipe.title}
           </Link>
+          {recipeState(recipe, logs) === 'locked' && <OpensAfter recipe={recipe} logs={logs} />}
           <span className="row-note">
             {formatMinutes(recipe.content.totalMinutes)}, {formatCents(cookCostPerServingCents(recipe.content, shop.prices))} a
             serving
@@ -265,16 +268,13 @@ function ReadyRow({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop; 
           type="button"
           aria-disabled={busy}
           aria-label={`Add ${recipe.title} to this week`}
-          onClick={() => void run(() => focusAfter(`plan-row:${recipe.id}`, () => planRecipe(shop, recipe.id, onShopChange)))}
+          onClick={() => void run(() => focusAfter(`plan-row:${recipe.id}`, () => planRecipe(recipe.id, onShopChange)))}
         >
           Add
         </button>
+        <Saving busy={busy} />
       </div>
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorNotice error={error} />
     </li>
   )
 }
@@ -302,11 +302,7 @@ function ShareButton({ text }: { text: string }) {
       <button className="button button-quiet" type="button" aria-disabled={busy} onClick={share}>
         Share the list
       </button>
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorNotice error={error} />
     </div>
   )
 }
@@ -325,7 +321,7 @@ function PlanRow({
   const { busy, error, run } = useWrite()
   const title = useFocusTarget<HTMLAnchorElement>(`plan-row:${recipe.id}`)
   const shopped = shop.shopped.has(recipe.id)
-  // Deleting a cook can take away a skill this recipe needs.
+  // Planned ahead of the cooks that open it, or locked again by a deleted cook.
   const locked = recipeState(recipe, logs) === 'locked'
   return (
     <li>
@@ -334,7 +330,7 @@ function PlanRow({
           <Link className="row-title" to={`/recipe/${recipe.id}`} ref={title}>
             {recipe.title}
           </Link>
-          {locked && <span className="row-note">Locked again: needs {skillList(missingTechniques(recipe, logs))}</span>}
+          {locked && <OpensAfter recipe={recipe} logs={logs} />}
           {shopped && <span className="row-note">Groceries bought</span>}
         </span>
         <button
@@ -346,24 +342,19 @@ function PlanRow({
         >
           Take off
         </button>
+        <Saving busy={busy} />
       </div>
       {shopped && (
         <button
           className="link-button"
           type="button"
           aria-disabled={busy}
-          onClick={() =>
-            void run(() => focusAfter(`plan-row:${recipe.id}`, () => shopForAgain(shop, recipe.id, onShopChange)))
-          }
+          onClick={() => void run(() => focusAfter(`plan-row:${recipe.id}`, () => shopForAgain(recipe.id, onShopChange)))}
         >
           Put it back on the list
         </button>
       )}
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorNotice error={error} />
     </li>
   )
 }
@@ -388,12 +379,9 @@ function InPantryRow({ id, qty, onShopChange }: { id: IngredientId; qty: number;
         >
           Put it on the list
         </button>
+        <Saving busy={busy} />
       </div>
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorNotice error={error} />
     </li>
   )
 }
@@ -401,14 +389,11 @@ function InPantryRow({ id, qty, onShopChange }: { id: IngredientId; qty: number;
 function GroceryRow({
   line,
   shop,
-  track,
   onShopChange,
   neighbor,
 }: {
   line: GroceryLine
   shop: Shop
-  /** Counts the write while it runs, so Done shopping can wait for it. */
-  track: (write: () => Promise<void>) => Promise<void>
   onShopChange: ShopChange
   /** The focus target for when this line leaves the list. */
   neighbor: string
@@ -445,7 +430,8 @@ function GroceryRow({
       checked={checked}
       label={ingredient.name}
       note={`${packagesOf(line.packages, ingredient.package.label)}${uses}`}
-      onChange={(next) => track(() => setChecked(line.ingredientId, next, onShopChange))}
+      // A check is kept on the phone (lib/checks.ts): it never waits on signal.
+      onChange={async (next) => setChecked(line.ingredientId, next, onShopChange)}
       focusTarget={`check:${line.ingredientId}`}
       aside={
         <span className="line-actions">
@@ -518,27 +504,26 @@ function PriceForm({
             // The price was just tapped to correct it: the cursor goes straight to it.
             autoFocus
             value={value}
+            aria-invalid={error !== null}
+            aria-describedby={error === null ? undefined : `price-error-${id}`}
             onChange={(event) => setValue(event.target.value)}
           />
         </label>
-        {error !== null && (
-          <p className="notice notice-error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorNotice error={error} id={`price-error-${id}`} />
         <div className="actions">
-          <button className="button" type="submit" disabled={busy}>
+          <button className="button" type="submit" aria-disabled={busy}>
             Save price
           </button>
-          <button className="button button-quiet" type="button" disabled={busy} onClick={onClose}>
+          <button className="button button-quiet" type="button" aria-disabled={busy} onClick={() => busy || onClose()}>
             Cancel
           </button>
+          <Saving busy={busy} />
         </div>
         {corrected && (
           <button
             className="link-button"
             type="button"
-            disabled={busy}
+            aria-disabled={busy}
             onClick={() =>
               void run(async () => {
                 await resetPrice(id, onShopChange)

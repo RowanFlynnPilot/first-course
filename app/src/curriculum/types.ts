@@ -20,8 +20,11 @@ export interface Step {
   /**
    * A timer where a clock is the right judge. The label names it on the
    * chips cook mode shows for timers running on other steps: "Rice 12:40".
+   * `stirEvery` (seconds) is for a simmer the step says to stir on a
+   * schedule: cook mode beeps softly and says "stir" each time, on whatever
+   * step the cook has moved on to, while the timer runs.
    */
-  readonly timer: { readonly seconds: number; readonly label: string } | null
+  readonly timer: { readonly seconds: number; readonly label: string; readonly stirEvery?: number } | null
 }
 
 export interface Pairing {

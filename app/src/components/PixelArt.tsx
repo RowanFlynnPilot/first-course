@@ -12,13 +12,17 @@ export function PixelArt({
   label,
   className,
   idle = false,
+  decorative = false,
 }: {
   frames: readonly (readonly string[])[]
   palette: Readonly<Record<string, string>>
   scale: number
+  /** What the art shows, for a screen reader, and in errors about the art. */
   label: string
   className: string
   idle?: boolean
+  /** Text beside it already says what it shows, so a screen reader skips it. */
+  decorative?: boolean
 }) {
   const first = frames[0]
   if (first === undefined || first.length === 0) throw new Error(`${label}: pixel art has no rows`)
@@ -36,8 +40,7 @@ export function PixelArt({
       height={height * scale}
       viewBox={`0 0 ${width} ${height}`}
       shapeRendering="crispEdges"
-      role="img"
-      aria-label={label}
+      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
     >
       {frames.map((rows, frame) => (
         <g key={frame} className={`pixel-frame pixel-frame-${frame}`}>

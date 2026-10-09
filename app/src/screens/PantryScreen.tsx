@@ -11,9 +11,9 @@ import { COURSE_NAMES } from '../lib/format'
 import { staplesByCourse } from '../lib/grocery'
 import { setInPantry, type Shop, type ShopChange } from '../lib/shop'
 
-const COURSES = staplesByCourse()
-
 export function PantryScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
+  // Worked out here, not when the file loads: a throw then would blank the page before the error screen is up.
+  const courses = staplesByCourse()
   usePageTitle('Your pantry')
   return (
     <main className="page">
@@ -28,7 +28,7 @@ export function PantryScreen({ shop, onShopChange }: { shop: Shop; onShopChange:
         out, uncheck it. New to spices? The <Link to="/spices">spice guide</Link> says what to buy and how to start
         using it.
       </p>
-      {COURSES.map(({ tier, staples }) => (
+      {courses.map(({ tier, staples }) => (
         <section className="section" key={tier}>
           <h2 className="section-title">
             {tier === 1 ? 'To start' : tier === 5 ? 'For the usual' : `New for the ${COURSE_NAMES[tier].toLowerCase()}`}

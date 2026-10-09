@@ -10,10 +10,10 @@ import { COURSE_NAMES } from '../lib/format'
 import type { Shop } from '../lib/shop'
 import { spiceShelf } from '../lib/spices'
 
-const SHELF = spiceShelf()
-const COUNT = SHELF.reduce((sum, course) => sum + course.spices.length, 0)
-
 export function SpicesScreen({ shop }: { shop: Shop }) {
+  // Worked out here, not when the file loads: a throw then would blank the page before the error screen is up.
+  const shelf = spiceShelf()
+  const count = shelf.reduce((sum, course) => sum + course.spices.length, 0)
   usePageTitle('Spices')
   return (
     <main className="page">
@@ -24,7 +24,7 @@ export function SpicesScreen({ shop }: { shop: Shop }) {
       </nav>
       <h1 className="title">Spices</h1>
       <p className="lede">
-        These {COUNT} spices and seasonings cover every recipe on the menu. Buy each one when the menu first needs it,
+        These {count} spices and seasonings cover every recipe on the menu. Buy each one when the menu first needs it,
         and use it on everyday food too, so the jar runs out while it still smells of something.
       </p>
 
@@ -40,7 +40,7 @@ export function SpicesScreen({ shop }: { shop: Shop }) {
         </dl>
       </section>
 
-      {SHELF.map(({ tier, spices }) => {
+      {shelf.map(({ tier, spices }) => {
         const have = spices.filter(({ id }) => shop.pantry.has(id)).length
         return (
           <section className="section" key={tier}>

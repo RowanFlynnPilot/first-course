@@ -7,6 +7,8 @@ import { CHEF_NAME_MAX, type Chef } from '../lib/chefs'
 import { extraById, EXTRAS, SLOTS, wornOf, type ExtraId, type ExtraSlot } from '../lib/extras'
 import type { RankIndex } from '../lib/leveling'
 import { ChefSprite } from './ChefSprite'
+import { useWrite } from './useWrite'
+import { ErrorNotice, Saving } from './WriteStatus'
 import { FACIAL_HAIR, GLASSES, HAIR_COLORS, HAIR_STYLES, isIndexOf, SKIN_TONES, type Look } from './chefSprites'
 
 /** A row of options that are colors. */
@@ -109,19 +111,17 @@ export function ChefEditor({
   })
   // Chosen extras the cook no longer has earned stay chosen, unworn, until they change them.
   const [extras, setExtras] = useState<readonly ExtraId[]>(initial.extras)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { busy, error, run } = useWrite()
   const trimmed = name.trim()
 
-  async function submit(event: FormEvent) {
+  function submit(event: FormEvent) {
     event.preventDefault()
-    setBusy(true)
-    try {
-      await onSubmit({ ...look, name: trimmed, extras })
-    } catch (cause) {
-      setBusy(false)
-      setError((cause as Error).message)
+    // The button stays focusable without a name (a disabled one drops focus); a tap goes to the name.
+    if (trimmed === '') {
+      document.querySelector<HTMLInputElement>('input[name="chef-name"]')?.focus()
+      return
     }
+    void run(() => onSubmit({ ...look, name: trimmed, extras }))
   }
 
   function wear(slot: ExtraSlot, id: ExtraId | null) {
@@ -137,6 +137,7 @@ export function ChefEditor({
         Chef’s name
         <input
           type="text"
+          name="chef-name"
           autoComplete="off"
           required
           maxLength={CHEF_NAME_MAX}
@@ -188,14 +189,13 @@ export function ChefEditor({
         <Extras unlocked={unlocked} extras={extras} wear={wear} />
       )}
 
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
-      <button className="button" type="submit" disabled={busy || trimmed === ''}>
-        {submitLabel}
-      </button>
+      <ErrorNotice error={error} />
+      <div className="actions">
+        <button className="button" type="submit" aria-disabled={busy || trimmed === ''}>
+          {submitLabel}
+        </button>
+        <Saving busy={busy} />
+      </div>
     </form>
   )
 }

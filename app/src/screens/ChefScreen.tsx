@@ -186,7 +186,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
         <ol className="ladder">
           {RANK_INDEXES.map((index) => (
             <li key={index} className={index === rank ? 'rung rung-current' : 'rung'}>
-              <ChefSprite rank={index} look={chef} extras={worn} scale={2} />
+              <ChefSprite rank={index} look={chef} extras={worn} scale={2} decorative />
               <span>
                 <span className="row-title">{RANKS[index].name}</span>
                 <span className="row-note">{index === rank ? 'You are here' : `Level ${RANKS[index].fromLevel}`}</span>

@@ -13,7 +13,7 @@ things they currently order. Built so far:
   changing or deleting a cook.
 - **Phase 3, cook mode hardened and leveling.** Timers that survive a reload
   and chime when you come back, installing to the home screen, the
-  promotion moment, the idle chef, the cooking streak, and 26 badges.
+  promotion moment, the idle chef, the cooking streak, and 31 badges.
 - **The character creator.** Hairstyle, facial hair, glasses and more
   colors, and 8 extras (tools in hand, clogs, a towel, a patch) earned by
   cooking each kind of dish and worn over the rank's outfit.
@@ -117,14 +117,14 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 143 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 157 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, the serial comma and names
       without commas, XP and levels, costs and corrected prices, the
       grocery list, the kit, timers, the streak, the badges, and errors in
       plain words.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 180 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 193 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired or forged email link, creating
     and changing the chef, the character
@@ -158,15 +158,22 @@ These need hardware, a kitchen, or a store:
       plays when you look again, and the step says "Time is up".
 - [ ] Start a timer and leave Safari for a while, long enough that it may
       reload the page. Come back: the timer is still counting. If it asks,
-      tap once so it can chime.
+      tap once so it can ring.
+- [ ] From the installed app, start a cook and a timer, then swipe the app
+      away. Reopen it: the menu offers "Back to step …", and the timer is
+      still counting.
+- [ ] A simmer with a timer (the marinara's sauce) beeps softly and says
+      "stir it now" every 5 minutes, even on a later step.
+- [ ] Turn the phone on its side in cook mode: the installed app turns too.
 - [ ] The sprite and the badges are square and crisp, not blurry.
 - [ ] The idle bob, the level-up hop and the promotion moment feel right,
       not busy. With Reduce Motion on, all of it is still.
-- [ ] In a store: check the list off with one thumb, and correct a price
-      with the number keypad.
+- [ ] In a store: check the list off with one thumb, with signal or
+      without, and correct a price with the number keypad.
 - [ ] Done shopping keeps the plan, marked "Groceries bought", until each
       recipe is cooked. It puts the checked-off staples in the pantry, and next
-      week's list leaves them off.
+      week's list leaves them off. A recipe with something left unchecked
+      stays on the list.
 - [ ] Sign out and sign back in: everything is still there.
 - [ ] "Share the list" opens the share sheet, and the list lands in Notes.
 - [ ] "Forgot your password?" sends an email whose link opens the app at
@@ -196,5 +203,7 @@ boundary, which is why plain repo variables are fine.
 
 Live at `https://rowanflynnpilot.github.io/first-course/`.
 
-Email confirmation is on and the Site URL is the Pages URL, so the live site
-is ready for other people to sign up.
+Email confirmation is on and the Site URL is the Pages URL. Until going
+public, turn "Allow new users to sign up" off in the Supabase dashboard (see
+"Security" in CLAUDE.md): sign-ups are open, and nothing limits rows per
+account.

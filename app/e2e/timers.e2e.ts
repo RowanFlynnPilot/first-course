@@ -1,15 +1,6 @@
-import { expect, SALAD_DONE, test } from './kitchen'
+import { cookNotice, COUNT_BEEPS, expect, SALAD_DONE, test } from './kitchen'
 
 // Counts oscillator starts, so a test can hear the chime. Each chime is three beeps.
-const COUNT_BEEPS = () => {
-  const counter = window as unknown as { beeps: number }
-  counter.beeps = 0
-  const start = OscillatorNode.prototype.start
-  OscillatorNode.prototype.start = function (this: OscillatorNode, ...args: Parameters<OscillatorNode['start']>) {
-    counter.beeps += 1
-    return start.apply(this, args)
-  }
-}
 
 test.describe('timers in cook mode', () => {
   test('a timer started on step 3 keeps counting on step 4, then chimes', async ({ page, kitchen }) => {
@@ -169,7 +160,7 @@ test.describe('timers in cook mode', () => {
     expect(asked).toEqual(['A timer is still running. Stop it and log the cook?'])
     await page.getByRole('radio', { name: /^Decent/ }).check()
     await page.getByRole('button', { name: 'Save this cook' }).click()
-    await expect(page.getByRole('status')).toBeVisible()
+    await expect(cookNotice(page)).toBeVisible()
     expect(await page.evaluate(() => sessionStorage.getItem('first-course:timers-by-label:sheet-pan-sausage'))).toBeNull()
   })
 

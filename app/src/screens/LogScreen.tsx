@@ -3,7 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { LockedPage } from '../components/LockedNotice'
 import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
+import { useWrite } from '../components/useWrite'
+import { ErrorNotice, Saving } from '../components/WriteStatus'
 import type { Chef } from '../lib/chefs'
+import { clearCooking, loadCooking } from '../lib/cooking'
 import { insertCookLog, newCookId, NOTES_MAX } from '../lib/cookLogs'
 import type { Prices } from '../lib/cost'
 import { checkCookedOn, EARLIEST_COOK, localDateString } from '../lib/format'
@@ -13,6 +16,7 @@ import { clearTimers } from '../lib/timers'
 import type { Recipe } from '../curriculum/types'
 
 type LogProps = {
+  userId: string
   chef: Chef
   logs: readonly CookLog[]
   prices: Prices
@@ -28,7 +32,7 @@ export function LogScreen(props: LogProps) {
   return <LogForm recipe={gate.recipe} {...props} />
 }
 
-function LogForm({ recipe, chef, logs, prices, onLogged }: LogProps & { recipe: Recipe }) {
+function LogForm({ recipe, userId, chef, logs, prices, onLogged }: LogProps & { recipe: Recipe }) {
   const navigate = useNavigate()
   usePageTitle(`Log a cook: ${recipe.title}`)
   const [rating, setRating] = useState<Rating | null>(null)
@@ -38,27 +42,36 @@ function LogForm({ recipe, chef, logs, prices, onLogged }: LogProps & { recipe: 
   const [cookedOn, setCookedOn] = useState(today)
   // One id for this cook, however many times Save is tapped.
   const [cookId] = useState(newCookId)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { busy, error, run } = useWrite()
+  // A date the form will not take is said beside the field, which it is tied to.
+  const [dateError, setDateError] = useState<string | null>(null)
 
-  async function save(event: FormEvent) {
+  function save(event: FormEvent) {
     event.preventDefault()
-    if (rating === null) return
-    setBusy(true)
+    // Save stays focusable before a rating is picked (a disabled button drops focus), so a tap moves to the choices.
+    if (rating === null) {
+      document.querySelector<HTMLInputElement>('input[name="rating"]')?.focus()
+      return
+    }
     try {
       checkCookedOn(cookedOn, today)
+      setDateError(null)
+    } catch (cause) {
+      setDateError((cause as Error).message)
+      document.querySelector<HTMLInputElement>('input[type="date"]')?.focus()
+      return
+    }
+    void run(async () => {
       const log = await insertCookLog({ id: cookId, recipeId: recipe.id, cookedOn, rating, notes: notes.trim() })
-      // The cook is over: its timers are done.
-      clearTimers(sessionStorage, recipe.id)
+      // The cook is over: its timers are done, and the menu stops asking how it went.
+      clearTimers(localStorage, recipe.id)
+      if (loadCooking(localStorage, userId, Date.now())?.recipeId === recipe.id) clearCooking(localStorage, userId)
       // A save retried after a lost answer can find this cook already in the log, brought in by a catch-up.
       const before = logs.filter((other) => other.id !== log.id)
       onLogged(log, cookNotice(recipe, before, log, chef.name, prices))
       // Replace, so Back from the menu cannot land on this form and log twice.
       navigate('/', { replace: true })
-    } catch (cause) {
-      setBusy(false)
-      setError((cause as Error).message)
-    }
+    })
   }
 
   return (
@@ -90,27 +103,29 @@ function LogForm({ recipe, chef, logs, prices, onLogged }: LogProps & { recipe: 
             min={EARLIEST_COOK}
             max={today}
             value={cookedOn}
+            aria-invalid={dateError !== null}
+            aria-describedby={dateError === null ? undefined : 'date-error'}
             onChange={(event) => setCookedOn(event.target.value)}
           />
         </label>
-        {error !== null && (
-          <p className="notice notice-error" role="alert">
-            {error}
-          </p>
-        )}
-        <button
-          className="button"
-          type="submit"
-          disabled={busy || rating === null}
-          aria-describedby={rating === null ? 'save-hint' : 'rating-decides'}
-        >
-          Save this cook
-        </button>
+        <ErrorNotice error={dateError} id="date-error" />
+        <ErrorNotice error={error} />
         {rating === null && (
           <p className="section-note" id="save-hint">
             Pick how it went first.
           </p>
         )}
+        <div className="actions">
+          <button
+            className="button"
+            type="submit"
+            aria-disabled={busy || rating === null}
+            aria-describedby={rating === null ? 'save-hint' : 'rating-decides'}
+          >
+            Save this cook
+          </button>
+          <Saving busy={busy} />
+        </div>
       </form>
     </main>
   )

@@ -2,6 +2,9 @@ import { RECIPES, recipeById } from '../src/curriculum/recipes'
 import { pathTo } from '../src/lib/progress'
 import { expect, FRESH, SALAD_DONE, test } from './kitchen'
 
+/** Everything the salad uses: a cart with all of it checked off covers the salad. */
+const SALAD = recipeById('chopped-salad').content.ingredients.map((line) => line.ingredientId)
+
 // Knowing the next move, and keeping your place: the fourth review's
 // walkthrough as a beginner, with a keyboard and a screen reader in mind.
 
@@ -18,18 +21,17 @@ test.describe('the next move', () => {
   test('a fresh menu suggests planning first, then shopping', async ({ page, kitchen }) => {
     await kitchen.open('./', FRESH)
     const tray = page.locator('.tray')
-    await expect(page.getByRole('heading', { name: 'Cook this next: Chopped salad with lemon vinaigrette' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Cook this next: Soft scrambled eggs on toast' })).toBeVisible()
     await expect(tray.locator('.actions > *').first()).toHaveText('Add to this week')
     await tray.getByRole('button', { name: 'Add to this week' }).click()
     await expect(tray.getByRole('link', { name: 'Shop for it' })).toBeFocused()
-    await expect(page.getByRole('heading', { name: 'On this week’s plan: Chopped salad with lemon vinaigrette' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'On this week’s plan: Soft scrambled eggs on toast' })).toBeVisible()
     await tray.getByRole('link', { name: 'Shop for it' }).click()
     await expect(page.getByRole('heading', { name: 'This week' })).toBeVisible()
   })
 
   test('after Done shopping, the way back to cook', async ({ page, kitchen }) => {
-    await kitchen.open('#/shop', { plan: ['chopped-salad'], checks: ['lemon'] })
-    page.once('dialog', (dialog) => void dialog.accept())
+    await kitchen.open('#/shop', { plan: ['chopped-salad'], checks: SALAD })
     await page.getByRole('button', { name: 'Done shopping' }).click()
     await page.getByRole('link', { name: 'Go to the menu to cook' }).click()
     await expect(page.getByText('Groceries bought')).toBeVisible()
@@ -70,7 +72,7 @@ test.describe('the next move', () => {
     await kitchen.open('#/recipe/chopped-salad', FRESH)
     const release = kitchen.backend.holdNext('plan_items', 'POST')
     await page.getByRole('button', { name: 'Add to this week' }).click()
-    await expect(page.getByRole('status')).toHaveText('Saving…')
+    await expect(page.getByRole('status').filter({ hasText: 'Saving…' })).toBeVisible()
     release()
     await expect(page.getByRole('button', { name: 'Take off this week' })).toBeVisible()
     await expect(page.getByText('Saving…')).toHaveCount(0)

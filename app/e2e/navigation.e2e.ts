@@ -10,7 +10,7 @@ test.describe('moving between screens', () => {
     await kitchen.open('./', FRESH)
     await expect(page).toHaveTitle('First Course')
 
-    await page.getByRole('link', { name: 'Read the recipe' }).click()
+    await page.getByRole('link', { name: /Chopped salad/ }).click()
     await expect(page).toHaveTitle('Chopped salad with lemon vinaigrette · First Course')
     await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
 
@@ -47,11 +47,16 @@ test.describe('moving between screens', () => {
 
   test('the log form says why it cannot save yet', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/chopped-salad/log', FRESH)
-    await expect(page.getByRole('button', { name: 'Save this cook' })).toBeDisabled()
-    await expect(page.getByText('Pick how it went first.')).toBeVisible()
+    const save = page.getByRole('button', { name: 'Save this cook' })
+    await expect(save).toHaveAttribute('aria-disabled', 'true')
+    await expect(save).toHaveAccessibleDescription('Pick how it went first.')
+    // A tap too early goes to the choices, and saves nothing. (Forced: Playwright will not tap aria-disabled; a finger will.)
+    await save.click({ force: true })
+    await expect(page.getByRole('radio', { name: /^Rough/ })).toBeFocused()
+    expect(kitchen.backend.table('cook_logs')).toEqual([])
     await page.getByRole('radio', { name: /^Decent/ }).check()
     await expect(page.getByText('Pick how it went first.')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Save this cook' })).toBeEnabled()
+    await expect(save).toHaveAttribute('aria-disabled', 'false')
     // No later than today, and no earlier than the database takes.
     await expect(page.getByLabel('Cooked on')).toHaveAttribute('min', '1900-01-01')
   })
@@ -136,6 +141,23 @@ test.describe('moving between screens', () => {
     await page.clock.fastForward('11:00')
     await show('visible')
     await expect(page.locator('.kept')).toHaveText('$16.76 kept by cooking')
+  })
+
+  test('with text at 200%, no screen runs off the side', async ({ page, kitchen }) => {
+    // A phone's largest text setting, as the browser applies it: the root font doubles.
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.documentElement.style.fontSize = '200%'
+      })
+    })
+    await kitchen.open('#/recipe/sheet-pan-sausage', { ...SALAD_DONE, plan: ['sheet-pan-sausage'] })
+    const routes = ['#/recipe/sheet-pan-sausage', '#/cook/sheet-pan-sausage/3', '#/shop', '#/chef', '#/kit', '#/pantry', './']
+    for (const route of routes) {
+      await page.goto(route)
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)
+      expect(fits, route).toBe(true)
+    }
   })
 
   test('zoomed far in, no screen runs off the side', async ({ page, kitchen }) => {

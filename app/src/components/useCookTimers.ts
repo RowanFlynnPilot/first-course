@@ -1,11 +1,14 @@
-// The timers for one cook, by label. They are kept in sessionStorage
-// (lib/timers.ts), so a reload or a discarded background tab does not lose
-// them, and one check plays every ring: it runs on a quarter-second tick and
-// again whenever the page comes back into view, so a timer that ran out while
-// the phone was locked rings as soon as the cook looks again.
+// The timers for one cook, by label. They are kept in localStorage
+// (lib/timers.ts), so a reload, a discarded background tab, or an installed
+// app the phone closed does not lose them, and one check plays every ring:
+// it runs on a quarter-second tick and again whenever the page comes back
+// into view, so a timer that ran out while the phone was locked rings as soon
+// as the cook looks again.
 //
 // A timer that runs out rings every RING_EVERY_MS, like a kitchen timer,
-// until the cook taps the page or it has rung for RING_FOR_MS.
+// until the cook taps the page or it has rung for RING_FOR_MS. A simmer whose
+// step says to stir on a schedule (`stirEvery`) beeps once, softly, each
+// time, and says "stir it now" until tapped or for STIR_SHOWN_MS.
 //
 // A phone only plays sound after a tap on the page. Starting a timer is a
 // tap. After a reload there has been no tap yet, so the screen asks for one,
@@ -19,6 +22,11 @@ const RING_EVERY_MS = 5000
 const RING_FOR_MS = 2 * 60 * 1000
 /** The three beeps last about this long. */
 const RING_MS = 1200
+/** A stir reminder stays on screen this long, unless tapped first. */
+const STIR_SHOWN_MS = 60 * 1000
+
+/** What a recipe's step says about each of its timers, by label. */
+export type TimerPlan = Readonly<Record<string, { readonly seconds: number; readonly stirEvery?: number }>>
 
 // One audio context for the page load, unlocked by the first tap that needs
 // it. Kept outside the hook, so leaving cook mode for the log form and
@@ -32,24 +40,33 @@ let sharedAudio: AudioContext | null = null
 type AudioSessionType = 'auto' | 'playback'
 const audioSession = (navigator as Navigator & { audioSession?: { type: AudioSessionType } }).audioSession
 
-function ring(audio: AudioContext) {
+function beep(audio: AudioContext, offsets: readonly number[], wave: OscillatorType, frequency: number, volume: number) {
   if (audioSession !== undefined) {
     audioSession.type = 'playback'
     window.setTimeout(() => {
       audioSession.type = 'auto'
     }, RING_MS)
   }
-  for (const offset of [0, 0.4, 0.8]) {
+  for (const offset of offsets) {
     const oscillator = audio.createOscillator()
     const gain = audio.createGain()
-    // A square wave carries over a range hood far better than a sine.
-    oscillator.type = 'square'
-    oscillator.frequency.value = 880
-    gain.gain.value = 0.35
+    oscillator.type = wave
+    oscillator.frequency.value = frequency
+    gain.gain.value = volume
     oscillator.connect(gain).connect(audio.destination)
     oscillator.start(audio.currentTime + offset)
     oscillator.stop(audio.currentTime + offset + 0.25)
   }
+}
+
+/** Three loud beeps: a timer ran out. A square wave carries over a range hood far better than a sine. */
+function ring(audio: AudioContext) {
+  beep(audio, [0, 0.4, 0.8], 'square', 880, 0.35)
+}
+
+/** One soft beep: time to stir. Not to be mistaken for a timer running out. */
+function chirp(audio: AudioContext) {
+  beep(audio, [0], 'sine', 660, 0.25)
 }
 
 /** The ring is over for these labels. */
@@ -59,16 +76,24 @@ function ended(timers: Timers, labels: readonly string[]): Timers {
   )
 }
 
-export function useCookTimers(recipeId: string) {
-  const [timers, setTimers] = useState<Timers>(() => loadTimers(sessionStorage, recipeId))
+export function useCookTimers(recipeId: string, plan: TimerPlan) {
+  const [timers, setTimers] = useState<Timers>(() => loadTimers(localStorage, recipeId))
   const [now, setNow] = useState(() => Date.now())
   const [soundOn, setSoundOn] = useState(sharedAudio !== null)
   const [soundError, setSoundError] = useState<string | null>(null)
-  // The tick reads the latest timers without restarting itself on every change.
+  // When each label last asked for a stir, while it is on screen.
+  const [stirAt, setStirAt] = useState<Readonly<Record<string, number>>>({})
+  // What a screen reader is told when a timer runs out or asks for a stir: the beeps carry no words.
+  const [announcement, setAnnouncement] = useState('')
+  // The tick reads the latest timers and plan without restarting itself on every change.
   const latest = useRef(timers)
+  const latestPlan = useRef(plan)
   // When the last ring played, and when each timer's ringing began, on this page load.
   const lastRing = useRef(0)
   const ringingSince = useRef(new Map<string, number>())
+  // Timers whose running out was announced, and the stir each simmer was last at, on this page load.
+  const announced = useRef(new Set<string>())
+  const stirSeen = useRef(new Map<string, number>())
 
   // Once the cook is over (left, or logged), nothing is saved again: a ring's
   // tap can still land after the timers were cleared, and must not bring them back.
@@ -76,8 +101,11 @@ export function useCookTimers(recipeId: string) {
 
   useEffect(() => {
     latest.current = timers
-    if (!over.current) saveTimers(sessionStorage, recipeId, timers)
+    if (!over.current) saveTimers(localStorage, recipeId, timers)
   }, [recipeId, timers])
+  useEffect(() => {
+    latestPlan.current = plan
+  }, [plan])
 
   useEffect(() => {
     // A phone suspends audio while the page is hidden; wake it, and ring only
@@ -91,21 +119,50 @@ export function useCookTimers(recipeId: string) {
         })
         .catch((cause: Error) => setSoundError(cause.message))
     }
+    /** Simmers that reached their next stir since the last check. The first look at one only notes where it is. */
+    function stirsDue(at: number): string[] {
+      const due: string[] = []
+      for (const [label, timer] of Object.entries(shownTimers(latest.current, at))) {
+        const step = latestPlan.current[label]
+        if (step?.stirEvery === undefined || timer.endsAt <= at) continue
+        const stir = Math.floor((at - (timer.endsAt - step.seconds * 1000)) / (step.stirEvery * 1000))
+        const seen = stirSeen.current.get(label)
+        stirSeen.current.set(label, stir)
+        if (seen !== undefined && stir > seen) due.push(label)
+      }
+      return due
+    }
     function check() {
       const at = Date.now()
+      const shown = shownTimers(latest.current, at)
       // Only a clock on screen needs the time: with no timer shown, cook mode is not drawn again four times a second.
-      if (Object.keys(shownTimers(latest.current, at)).length > 0) setNow(at)
+      if (Object.keys(shown).length > 0) setNow(at)
+      const fresh = dueTimers(shown, at).filter((label) => !announced.current.has(label))
+      for (const label of fresh) announced.current.add(label)
+      if (fresh.length > 0) setAnnouncement(`${fresh.join(' and ')}: time is up.`)
+      const stirs = stirsDue(at)
+      if (stirs.length > 0) {
+        setStirAt((previous) => ({ ...previous, ...Object.fromEntries(stirs.map((label) => [label, at])) }))
+        setAnnouncement(`${stirs.join(' and ')}: stir it now.`)
+        if (sharedAudio !== null) {
+          const audio = sharedAudio
+          audio
+            .resume()
+            .then(() => chirp(audio))
+            .catch((cause: Error) => setSoundError(cause.message))
+        }
+      }
       const audio = sharedAudio
       // With no sound yet, a timer that ran out waits for the tap.
-      const due = audio === null ? [] : dueTimers(shownTimers(latest.current, at), at)
+      const due = audio === null ? [] : dueTimers(shown, at)
       for (const label of due) if (!ringingSince.current.has(label)) ringingSince.current.set(label, at)
-      const over = due.filter((label) => at - (ringingSince.current.get(label) ?? at) >= RING_FOR_MS)
-      if (audio !== null && due.length > over.length && at - lastRing.current >= RING_EVERY_MS) {
+      const rungOut = due.filter((label) => at - (ringingSince.current.get(label) ?? at) >= RING_FOR_MS)
+      if (audio !== null && due.length > rungOut.length && at - lastRing.current >= RING_EVERY_MS) {
         lastRing.current = at
         ringWhenAwake(audio)
       }
-      if (over.length === 0) return
-      const next = ended(latest.current, over)
+      if (rungOut.length === 0) return
+      const next = ended(latest.current, rungOut)
       latest.current = next
       setTimers(next)
     }
@@ -169,6 +226,12 @@ export function useCookTimers(recipeId: string) {
     secondsLeft,
     /** A timer is counting down. */
     running: Object.keys(shown).some((label) => (secondsLeft(label) ?? 0) > 0),
+    /** Simmers asking to be stirred right now. */
+    stirring: Object.entries(stirAt)
+      .filter(([label, at]) => now - at < STIR_SHOWN_MS && (secondsLeft(label) ?? 0) > 0)
+      .map(([label]) => label),
+    /** The latest thing a timer had to say, for a screen reader. */
+    announcement,
     /** A timer will need to ring, and no tap has turned the sound on since the page loaded. */
     needsTap: waiting && !soundOn,
     /** Why the phone would not play the ring, if it would not. */
@@ -180,12 +243,18 @@ export function useCookTimers(recipeId: string) {
       // The clock may have been resting with no timer on screen: start it from now.
       setNow(Date.now())
       ringingSince.current.delete(label)
+      announced.current.delete(label)
+      stirSeen.current.delete(label)
       setTimers((previous) => ({ ...previous, [label]: { endsAt: Date.now() + seconds * 1000, rang: false, stopped: false } }))
+    },
+    /** The cook stirred: the reminder goes until the next one. */
+    stirred(label: string) {
+      setStirAt((previous) => Object.fromEntries(Object.entries(previous).filter(([other]) => other !== label)))
     },
     /** The cook is over: every timer for the recipe goes, for good. */
     end() {
       over.current = true
-      clearTimers(sessionStorage, recipeId)
+      clearTimers(localStorage, recipeId)
     },
     stop(label: string) {
       ringingSince.current.delete(label)

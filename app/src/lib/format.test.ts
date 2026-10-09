@@ -11,7 +11,18 @@ import {
   packagesOf,
   MAX_PRICE_CENTS,
   parseCents,
+  readyAt,
 } from './format'
+
+describe('when dinner would be ready', () => {
+  it('is the time the cook starts plus the recipe, to the nearest 5 minutes', () => {
+    const six = new Date(2026, 9, 9, 18, 0, 3).getTime()
+    expect(readyAt(six, 10)).toMatch(/^6:10\sPM$/u)
+    expect(readyAt(six, 55)).toMatch(/^6:55\sPM$/u)
+    expect(readyAt(six + 2 * 60_000, 10)).toMatch(/^6:10\sPM$/u)
+    expect(readyAt(six + 3 * 60_000, 10)).toMatch(/^6:15\sPM$/u)
+  })
+})
 
 describe('format', () => {
   it('reads a clock under an hour as m:ss and an hour or more as h:mm:ss', () => {

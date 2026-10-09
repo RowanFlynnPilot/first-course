@@ -1,14 +1,13 @@
-import { cookThrough, expect, FRESH, noticeLines, rateAndSave, SALAD_DONE, test } from './kitchen'
+import { cookNotice, cookThrough, expect, FRESH, noticeLines, rateAndSave, SALAD_DONE, test } from './kitchen'
 
 // An evening cook in Wausau. In UTC it is already October 4, which is why the
 // client sends its own date (locked decision 10).
 const EVENING = new Date('2026-10-03T21:30:00-05:00')
 
 test.describe('the menu', () => {
-  test('starts with the salad up next, two ready plates and everything else locked', async ({ page, kitchen }) => {
+  test('starts with the eggs up next (the salad is a side), two ready plates and everything else locked', async ({ page, kitchen }) => {
     await kitchen.open('./', FRESH)
-    await expect(page.getByText('Cook this next')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Cook this next: Soft scrambled eggs on toast' })).toBeVisible()
     await expect(page.locator('.row-ready')).toHaveCount(2)
     await expect(page.getByRole('link', { name: /Grilled cheese/ })).toContainText('Needs heat control')
     await expect(page.getByText('$0.00')).toBeVisible()
@@ -16,7 +15,7 @@ test.describe('the menu', () => {
 
   test('opens a recipe with its cost, the ordering price and the pairing', async ({ page, kitchen }) => {
     await kitchen.open('./', FRESH)
-    await page.getByRole('link', { name: 'Read the recipe' }).click()
+    await page.getByRole('link', { name: /Chopped salad/ }).click()
     await expect(page.getByRole('heading', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
     await expect(page.getByText('Cooking it')).toBeVisible()
     await expect(page.getByText('Greek salad')).toBeVisible()
@@ -28,7 +27,7 @@ test.describe('the menu', () => {
 test.describe('cooking and logging', () => {
   test('cooks the salad start to finish, logs it, and shows what it earned', async ({ page, kitchen }) => {
     await page.clock.install({ time: EVENING })
-    await kitchen.open('./', FRESH)
+    await kitchen.open('#/recipe/chopped-salad', FRESH)
 
     await page.getByRole('link', { name: 'Start cooking' }).click()
     await expect(page.getByRole('heading', { name: 'Get everything out before you turn anything on.' })).toBeVisible()
@@ -36,7 +35,8 @@ test.describe('cooking and logging', () => {
     const steps = await cookThrough(page)
     expect(steps).toBe(8)
 
-    await expect(page.getByRole('button', { name: 'Save this cook' })).toBeDisabled()
+    // Not ready until a rating is picked, and says so without losing focus.
+    await expect(page.getByRole('button', { name: 'Save this cook' })).toHaveAttribute('aria-disabled', 'true')
     await rateAndSave(page, 'Decent', 'More lemon next time.')
 
     await expect(noticeLines(page)).toHaveText([
@@ -47,19 +47,19 @@ test.describe('cooking and logging', () => {
       'You cooked with 8 things not checked off in your kit. Add them to your kit',
     ])
     // Focus is on what the cook earned, so a screen reader reads it first.
-    await expect(page.getByRole('status')).toBeFocused()
+    await expect(cookNotice(page)).toBeFocused()
     // The tools the cook plainly owns now go into the kit in one tap.
     await page.getByRole('button', { name: 'Add them to your kit' }).click()
     await expect(page.getByText('Added 8 things to your kit.')).toBeFocused()
     expect(kitchen.backend.table('kit_items')).toHaveLength(8)
-    await expect(page.getByRole('status').getByRole('img', { name: 'First cook badge' })).toBeVisible()
+    await expect(cookNotice(page).getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
     await expect(page.locator('.kept')).toHaveText('$16.76 kept by cooking')
     // The yolk lands on the plate just cooked, at the top of the notice where the cook is looking, and only there.
     await expect(page.locator('.plate-celebrate')).toHaveCount(1)
-    await expect(page.getByRole('status').locator('.notice-cooked .plate-celebrate')).toHaveCount(1)
+    await expect(cookNotice(page).locator('.notice-cooked .plate-celebrate')).toHaveCount(1)
     // What unlocked is linked from the notice, and ready on the menu.
-    await expect(page.getByRole('status').getByRole('link', { name: 'Sheet-pan sausage and vegetables' })).toBeVisible()
+    await expect(cookNotice(page).getByRole('link', { name: 'Sheet-pan sausage and vegetables' })).toBeVisible()
     await expect(page.locator('a.row').filter({ hasText: 'Sheet-pan sausage' })).toContainText('Teaches roasting')
 
     expect(kitchen.backend.table('cook_logs')).toMatchObject([
@@ -68,7 +68,7 @@ test.describe('cooking and logging', () => {
   })
 
   test('Back from the menu lands on the last step, never the log form', async ({ page, kitchen }) => {
-    await kitchen.open('./', FRESH)
+    await kitchen.open('#/recipe/chopped-salad', FRESH)
     await page.getByRole('link', { name: 'Start cooking' }).click()
     await cookThrough(page)
     await rateAndSave(page, 'Decent')
@@ -81,10 +81,10 @@ test.describe('cooking and logging', () => {
   test('the notice goes once you leave the menu', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/chopped-salad/log', FRESH)
     await rateAndSave(page, 'Decent')
-    await expect(page.getByRole('status')).toBeVisible()
+    await expect(cookNotice(page)).toBeVisible()
     await page.getByRole('link', { name: /Remy/ }).click()
     await page.getByRole('link', { name: 'Menu' }).click()
-    await expect(page.getByRole('status')).toHaveCount(0)
+    await expect(cookNotice(page)).toHaveCount(0)
     await expect(page.locator('.plate-celebrate')).toHaveCount(0)
   })
 

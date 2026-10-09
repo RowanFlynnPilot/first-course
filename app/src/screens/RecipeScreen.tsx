@@ -6,6 +6,7 @@ import { LockedNotice } from '../components/LockedNotice'
 import { Plate } from '../components/Plate'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
+import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { TECHNIQUES } from '../curriculum/techniques'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 import {
@@ -25,6 +26,7 @@ import {
   lastNote,
   MASTERED_COOKS,
   masteryLeft,
+  plannable,
   ratingLabel,
   recipeFromRoute,
   recipeState,
@@ -95,7 +97,15 @@ export function RecipeScreen({
         {formatMinutes(recipe.content.totalMinutes)} start to finish.
       </p>
       {state === 'locked' ? (
-        <LockedNotice recipe={recipe} logs={logs} />
+        <>
+          <LockedNotice recipe={recipe} logs={logs} />
+          {/* Planned ahead: the week's cooks open it before its night comes. */}
+          {(shop.plan.includes(recipe.id) || plannable(recipe, logs, shop.plan)) && (
+            <div className="recipe-actions">
+              <PlanButton recipe={recipe} shop={shop} onShopChange={onShopChange} ahead />
+            </div>
+          )}
+        </>
       ) : (
         <RecipeActions recipe={recipe} note={lastNote(recipe.id, logs)} shop={shop} onShopChange={onShopChange} />
       )}
@@ -259,13 +269,26 @@ function Written({ content, shop }: { content: RecipeContent; shop: Shop }) {
   )
 }
 
-/** "Add to this week": one batch per recipe on the plan, no servings scaling. */
-function PlanButton({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop; onShopChange: ShopChange }) {
+/**
+ * "Add to this week": one batch per recipe on the plan, no servings scaling.
+ * `ahead` when the recipe is still locked and the plan's cooks open it.
+ */
+function PlanButton({
+  recipe,
+  shop,
+  onShopChange,
+  ahead = false,
+}: {
+  recipe: Recipe
+  shop: Shop
+  onShopChange: ShopChange
+  ahead?: boolean
+}) {
   const { busy, error, run } = useWrite()
   const planned = shop.plan.includes(recipe.id)
 
   function toggle() {
-    void run(() => (planned ? takeOffPlan(recipe.id, onShopChange) : planRecipe(shop, recipe.id, onShopChange)))
+    void run(() => (planned ? takeOffPlan(recipe.id, onShopChange) : planRecipe(recipe.id, onShopChange)))
   }
 
   return (
@@ -273,10 +296,9 @@ function PlanButton({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop
       <button className="button button-quiet" type="button" aria-disabled={busy} onClick={toggle}>
         {planned ? 'Take off this week' : 'Add to this week'}
       </button>
-      {busy && (
-        <span className="busy" role="status">
-          Saving…
-        </span>
+      <Saving busy={busy} />
+      {ahead && !planned && (
+        <p className="plan-note">Everything that opens it is on this week’s plan, so it can go on the same shop.</p>
       )}
       {planned && (
         <p className="plan-note">
@@ -291,11 +313,7 @@ function PlanButton({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop
           )}
         </p>
       )}
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorNotice error={error} />
     </>
   )
 }

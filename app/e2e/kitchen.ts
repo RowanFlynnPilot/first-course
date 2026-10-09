@@ -70,14 +70,15 @@ export const SALAD_DONE: Seed = { logs: [{ recipe: 'chopped-salad', rating: 2 }]
 /** From step 0 of cook mode to the log form, one step at a time. Returns the number of steps. */
 export async function cookThrough(page: Page): Promise<number> {
   await page.getByRole('link', { name: 'Everything is out' }).click()
-  const count = page.getByText(/^Step \d+ of \d+$/)
-  await expect(count).toHaveText(/^Step 1 of \d+$/)
-  const last = Number((await count.textContent())?.replace(/^Step 1 of /, ''))
+  // The counter also carries the step's words for a screen reader, after "Step 3 of 8".
+  const count = page.locator('.cook-count')
+  await expect(count).toHaveText(/^Step 1 of \d+\./)
+  const last = Number(/^Step 1 of (\d+)/.exec((await count.textContent()) ?? '')?.[1])
   for (let step = 1; step < last; step += 1) {
-    await expect(count).toHaveText(`Step ${step} of ${last}`)
+    await expect(count).toHaveText(new RegExp(`^Step ${step} of ${last}\\.`))
     await page.getByRole('link', { name: 'Next step' }).click()
   }
-  await expect(count).toHaveText(`Step ${last} of ${last}`)
+  await expect(count).toHaveText(new RegExp(`^Step ${last} of ${last}\\.`))
   await page.getByRole('link', { name: 'Finish and log it' }).click()
   await expect(page.getByRole('heading', { name: 'How did it go?' })).toBeVisible()
   return last
@@ -90,6 +91,30 @@ export async function rateAndSave(page: Page, rating: 'Rough' | 'Decent' | 'Nail
 }
 
 /** The lines of the after-cook notice on the menu. */
+/** An init script that counts every oscillator the page starts: one per beep. */
+export const COUNT_BEEPS = () => {
+  const counter = window as unknown as { beeps: number }
+  counter.beeps = 0
+  const start = OscillatorNode.prototype.start
+  OscillatorNode.prototype.start = function (this: OscillatorNode, ...args: Parameters<OscillatorNode['start']>) {
+    counter.beeps += 1
+    return start.apply(this, args)
+  }
+}
+
+/** The cart's checks, as the phone keeps them (lib/checks.ts), sorted. */
+export async function phoneChecks(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const key = Object.keys(localStorage).find((name) => name.startsWith('first-course:grocery-checks:'))
+    return key === undefined ? [] : (JSON.parse(localStorage.getItem(key) ?? '[]') as string[]).toSorted()
+  })
+}
+
+/** The after-cook notice on the menu: what the cook just logged earned. */
+export function cookNotice(page: Page) {
+  return page.getByRole('region', { name: 'This cook' })
+}
+
 export function noticeLines(page: Page) {
-  return page.getByRole('status').locator('.notice-lines > li')
+  return cookNotice(page).locator('.notice-lines > li')
 }

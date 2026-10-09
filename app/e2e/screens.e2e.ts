@@ -45,7 +45,7 @@ test('sign-up with email confirmation on', async ({ page, kitchen }) => {
   await page.getByLabel('Email').fill('new-cook@example.test')
   await page.getByLabel('Password').fill('a long enough password')
   await page.getByRole('button', { name: 'Create account' }).click()
-  await page.getByRole('status').waitFor()
+  await page.getByText('Check your email to confirm the account, then sign in.').waitFor()
   await shoot(page, 'auth-confirm')
 })
 

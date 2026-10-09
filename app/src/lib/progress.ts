@@ -124,10 +124,11 @@ function daysBetween(from: string, to: string): number {
 /**
  * Unlocked recipes in the order the menu suggests them: a dish of the usual
  * that has come into reach without a good cook yet (what everything builds
- * toward), then recipes without a good cook, then those not yet mastered,
- * then mastered ones, the longest uncooked first. A recipe cooked well in
- * the last REST_DAYS goes to the back, so the suggestion is never what was
- * cooked well yesterday; one with only Rough cooks comes straight back.
+ * toward), then recipes without a good cook (a side never cooked after the
+ * meals, so night one is a dinner), then those not yet mastered, then mastered ones, the
+ * longest uncooked first. A recipe cooked well in the last REST_DAYS goes to
+ * the back, so the suggestion is never what was cooked well yesterday; one
+ * with only Rough cooks comes straight back.
  */
 function suggestionOrder(logs: readonly CookLog[], today: string, exclude: readonly string[]): Recipe[] {
   const open = RECIPES.filter((recipe) => !exclude.includes(recipe.id) && recipeState(recipe, logs) !== 'locked')
@@ -140,6 +141,10 @@ function suggestionOrder(logs: readonly CookLog[], today: string, exclude: reado
   const rested = open.filter((recipe) => !recent(recipe))
   const ordered = [
     ...rested.filter((recipe) => recipe.tier === 5 && goodCooks(recipe, logs) === 0),
+    // A side never cooked waits behind a meal, so night one is a dinner; a Rough cook keeps its place.
+    ...rested.filter(
+      (recipe) => goodCooks(recipe, logs) === 0 && (lastCooked(recipe, logs) !== null || !recipe.content.delivery.side),
+    ),
     ...rested.filter((recipe) => goodCooks(recipe, logs) === 0),
     ...rested.filter((recipe) => goodCooks(recipe, logs) > 0 && recipeState(recipe, logs) !== 'mastered'),
     // Everything mastered: the dish that has waited longest, the usual's before the courses'.
@@ -151,9 +156,26 @@ function suggestionOrder(logs: readonly CookLog[], today: string, exclude: reado
   return ordered.filter((recipe, index) => ordered.indexOf(recipe) === index)
 }
 
-/** Unlocked recipes not on this week's plan, in the order the menu suggests them. */
+/**
+ * Whether a recipe can go on this week's plan: it is unlocked, or every
+ * recipe on its way there is planned already, so the week's cooks open it
+ * before its night comes. One shop then covers a week that runs past what is
+ * open today. Planning is not cooking: cookable() still gates that.
+ */
+export function plannable(recipe: Recipe, logs: readonly CookLog[], plan: readonly string[]): boolean {
+  return pathTo(recipe, logs).every((step) => plan.includes(step.id))
+}
+
+/**
+ * Recipes not on this week's plan that could go on it: the unlocked ones in
+ * the order the menu suggests them, then, in menu order, locked ones the plan
+ * already opens.
+ */
 export function readyToPlan(logs: readonly CookLog[], plan: readonly string[], today: string): Recipe[] {
-  return suggestionOrder(logs, today, plan)
+  const ahead = RECIPES.filter(
+    (recipe) => !plan.includes(recipe.id) && recipeState(recipe, logs) === 'locked' && plannable(recipe, logs, plan),
+  )
+  return [...suggestionOrder(logs, today, plan), ...ahead]
 }
 
 /**
@@ -163,7 +185,7 @@ export function readyToPlan(logs: readonly CookLog[], plan: readonly string[], t
 export function masteryLeft(recipe: Recipe, logs: readonly CookLog[]): string {
   if (recipeState(recipe, logs) === 'mastered') return 'Mastered.'
   const more = Math.max(0, MASTERED_COOKS - goodCooks(recipe, logs))
-  const nailed = logs.some((log) => log.recipeId === recipe.id && log.rating === 3)
+  const nailed = progressOf(logs).records.get(recipe.id)?.nailed ?? false
   // Without a "Nailed it" yet, the last good cook it needs has to be one.
   if (!nailed && more <= 1) return 'A “Nailed it” masters it.'
   if (nailed) return more === 1 ? 'One more good cook masters it.' : `${more} more good cooks master it.`

@@ -8,6 +8,7 @@ import {
   missingTechniques,
   nextRecipe,
   pathTo,
+  plannable,
   recipeFromRoute,
   progressLost,
   readyToPlan,
@@ -35,7 +36,8 @@ describe('progress', () => {
     expect(recipeState(recipeById('chopped-salad'), [])).toBe('ready')
     expect(recipeState(eggs, [])).toBe('ready')
     expect(recipeState(grilledCheese, [])).toBe('locked')
-    expect(nextRecipe([], [], new Set(), TODAY)?.id).toBe('chopped-salad')
+    // Both are open; the salad is a side, so night one is the eggs.
+    expect(nextRecipe([], [], new Set(), TODAY)?.id).toBe(eggs.id)
   })
 
   it('does not teach a skill on a rough cook', () => {
@@ -105,9 +107,23 @@ describe('progress', () => {
     const logs = [log('chopped-salad', 2)]
     const ready = readyToPlan(logs, ['soft-scrambled-eggs'], TODAY).map((recipe) => recipe.id)
     expect(ready).not.toContain('soft-scrambled-eggs')
-    expect(ready).not.toContain('grilled-cheese')
     // Not yet cooked well comes before cooked and not mastered.
     expect(ready.indexOf('sheet-pan-sausage')).toBeLessThan(ready.indexOf('chopped-salad'))
+    // Grilled cheese is locked, but the eggs that open it are on the plan: it can go on too, after everything open.
+    const open = ready.filter((id) => recipeState(recipeById(id), logs) !== 'locked')
+    expect(ready.slice(0, open.length)).toEqual(open)
+    expect(ready.slice(open.length)).toContain('grilled-cheese')
+  })
+
+  it('lets a locked recipe on the plan once everything that opens it is planned', () => {
+    // Grilled cheese needs the eggs' heat control; the cutlets are further off.
+    expect(plannable(grilledCheese, [], [])).toBe(false)
+    expect(plannable(grilledCheese, [], [eggs.id])).toBe(true)
+    expect(plannable(grilledCheese, [log(eggs.id, 2)], [])).toBe(true)
+    const cutlets = recipeById('chicken-cutlets')
+    const way = pathTo(cutlets, [])
+    expect(plannable(cutlets, [], way.slice(1).map((recipe) => recipe.id))).toBe(false)
+    expect(plannable(cutlets, [], way.map((recipe) => recipe.id))).toBe(true)
   })
 
   it('words how far a recipe is from mastery the same way everywhere', () => {

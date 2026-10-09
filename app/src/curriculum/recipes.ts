@@ -506,7 +506,7 @@ export const RECIPES: readonly Recipe[] = [
         {
           text: 'Simmer uncovered, stirring every 5 minutes and scraping the bottom. You want a slow bubble here and there, not a boil. It is ready when it has thickened and the wooden spoon dragged across the bottom leaves a trail for a moment. It is fine to let it go longer than the timer while the pasta cooks; keep stirring it every 5 minutes.',
           why: 'Simmering cooks off water, so the sauce thickens and tastes deeper. A hard boil scorches the bottom and spits. If it spits, turn the heat down.',
-          timer: { seconds: 1200, label: 'Sauce' },
+          timer: { seconds: 1200, label: 'Sauce', stirEvery: 300 },
         },
         {
           text: 'While the sauce simmers, fill the large pot with 4 quarts of water, cover it, and bring it to a rolling boil over high heat: big bubbles that keep coming even when you stir. It takes about 15 minutes. Grate the parmesan and stir the sauce while you wait.',
@@ -994,7 +994,7 @@ export const RECIPES: readonly Recipe[] = [
         {
           text: 'Add the lentils and 2½ cups of water and bring to a boil over high heat. Skim off the foam that rises with a spoon. Turn the heat to low, set the lid on slightly open, and simmer, stirring every 5 minutes, until the lentils have fallen apart into a thick, creamy soup. If it gets thicker than oatmeal, stir in ¼ cup of water.',
           why: 'Red lentils have no skins, so they collapse on their own and need no blender.',
-          timer: { seconds: 1200, label: 'Lentils' },
+          timer: { seconds: 1200, label: 'Lentils', stirEvery: 300 },
         },
         {
           text: 'Stir in the remaining 1 teaspoon of salt and turn off the burner. Leave the lid off, so the tadka can go straight in.',
@@ -1457,7 +1457,7 @@ export const RECIPES: readonly Recipe[] = [
         {
           text: 'Pour the tomatoes into the saucepan, add ½ teaspoon of the salt, and scrape the bottom. Bring to a bubble, then turn the heat to low and simmer uncovered, stirring every 5 minutes. It is fine to let it go longer than the timer while the pasta cooks; keep stirring it every 5 minutes.',
           why: 'Twenty minutes of simmering is the short version of the three-hour ragù you are working toward.',
-          timer: { seconds: 1200, label: 'Sauce' },
+          timer: { seconds: 1200, label: 'Sauce', stirEvery: 300 },
         },
         {
           text: 'While it simmers, fill the large pot with 4 quarts of water, cover, and bring it to a rolling boil over high heat. Grate the parmesan and stir the sauce while you wait.',
@@ -1800,7 +1800,7 @@ export const RECIPES: readonly Recipe[] = [
         {
           text: 'Pour in half the tomatoes, about 1¾ cups, and add ½ teaspoon of the salt. Turn the heat to medium-high until it bubbles, then turn it to low and simmer uncovered, stirring every 5 minutes and scraping the bottom.',
           why: 'Pizza sauce has to be much thicker than pasta sauce. A wet sauce soaks into the dough, and the middle of the pizza turns soggy. While it simmers, put the rest of the tomatoes in a lidded container: they keep a week in the fridge, or 3 months frozen.',
-          timer: { seconds: 1200, label: 'Sauce' },
+          timer: { seconds: 1200, label: 'Sauce', stirEvery: 300 },
         },
         {
           text: 'The sauce is ready when a spoon dragged across the bottom of the pan leaves a path that stays open for a second. If it closes right away, simmer 5 minutes more. Taste, and add a pinch of salt if it is flat. Turn off the burner and let it cool.',
@@ -3066,7 +3066,7 @@ export const RECIPES: readonly Recipe[] = [
         {
           text: 'Set the saucepan over medium-high heat until it bubbles, then turn it to the lowest setting and set the lid on slightly open. It simmers 2½ hours in all: this timer is the first 2¼ hours. Stir every 15 minutes, scraping the bottom. Whenever it gets thicker than oatmeal, stir in ¼ cup of water. When the timer goes, go on to the next step.',
           why: 'A lazy bubble every few seconds is right; any more and the bottom scorches. If it bubbles harder than that on the lowest setting, set the lid on fully. Over the hours the beef turns tender and the flavors run together.',
-          timer: { seconds: 8100, label: 'Ragù' },
+          timer: { seconds: 8100, label: 'Ragù', stirEvery: 900 },
         },
         {
           text: 'Start this timer for the last 15 minutes of the simmer. Fill the large pot with 4 quarts of water, cover it, and bring it to a rolling boil over high heat. While it heats, grate the parmesan, and stir the ragù once, scraping the bottom.',

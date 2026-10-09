@@ -1,5 +1,5 @@
 import type { SeedLog } from './fakeSupabase'
-import { expect, noticeLines, rateAndSave, test } from './kitchen'
+import { cookNotice, expect, noticeLines, rateAndSave, test } from './kitchen'
 
 // 260 XP: one more good cook of the sheet pan (+70) crosses 300, level 3, prep cook.
 const ALMOST_PREP_COOK: readonly SeedLog[] = [
@@ -27,11 +27,28 @@ test.describe('leveling up', () => {
     await expect(beat).toContainText('A skull cap and a cobalt apron.')
     await expect(beat).toContainText('Next: line cook at level 6.')
     await expect(beat.getByRole('button', { name: 'Back to the menu' })).toBeFocused()
+    // The menu behind is inert: Tab cannot reach it, so focus stays in the moment.
+    await expect(page.locator('main.page')).toHaveAttribute('inert', '')
+    await page.keyboard.press('Tab')
+    expect(await page.evaluate(() => document.activeElement?.closest('main.page') === null)).toBe(true)
 
     await beat.getByRole('button', { name: 'Back to the menu' }).click()
     await expect(beat).toHaveCount(0)
+    await expect(page.locator('main.page')).not.toHaveAttribute('inert')
     await expect(noticeLines(page).nth(1)).toHaveText('Remy is promoted to prep cook.')
     await expect(page.locator('.chef-card-levelup')).toContainText('Level 3 prep cook')
+  })
+
+  test('zoomed far in, the moment fits the screen, its way on included', async ({ page, kitchen }) => {
+    await page.setViewportSize({ width: 195, height: 422 })
+    await kitchen.open('#/cook/sheet-pan-sausage/log', { logs: ALMOST_PREP_COOK })
+    await rateAndSave(page, 'Decent')
+    const beat = page.getByRole('dialog', { name: 'Remy is promoted to prep cook' })
+    await expect(beat).toBeVisible()
+    const fits = await beat.evaluate((element) => element.scrollWidth <= element.clientWidth)
+    expect(fits).toBe(true)
+    await beat.getByRole('button', { name: 'Back to the menu' }).scrollIntoViewIfNeeded()
+    await expect(beat.getByRole('button', { name: 'Back to the menu' })).toBeInViewport()
   })
 
   test('Escape also closes the moment', async ({ page, kitchen }) => {
@@ -59,7 +76,7 @@ test.describe('leveling up', () => {
     await beat.getByRole('button', { name: 'Back to the menu' }).click()
     // Behind the moment the menu is hidden from assistive tech, so the notice is read only now.
     await expect(noticeLines(page).first()).toHaveText(/^Oven fries with garlic aioli: Decent\./)
-    await expect(page.getByRole('status')).not.toContainText('Double smash burger with oven fries')
+    await expect(cookNotice(page)).not.toContainText('Double smash burger with oven fries')
     await expect(page.getByRole('link', { name: /Double smash burger/ })).toContainText('In reach. Cook it any time')
   })
 })
@@ -68,7 +85,7 @@ test.describe('badges', () => {
   test('the after-cook notice shows the badges a cook earned', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/chopped-salad/log', {})
     await rateAndSave(page, 'Nailed it')
-    const notice = page.getByRole('status')
+    const notice = cookNotice(page)
     await expect(notice.getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(notice.getByRole('img', { name: 'Nailed it badge' })).toBeVisible()
     // The art carries each badge's name, so the lines do not repeat it.

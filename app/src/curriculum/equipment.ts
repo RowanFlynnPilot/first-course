@@ -9,6 +9,11 @@ export interface Equipment {
   readonly note: string | null
   /** Other items that do this one's job. Owning one of them counts as having this. */
   readonly coveredBy: readonly string[]
+  /**
+   * No recipe uses it any more. It stays, because a cook's kit may hold its
+   * id, and loading throws on an id that is gone (ids.test.ts).
+   */
+  readonly retired?: true
 }
 
 // In the order the kit screen lists them.

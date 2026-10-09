@@ -5,8 +5,10 @@ import { PromotionBeat, UsualBeat } from '../components/Beats'
 import { RecipeLinks } from '../components/LockedNotice'
 import { focusAfter, useFocusTarget } from '../components/useFocusTarget'
 import { useKeepMenuScroll } from '../components/menuScroll'
+import { useNow } from '../components/useNow'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
+import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { ChefSprite } from '../components/ChefSprite'
 import { Plate } from '../components/Plate'
 import { XpBar } from '../components/XpBar'
@@ -15,9 +17,20 @@ import { RECIPES, recipeById } from '../curriculum/recipes'
 import type { Recipe, Tier } from '../curriculum/types'
 import { badgeById } from '../lib/badges'
 import { updateChef, type Chef } from '../lib/chefs'
+import { clearCooking, loadCooking } from '../lib/cooking'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents } from '../lib/cost'
 import { extraById, wornExtras, type ExtraId } from '../lib/extras'
-import { COURSE_NAMES, formatCents, formatCookedOn, formatMinutes, inSentence, listOf, localDateString, plural } from '../lib/format'
+import {
+  COURSE_NAMES,
+  formatCents,
+  formatCookedOn,
+  formatMinutes,
+  inSentence,
+  listOf,
+  localDateString,
+  plural,
+  readyAt,
+} from '../lib/format'
 import { hasKit, kitByCourse, missingKit } from '../lib/kit'
 import { levelForXp, rankIndexForLevel, RANKS, totalXp, type RankIndex } from '../lib/leveling'
 import type { CookNotice } from '../lib/notice'
@@ -31,13 +44,12 @@ import {
   rowNote,
   type CookLog,
 } from '../lib/progress'
-import { addAllToKit, planRecipe, type Shop, type ShopChange } from '../lib/shop'
+import { addAllToKit, planRecipe, readyTonight, type Shop, type ShopChange } from '../lib/shop'
 import { currentStreak, type Streak } from '../lib/streak'
+import { clearTimers } from '../lib/timers'
 
 const COURSES: readonly Tier[] = [1, 2, 3, 4]
 
-// Each course counts only the kit it adds, as the kit screen files it, so the numbers agree.
-const NEW_KIT = kitByCourse()
 
 type Moment = { kind: 'promotion'; rank: RankIndex } | { kind: 'usual'; recipe: Recipe }
 
@@ -70,13 +82,17 @@ export function MenuScreen({
   onSignOut: () => Promise<void>
 }) {
   usePageTitle(null)
+  // Each course counts only the kit it adds, as the kit screen files it, so the numbers agree.
+  const newKit = kitByCourse()
   const usual = RECIPES.filter((recipe) => recipe.tier === 5)
   const learned = learnedTechniques(logs)
   const xp = totalXp(logs)
   const level = levelForXp(xp)
   const rank = rankIndexForLevel(level)
-  // The cook's local date, read once: the streak counts weeks where the cook is standing.
-  const [today] = useState(() => localDateString(new Date()))
+  // The time where the cook is standing, kept current: the streak counts weeks by the local date, and
+  // the card says when dinner would be ready.
+  const now = useNow()
+  const today = localDateString(new Date(now))
   const next = nextRecipe(logs, shop.plan, shop.shopped, today)
   const streak = currentStreak(logs, today)
 
@@ -129,7 +145,8 @@ export function MenuScreen({
 
   return (
     <>
-      <main className="page" aria-hidden={settled ? undefined : true}>
+      {/* Inert behind a full-screen moment: hidden from screen readers, and out of reach of Tab. */}
+      <main className="page" inert={!settled}>
         <header className="masthead">
           <h1 className="wordmark">First Course</h1>
           <p className="kept">
@@ -141,7 +158,7 @@ export function MenuScreen({
           className={notice !== null && notice.levelUp !== null && settled ? 'chef-card chef-card-levelup' : 'chef-card'}
           to="/chef"
         >
-          <ChefSprite rank={rank} look={chef} extras={wornExtras(chef.extras, logs)} scale={3} idle />
+          <ChefSprite rank={rank} look={chef} extras={wornExtras(chef.extras, logs)} scale={3} idle decorative />
           <span>
             <span className="row-title">{chef.name}</span>
             <span className="row-note chef-level">
@@ -152,8 +169,10 @@ export function MenuScreen({
           </span>
         </Link>
 
+        {/* Not a live region: focus moves to it once the moments are over, which reads it, and a status read
+            it again, whole, on every change inside it ("Wearing it."). */}
         {notice !== null && (
-          <div className="notice" role="status" ref={noticeRef} tabIndex={-1}>
+          <div className="notice" role="region" aria-label="This cook" ref={noticeRef} tabIndex={-1}>
             <div className="notice-cooked">
               <Plate
                 state={recipeState(recipeById(notice.cookedId), logs)}
@@ -189,6 +208,8 @@ export function MenuScreen({
           </div>
         )}
 
+        <Resume userId={userId} logs={logs} now={now} />
+
         {logs.length === 0 && <FirstSteps shop={shop} />}
 
         <UpNext
@@ -196,8 +217,10 @@ export function MenuScreen({
           plan={!shop.plan.includes(next.id) ? null : shop.shopped.has(next.id) ? 'bought' : 'planned'}
           logs={logs}
           shop={shop}
+          now={now}
           onShopChange={onShopChange}
         />
+        <Tonight except={next} logs={logs} shop={shop} now={now} />
 
         <nav className="quick-links" aria-label="Shopping, kit, and spices">
           <Link to="/shop">{shop.plan.length === 0 ? 'This week' : `This week (${shop.plan.length})`}</Link>
@@ -212,7 +235,7 @@ export function MenuScreen({
           const recipes = RECIPES.filter((recipe) => recipe.tier === tier)
           const skills = recipes.flatMap((recipe) => recipe.teaches)
           const have = skills.filter((technique) => learned.has(technique)).length
-          const toGet = (NEW_KIT.find((course) => course.tier === tier)?.items ?? []).filter((id) => !hasKit(id, shop.kit)).length
+          const toGet = (newKit.find((course) => course.tier === tier)?.items ?? []).filter((id) => !hasKit(id, shop.kit)).length
           // A course with every recipe mastered folds away, so what is still open is not 3,000 pixels down.
           const done = recipes.every((recipe) => recipeState(recipe, logs) === 'mastered')
           // Courses are gates: a course opens as the skills of the one before it are learned.
@@ -267,11 +290,7 @@ export function MenuScreen({
           >
             Sign out
           </button>
-          {signOut.error !== null && (
-            <p className="notice notice-error" role="alert">
-              {signOut.error}
-            </p>
-          )}
+          <ErrorNotice error={signOut.error} />
         </footer>
       </main>
 
@@ -368,11 +387,8 @@ function NewExtra({
           Wear it
         </button>
       )}
-      {error !== null && (
-        <span className="notice notice-error" role="alert">
-          {error}
-        </span>
-      )}
+      <Saving busy={busy} />
+      <ErrorNotice error={error} />
     </li>
   )
 }
@@ -417,12 +433,89 @@ function CookedWithKit({ recipe, shop, onShopChange }: { recipe: Recipe; shop: S
       >
         Add {missing.length === 1 ? 'it' : 'them'} to your kit
       </button>
-      {error !== null && (
-        <span className="notice notice-error" role="alert">
-          {error}
-        </span>
-      )}
+      <Saving busy={busy} />
+      <ErrorNotice error={error} />
     </li>
+  )
+}
+
+/**
+ * The cook in progress on this phone, when the app closed in the middle of
+ * it (lib/cooking.ts): the way back to the step, or, once the last step was
+ * done, to logging it.
+ */
+function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[]; now: number }) {
+  const [forgotten, setForgotten] = useState(false)
+  const cooking = forgotten ? null : loadCooking(localStorage, userId, now)
+  if (cooking === null) return null
+  const recipe = recipeById(cooking.recipeId)
+  // A catch-up can lock it again (a cook deleted elsewhere): its screen would only say so.
+  if (recipeState(recipe, logs) === 'locked') return null
+  // A recipe revised mid-cook can have fewer steps now.
+  const step = cooking.step === 'log' ? 'log' : Math.min(cooking.step, recipe.content.steps.length)
+  return (
+    <section className="notice notice-info resume" aria-label="The cook in progress">
+      <p>
+        {step === 'log'
+          ? `You finished ${recipe.title}. How did it go?`
+          : step === 0
+            ? `You were getting ready to cook ${recipe.title}.`
+            : `You were cooking ${recipe.title}: step ${step} of ${recipe.content.steps.length}.`}
+      </p>
+      <div className="actions">
+        <Link className="button" to={step === 'log' ? `/cook/${recipe.id}/log` : `/cook/${recipe.id}/${step}`}>
+          {step === 'log' ? 'Log it' : step === 0 ? 'Back to it' : `Back to step ${step}`}
+        </Link>
+        <button
+          className="link-button"
+          type="button"
+          onClick={() => {
+            clearCooking(localStorage, userId)
+            clearTimers(localStorage, recipe.id)
+            setForgotten(true)
+          }}
+        >
+          {step === 'log' ? 'Not logging it' : 'Not cooking it now'}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/** How many other recipes the Tonight line offers. */
+const TONIGHT = 3
+
+/**
+ * Other recipes that need no shop tonight: groceries bought, or everything
+ * in the pantry. Quickest first, with when each would be ready.
+ */
+function Tonight({ except, logs, shop, now }: { except: Recipe; logs: readonly CookLog[]; shop: Shop; now: number }) {
+  const ready = RECIPES.filter(
+    (recipe) => recipe.id !== except.id && recipeState(recipe, logs) !== 'locked' && readyTonight(recipe, shop),
+  )
+    .toSorted((a, b) => a.content.totalMinutes - b.content.totalMinutes)
+    .slice(0, TONIGHT)
+  if (ready.length === 0) return null
+  return (
+    <section className="tonight" aria-labelledby="tonight-title">
+      <h2 className="tonight-title" id="tonight-title">
+        Also ready tonight, with what you have
+      </h2>
+      <ul className="rows">
+        {ready.map((recipe) => (
+          <li key={recipe.id}>
+            <Link className="row" to={`/recipe/${recipe.id}`}>
+              <span>
+                <span className="row-title">{recipe.title}</span>
+                <span className="row-note">
+                  {formatMinutes(recipe.content.totalMinutes)}: eat around {readyAt(now, recipe.content.totalMinutes)}
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -431,6 +524,7 @@ function UpNext({
   plan,
   logs,
   shop,
+  now,
   onShopChange,
 }: {
   recipe: Recipe
@@ -438,12 +532,15 @@ function UpNext({
   plan: 'bought' | 'planned' | null
   logs: readonly CookLog[]
   shop: Shop
+  now: number
   onShopChange: ShopChange
 }) {
   const add = useWrite()
   const { content } = recipe
   const state = recipeState(recipe, logs)
   const last = lastCooked(recipe, logs)
+  // Bought, or all in the pantry: nothing to plan or buy, so cooking leads.
+  const cookNow = readyTonight(recipe, shop)
   const label =
     plan === 'bought'
       ? 'Groceries bought'
@@ -454,7 +551,7 @@ function UpNext({
           : 'Cook this again'
   // The first move is the one the week needs: plan it, then shop for it, then cook it.
   const start = (
-    <Link className={plan === 'bought' ? 'button' : 'button button-quiet'} to={`/cook/${recipe.id}/0`}>
+    <Link className={cookNow ? 'button' : 'button button-quiet'} to={`/cook/${recipe.id}/0`}>
       Start cooking
     </Link>
   )
@@ -472,38 +569,32 @@ function UpNext({
       <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={64} />
       <div className="tray-rest">
         <p className="tray-body">
-          {formatMinutes(content.totalMinutes)}. {formatCents(cookCostPerServingCents(content, shop.prices))} a serving
-          instead of {formatCents(orderCostPerServingCents(content))} delivered.
+          {formatMinutes(content.totalMinutes)}: start now and eat around {readyAt(now, content.totalMinutes)}.{' '}
+          {formatCents(cookCostPerServingCents(content, shop.prices))} a serving instead of{' '}
+          {formatCents(orderCostPerServingCents(content))} delivered.
           {/* Once it is all mastered, the suggestion is whatever has waited longest. */}
           {state === 'mastered' && last !== null && ` Mastered, and not cooked since ${formatCookedOn(last)}.`}
         </p>
         <div className="actions">
-          {plan === null && (
+          {cookNow && start}
+          {plan === null && !cookNow && (
             <button
               className="button"
               type="button"
               aria-disabled={add.busy}
-              onClick={() => void add.run(() => focusAfter('tray-shop', () => planRecipe(shop, recipe.id, onShopChange)))}
+              onClick={() => void add.run(() => focusAfter('tray-shop', () => planRecipe(recipe.id, onShopChange)))}
             >
               Add to this week
             </button>
           )}
-          {add.busy && (
-            <span className="busy" role="status">
-              Saving…
-            </span>
-          )}
-          {plan === 'planned' && <ShopForIt />}
-          {start}
+          <Saving busy={add.busy} />
+          {plan === 'planned' && !cookNow && <ShopForIt />}
+          {!cookNow && start}
           <Link className="button button-quiet" to={`/recipe/${recipe.id}`}>
             Read the recipe
           </Link>
         </div>
-        {add.error !== null && (
-          <p className="notice notice-error" role="alert">
-            {add.error}
-          </p>
-        )}
+        <ErrorNotice error={add.error} />
       </div>
     </section>
   )

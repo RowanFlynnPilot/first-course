@@ -7,6 +7,7 @@ import { BACK_TO_MENU } from '../components/menuScroll'
 import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
+import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { recipeById } from '../curriculum/recipes'
 import { deleteCookLog, NOTES_MAX, updateCookLog } from '../lib/cookLogs'
 import { checkCookedOn, EARLIEST_COOK, listOf, localDateString, skillList } from '../lib/format'
@@ -68,6 +69,8 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
   const [today] = useState(() => localDateString(new Date()))
   const save = useWrite()
   const remove = useWrite()
+  // A date the form will not take is said beside the field, which it is tied to.
+  const [dateError, setDateError] = useState<string | null>(null)
 
   // What a save or a delete would take away. Notes change nothing, so typing them recomputes nothing.
   const saveWarning = useMemo(
@@ -91,16 +94,25 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    void save.run(async () => {
-      // Only a date the cook changed is checked: one logged on a device a day
-      // ahead (another time zone, a clock set wrong) still saves its notes.
+    if (remove.busy) return
+    // Only a date the cook changed is checked: one logged on a device a day
+    // ahead (another time zone, a clock set wrong) still saves its notes.
+    try {
       if (cookedOn !== log.cookedOn) checkCookedOn(cookedOn, today)
+      setDateError(null)
+    } catch (cause) {
+      setDateError((cause as Error).message)
+      document.querySelector<HTMLInputElement>('input[type="date"]')?.focus()
+      return
+    }
+    void save.run(async () => {
       onUpdated(await updateCookLog(log.id, { cookedOn, rating, notes: notes.trim() }))
       navigate(`/recipe/${recipe.id}`, { replace: true })
     })
   }
 
   function confirmDelete() {
+    if (save.busy || remove.busy) return
     const question = deleteWarning === null ? 'Delete this cook?' : `Delete this cook? ${deleteWarning}`
     if (!window.confirm(question)) return
     void remove.run(async () => {
@@ -135,27 +147,29 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
             min={EARLIEST_COOK}
             max={log.cookedOn > today ? log.cookedOn : today}
             value={cookedOn}
+            aria-invalid={dateError !== null}
+            aria-describedby={dateError === null ? undefined : 'date-error'}
             onChange={(event) => setCookedOn(event.target.value)}
           />
         </label>
+        <ErrorNotice error={dateError} id="date-error" />
         {saveWarning !== null && (
           <p className="notice notice-info" id="save-warning">
             {saveWarning}
           </p>
         )}
-        {save.error !== null && (
-          <p className="notice notice-error" role="alert">
-            {save.error}
-          </p>
-        )}
-        <button
-          className="button"
-          type="submit"
-          disabled={save.busy || remove.busy}
-          aria-describedby={saveWarning === null ? undefined : 'save-warning'}
-        >
-          Save changes
-        </button>
+        <ErrorNotice error={save.error} />
+        <div className="actions">
+          <button
+            className="button"
+            type="submit"
+            aria-disabled={save.busy || remove.busy}
+            aria-describedby={saveWarning === null ? undefined : 'save-warning'}
+          >
+            Save changes
+          </button>
+          <Saving busy={save.busy} />
+        </div>
       </form>
 
       <section className="section">
@@ -163,20 +177,19 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
         <p className="section-note" id="delete-warning">
           For a cook logged by mistake. {deleteWarning ?? 'Nothing you have learned depends on it.'}
         </p>
-        {remove.error !== null && (
-          <p className="notice notice-error" role="alert">
-            {remove.error}
-          </p>
-        )}
-        <button
-          className="button button-quiet"
-          type="button"
-          disabled={save.busy || remove.busy}
-          aria-describedby="delete-warning"
-          onClick={confirmDelete}
-        >
-          Delete this cook
-        </button>
+        <ErrorNotice error={remove.error} />
+        <div className="actions">
+          <button
+            className="button button-quiet"
+            type="button"
+            aria-disabled={save.busy || remove.busy}
+            aria-describedby="delete-warning"
+            onClick={confirmDelete}
+          >
+            Delete this cook
+          </button>
+          <Saving busy={remove.busy} text="Deleting…" />
+        </div>
       </section>
     </main>
   )

@@ -157,6 +157,20 @@ describe('written recipes', () => {
     }
   })
 
+  it('remind the cook to stir a simmer on the schedule its step gives, and only there', () => {
+    // "stirring every 5 minutes" on a timed step: cook mode says "stir" every 5 minutes, on whatever step
+    // the cook has moved on to. A schedule judged by eye (no timer) has nothing to count from.
+    for (const { id, content } of written) {
+      content.steps.forEach((step, index) => {
+        const said = /\b[Ss]tir(?:ring)? every (\d+) minutes\b/.exec(step.text)
+        const where = `${id} step ${index + 1}`
+        if (step.timer === null) return
+        expect(step.timer.stirEvery, where).toBe(said === null ? undefined : Number(said[1]) * 60)
+        if (step.timer.stirEvery !== undefined) expect(step.timer.stirEvery, where).toBeLessThan(step.timer.seconds)
+      })
+    }
+  })
+
   it('never say "until done": every doneness cue is something you can see, smell, hear or measure', () => {
     for (const { id, content } of written) {
       for (const step of content.steps) expect(step.text, id).not.toMatch(/until (it is |they are )?done/i)

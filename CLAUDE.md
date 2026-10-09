@@ -18,7 +18,11 @@ These apply to every change.
 
 - One correct path. No fallbacks, no alternates, no backups.
 - Fail fast and loud. Throw with a message that says what is wrong. The root
-  error boundary in `main.tsx` puts any thrown message on screen.
+  error boundary in `main.tsx` puts any thrown message on screen, except one
+  thrown while a file loads, before React is up: that is a blank page. So
+  code at the top of a module only builds static data the unit tests import
+  (the badges, the curriculum); anything a screen works out, it works out
+  while it renders.
 - Surgical changes. One responsibility per function. Fix root causes.
 - Let TypeScript catch it. The curriculum is typed data, so a misspelled skill
   or ingredient id is a compile error, not a runtime check.
@@ -95,9 +99,11 @@ Actions to GitHub Pages at `/first-course/`.
 ```
 CLAUDE.md
 README.md                      bring-up, definition of done, publishing
-.github/workflows/deploy.yml   build job (lint, test, e2e, build; read-only), deploy job (Pages);
-                               a pull request runs the checks only. Actions pinned to commits.
-.github/dependabot.yml         weekly updates for npm and the actions
+.github/workflows/deploy.yml   build job (lint, type check, test, e2e, build; read-only), deploy job
+                               (Pages); a pull request runs the checks only, type check included.
+                               Actions pinned to commits.
+.github/dependabot.yml         weekly: minor and patch dev tools in one pull request, a major on
+                               its own, @types/node held to the Node CI runs (24)
 supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                00002_chef.sql (chefs: one named chef per account)
                                00003_chef_look.sql (skin, hair, and editing the chef)
@@ -113,7 +119,8 @@ supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
                                  meant, and limits on notes, ids, prices and dates)
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
-  e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts, screens.e2e.ts
+  e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts (weeknight.e2e.ts:
+                                 Tonight, a cook the phone interrupted, stirring), screens.e2e.ts
   scripts/icons.ts             draws the home-screen icons (npm run icons)
   public/                      icon.svg, manifest.webmanifest, icon-192/512.png, apple-touch-icon.png,
                                fonts/ (the two typefaces, self-hosted, and their licenses)
@@ -138,14 +145,18 @@ app/
       streak.ts                weeks in a row with a cook, from cooked_on
       badges.ts                the 31 badges and the rule for each, read off the log
       notice.ts                what one cook earned: lines, level-up, promotion, badges, the usual
-      timers.ts                cook-mode timers in sessionStorage, keyed by label
+      timers.ts                cook-mode timers in localStorage, keyed by label
+      cooking.ts               the cook in progress on this phone, for the menu's way back to it
+      checks.ts                the cart's checks, kept on this phone until Done shopping
+      memoryStorage.ts         a Storage for the tests of what the phone keeps
       cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
       grocery.ts               the grocery list: whole packages per store section, checkout total
       kit.ts                   what equipment a set of recipes needs, and what is missing
       extras.ts                the 8 extras, the track and good-cook count that earns each, what is worn
       spices.ts                the spice shelf: each spice under the course that first uses it
-      cookLogs.ts, chefs.ts,   the only Supabase reads/writes; rows -> app data
-        shop.ts                  (shop.ts: plan, pantry, checks, prices, kit, finish_shopping)
+      cookLogs.ts, chefs.ts,   the only Supabase table reads/writes; rows -> app data
+        shop.ts                  (shop.ts: plan, pantry, prices, kit, finish_shopping). Auth
+                                 calls live in App, AuthScreen, SetPasswordScreen, supabase.ts
       format.ts                money, quantities, dates, lists
       errors.ts                plainMessage(): a Supabase or network error in the app's own words
     components/
@@ -161,6 +172,8 @@ app/
                                  line then: nothing is earned yet) and to change
       CheckRow.tsx             a checkbox row that saves itself (grocery list, pantry, kit)
       useWrite.ts              busy + error for one write from a button; a tap while busy does nothing
+      WriteStatus.tsx          Saving (an always-there "Saving…" status) and ErrorNotice: every write's words
+      useNow.ts                the time, kept current: a minute tick, and on coming back into view
       useFocusTarget.ts        where focus goes when a write takes away the control that made it
       LockedNotice.tsx         "Locked. Learn … from …" and the way there; the page cook mode and
                                  the log form show for a locked recipe
@@ -325,6 +338,18 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - A step the cook will sit on for a long time (water coming to a boil, pasta
   cooking) repeats any reminder that matters, such as stirring a simmering
   sauce, because the earlier step is no longer on screen.
+- A timed simmer whose step says "stirring every 5 minutes" gives its timer
+  `stirEvery: 300` (seconds): cook mode beeps once, softly, and shows "Sauce:
+  stir it now" on whatever step the cook is on. `curriculum.test.ts` keeps
+  the two in step both ways. A schedule with no timer (judged by eye) has
+  nothing to count from.
+- Every id that has shipped is permanent, not only recipe ids: a cook's
+  rows hold ingredient ids (pantry, prices), equipment ids (kit) and extra
+  ids (the chef), and loading throws on one the curriculum no longer has,
+  so the cook would see "Could not load your kitchen" every time.
+  `ids.test.ts` pins every shipped id; add a new one there in the commit
+  that ships it. To stop using an ingredient or a tool, mark it `retired:
+  true`: no recipe may use it, and the "unused" tests skip it.
 - A sauce with a raw egg yolk uses `pasteurized-eggs`, and says why.
 - After writing, have someone read every step as a person who has never
   cooked. The October 2026 read-back of the Second and Third courses found
@@ -434,7 +459,8 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   plan"); else the first in suggestion order, which `readyToPlan` shares: a
   dish of the usual that has come into reach without a good cook yet (what
   everything builds toward), then, in menu order, recipes without a good
-  cook (so a Rough cook comes back before anything new), then those not yet
+  cook (so a Rough cook comes back before anything new; a side never cooked
+  waits behind the meals, so night one is the eggs, not the side salad), then those not yet
   mastered, then mastered ones, the longest uncooked first, the usual's
   before the courses'. A recipe cooked well (Decent or better) in the last
   `REST_DAYS` (7) goes to the back, so the suggestion is never what was
@@ -445,13 +471,23 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   simulation found the menu running dry for the keen cook, re-suggesting the
   dish just made, and a once-a-week cook first reaching a dish of the usual
   around week 46.)
+- `plannable(recipe, logs, plan)`: whether a recipe can go on this week's
+  plan: it is unlocked, or every recipe on its way there (`pathTo`) is
+  planned already, so one shop covers a week that runs past what is open
+  today (Rowan's call, October 9, 2026: week one had only a side and
+  breakfast open, so the first shop could not cover a dinner). `readyToPlan`
+  offers those after the open ones, saying "Opens after you cook …", and a
+  locked recipe's page has "Add to this week" once it is plannable.
+  Planning is not cooking: `cookable()` still gates cook mode and the log.
 - `teacherOf(technique)`: the one recipe that teaches a skill. A locked
   recipe page names it, with a link: "Locked. Learn heat control from Soft
   scrambled eggs on toast."
 - `pathTo(recipe, logs)`: every recipe to cook, each at Decent or better,
   before a locked one opens, each after the ones it needs. When a teacher is
-  locked too, the locked notice adds "The way there: …, then this." A course
+  locked too, the locked notice adds "The way there, each cooked at Decent
+  or better: …, then this." A course
   whose every recipe is locked says "Opens as you learn … skills".
+- `lastNote` reads the notes itself; everything else above reads `progressOf`.
 - `masteryLeft(recipe, logs)` is the one wording of how far a recipe is from
   mastery ("A “Nailed it” masters it."), used by the log form
   (`whatTheRatingDecides`), the recipe page and the menu rows (`rowNote`).
@@ -636,15 +672,20 @@ Other rules:
   where it was (`.xp-fill`), a level-up hops the chef and pops the level
   (`.chef-card-levelup`), new badges pop into the notice (`.badge-pop`), the
   full-screen moments fade and rise in (`.beat`), and the chef idles in two
-  frames (`.pixels-idle`) on the menu, the chef sheet and the promotion.
+  frames (`.pixels-idle`) on the menu, the chef sheet and the promotion,
+  twice and then still: motion that runs on draws the eye from everything
+  else (WCAG 2.2.2 allows 5 seconds).
   The ladder and the editor stay still. Keep the rest of the interface
   still.
 - Mobile first. The page column is 36rem. Tap targets are at least 3rem,
   links included: the "Menu" back links and "Leave cook mode" are the only
   exits once the app is installed, so they get the full 3rem too.
 - Copy is plain and direct. A button says what it does and keeps that name:
-  "Save this cook" produces "Saved." A box is checked off, never ticked.
-  A write that takes a moment says "Saving…" beside its button.
+  "Save new password" produces "Saved." A box is checked off, never ticked.
+  A write that takes a moment says "Saving…" beside its button: `Saving`
+  in `components/WriteStatus.tsx`, a status that is always on the page and
+  empty while idle, so a screen reader hears its words arrive. Its
+  `ErrorNotice` is the one way a write's failure is shown.
 - Errors are in the app's words. `plainMessage` in `lib/errors.ts` turns a
   failed request into "No connection. Check your signal and try again." and
   the auth errors a cook can cause into what to do ("That email and
@@ -681,8 +722,11 @@ has to page. Besides `failNext`
 can carry out a request and lose its answer (`loseNextAnswer`), carry it out
 and answer only when the test says (`holdNext`, weak signal: a read answers
 with what the database held when it arrived), and write or delete rows as
-another device would (`writeElsewhere`, `deleteElsewhere`). `recoveryHash()`
-and `signupHash()` make an email link's landing. A request to any other site
+another device would (`writeElsewhere`, `deleteElsewhere`). `recoveryHash()`,
+`signupHash()` and `strangerHash()` (another account's link) make an email
+link's landing. A seed's `checks` go into the phone's storage, as the app
+keeps them. Playwright will not tap a control marked `aria-disabled`; a
+test that means a finger's tap passes `force: true`. A request to any other site
 fails the test too. `kitchen.ts` is the fixture
 (`kitchen.open(route, seed)`), the seeds and the shared steps; open a
 seed once per test. A test that jumps the clock (`fastForward`) waits for
@@ -705,24 +749,33 @@ an artifact.
   phone woke plays only if a timer still wants it, and a phone that refuses
   to play says so in cook mode. Not yet verified on an iPhone. The audio
   context is one per page load, kept outside the hook, so going to the log
-  form and back does not lose the sound. "Start timer" is a full-width
+  form and back does not lose the sound. A timer of 10 minutes or more says
+  under its clock that the page can ring only while it is on screen, so set
+  the phone's own timer too: no web page can ring from a locked phone. The
+  beeps carry no words, so a status says which timer ran out ("Potatoes:
+  time is up.") or which simmer wants stirring. Start timer hands focus to
+  Stop timer, Stop timer back to Start, and a dashed chip to the chip that
+  then counts it down. "Start timer" is a full-width
   solid button above the Why, and "Stop timer" asks first when more than a
   minute is left; once the time is up it reads "Clear timer". "Finish and log it", like "Leave cook mode", asks first
   when a timer is running. Each step ends with "Next:" and the first
   sentence of the next one.
-- **Timers are end times in `sessionStorage`** (`lib/timers.ts`), one entry
+- **Timers are end times in `localStorage`** (`lib/timers.ts`), one entry
   per recipe, keyed by the timer's label (unique in a recipe, which
   `curriculum.test.ts` checks), each `{ endsAt, rang, stopped }`. Not by step number:
   a deploy that splits a step mid-cook would move the timer to the wrong
   step. The storage key names the format (`timers-by-label`). They survive moving
-  between steps, a reload, and a phone discarding a backgrounded tab.
+  between steps, a reload, a phone discarding a backgrounded tab, and an
+  installed app the phone closed (session storage goes with it). Timers of
+  a cook left mid-way are forgotten when the app opens, once they ended
+  longer ago than a cook in progress is kept (`forgetOldTimers`).
   `components/useCookTimers.ts` plays every ring from one check that runs on
   a quarter-second tick and again on `visibilitychange`, so a timer that ran
   out while the phone was locked rings when the cook looks again (the 2
   minutes count from the first ring, not from the end). `rang` means the
   ring is over: the cook tapped, or it rang out. Sound needs a tap on the
   page first: starting a timer is one, and after a reload cook mode says
-  "Tap anywhere so your timers can chime"; a timer that runs out before
+  "Tap anywhere so your timers can ring"; a timer that runs out before
   that tap rings once at the tap. The tap is heard at its end (`pointerup`,
   `touchend`, or a key), which is what a phone counts as a tap that may
   play sound, and the prompt goes only once the sound is actually on. A
@@ -746,7 +799,27 @@ an artifact.
 - **The after-cook notice is app state**, held in `App.tsx`, shown on the
   menu once and cleared when you leave the menu. It is not in the URL or
   history. The log form navigates with `replace`, so Back from the menu can
-  never return to the form and log a cook twice.
+  never return to the form and log a cook twice. It is a region named "This
+  cook", not a live region: focus moves to it once the moments are over,
+  which reads it, and a status would read it again, whole, at every change
+  inside it. While a moment holds the screen the menu is `inert`, so Tab
+  cannot reach what the moment covers.
+- **A cook the phone interrupted comes back.** Cook mode keeps the cook in
+  progress on the phone (`lib/cooking.ts`: recipe, step, when), and "Finish
+  and log it" marks it cooked. An installed app the phone closed reopens at
+  the menu, which says "You were cooking …: step 7 of 12" with "Back to step
+  7", or "You finished …. How did it go?" with "Log it", for 12 hours
+  (`RESUME_FOR_MS`), or until "Leave cook mode", a saved cook, or "Not
+  cooking it now". Cook mode's step counter is its live region, with the
+  step's words hidden after it, so a screen reader hears each new step
+  while focus stays on Next step.
+- **What is ready tonight.** The suggestion card says when dinner would be
+  ready if the cook started now ("55 minutes: start now and eat around 6:55
+  PM", `readyAt`, to the nearest 5 minutes), and so does step 0, which also
+  lists the steps to read first. When the suggestion needs no shop (bought,
+  or the pantry covers it, `readyTonight`), the card leads with Start
+  cooking. Under the card, "Also ready tonight, with what you have" lists up
+  to three other such recipes, quickest first.
 - **A cook can be logged without cook mode**: "Log a cook" on the recipe
   page opens the same form (`/cook/:id/log`, behind the same `cookable()`).
   The form has a "Cooked on" date, today in the cook's time zone by default
@@ -794,8 +867,10 @@ an artifact.
   the chef that exists. The e2e fake can lose an answer on purpose
   (`loseNextAnswer`).
 - **A cook is never dated after today**, nor before 1900 (the database
-  takes four-digit years): `checkCookedOn` in `format.ts` throws, on both
-  cook forms, as well as the date field's `max` and `min`.
+  takes four-digit years): `checkCookedOn` in `format.ts` says so beside the
+  date field, tied to it, on both cook forms, as well as the field's `max`
+  and `min`. The change-cook form checks the date only when it was changed,
+  so a cook logged on a device a day ahead still saves its notes.
 - **Email links come back in the hash**, where the hash router would take
   them for a page. The client is created with `detectSessionInUrl: false`,
   and `supabase.ts` reads the hash itself, removes it with `replaceState`
@@ -835,17 +910,28 @@ an artifact.
   message. The target is named only after the write succeeds (a failed one
   leaves focus on its button), only if the cook is still on the same
   screen, and only for 1.5 seconds; navigating clears it. The after-cook notice takes focus once the moments are over. A
-  button busy with its write says so with `aria-disabled` rather than
-  `disabled`, which would drop focus to the top of the page, and
-  `useWrite` ignores a second tap. Tapping a price puts the cursor in it,
-  and closing the form goes back to the price.
+  button that cannot act yet (busy with its write, or a form not ready)
+  says so with `aria-disabled` rather than `disabled`, which would drop
+  focus to the top of the page, and ignores the tap (`useWrite`): Save this
+  cook with no rating moves focus to the ratings, Create chef with no name
+  to the name. Tapping a price puts the cursor in it, and closing the form
+  goes back to the price. A field's hint ("At least 8 characters.") sits
+  outside its label and is tied to it with `aria-describedby`, as is a
+  field's error.
+- **Every screen has a `main h1`**, which navigation focuses; a screen
+  without one throws "The page at … has no heading". An address that is not
+  a screen throws "That page is not on the menu.", which the error screen shows.
 - **Money reads like money** ("$1,338.32", `formatCents`), and times of an
   hour or more read in hours ("2 hours 45 minutes", `formatMinutes`).
 - **Zoomed far in** (a page about 200 CSS pixels wide, as at 200% on a
   phone), the gutters slim down and cook mode's buttons, the price lines and
   the chef sheet's head stack; cook mode's buttons stop sticking to the
-  bottom, where stacked they would hold a third of the screen. The e2e
-  suite checks that no screen runs off the side.
+  bottom, where stacked they would hold a third of the screen, and the
+  full-screen moment's plate and art shrink (the art at a whole 4 pixels a
+  pixel). With text at 200% instead, rows wrap: a price under its name,
+  cook mode's buttons a row each, the chef sheet's record fewer across.
+  The e2e suite checks that no screen runs off the side, both ways. The
+  installed app turns with the phone (no `orientation` in the manifest).
 - **A cook can be changed or deleted** at `/cook-log/:id`, reached from
   "Your cooks" on the recipe page. The date, rating and notes change; the
   recipe never does. Because progress is derived, the screen first says what
@@ -858,17 +944,24 @@ an artifact.
 - **Sign-out says what happened.** supabase-js signs the phone out even
   when the server never hears it, except when the session cannot even be
   loaded (no signal and a token past its hour): then nothing changed, and
-  the menu says "Could not sign out … Try again with signal." The app tells
+  the menu says "Could not sign out: No connection. Check your signal and
+  try again." The app tells
   the two apart by the `SIGNED_OUT` event.
 - **React Router navigates inside a transition.** A screen that removes the
   thing it is showing (deleting a cook) must make both changes in one
   `startTransition`, or React draws the screen once without its data and
   reports error 520. The e2e suite catches this as a page error.
-- **Shop writes are not optimistic.** A checkbox changes only after Supabase
-  says the write succeeded, and says "Saving…" until then; a failure shows
-  its message under the row. In a store with weak signal that is slower,
-  and it is never wrong. "Done shopping" waits until no tick is saving, so
-  a staple ticked a moment ago still reaches the pantry.
+- **The cart's checks live on the phone; the other shop writes are not
+  optimistic.** A store is where signal is weakest, so a check is kept in
+  localStorage (`lib/checks.ts`, per account) and never waits on the
+  network; the checks reach Supabase together, in the one `finish_shopping`
+  call, and stay on the phone if it fails ("Your checks are kept on this
+  phone."). Rowan's call, October 9, 2026: one bar of signal had meant
+  "Saving…" on line after line. The cost is that a second device does not
+  see checks live. Every other shop write (the pantry, the kit, the plan,
+  prices) changes the screen only after Supabase says it succeeded, and
+  says "Saving…" until then. The `grocery_checks` table is no longer read
+  or written.
 - **The chef can be changed but not deleted.** Name, look and extras are
   editable at `/chef/edit`. The grant is column-level, so `user_id` and
   `created_at` cannot be updated even by the owner. Supabase refuses an
@@ -1028,12 +1121,13 @@ the food was in the fridge:
 Behavior:
 
 - **Plan.** "Add to this week" (and "Take off this week") on any unlocked
-  recipe page. One batch per recipe; no servings scaling. A recipe stays on
+  recipe page, and on a locked one once it is `plannable`. One batch per recipe; no servings scaling. A recipe stays on
   the plan until a cook of it is saved, marked "Groceries bought" once
   shopped for (with "Put it back on the list" for groceries not bought or
-  gone off), and the menu suggests it first. A planned recipe that a
-  deleted cook locks again says "Locked again: needs …", and the
-  change-cook screen warns that it is on the plan.
+  gone off), and the menu suggests it first. A planned recipe that is
+  locked (planned ahead, or locked again by a deleted cook) says "Opens
+  after you cook …", and the change-cook screen warns that it is on the
+  plan.
 - **Grocery list** (`lib/grocery.ts`, `/shop`). In the store the list comes
   first (the count, Share, the aisles, Done shopping), then the plan; at
   home, the plan first. Under both, "Ready to cook" offers up to four
@@ -1051,15 +1145,19 @@ Behavior:
   list" sends what is not yet in the cart as plain text through the phone's
   share sheet (`navigator.share`, HTTPS only), to Notes for a store with no
   signal or to whoever is shopping; closing the sheet is not an error.
-- **Checking off.** Tap to check. "Done shopping" asks first if anything is
-  unchecked, naming it ("They come off the list"), then `finish_shopping()`
-  puts the checked-off staples in the pantry, clears the checks and marks
-  the plan shopped, in one transaction. With everything ticked, the list
-  says to tap "Done shopping". Ticks left from a shop that never got "Done
-  shopping" (for recipes since cooked or taken off) are cleared before the
-  list grows again (`clearStaleChecks` in `shop.ts`, run before "Add to this
+- **Checking off.** Tap to check (on the phone, above). "Done shopping"
+  asks first if anything is unchecked, naming it and the recipes that stay
+  on the list for it, then `finish_shopping()` puts the checked-off staples
+  in the pantry and marks shopped only the recipes the shop covered, every
+  ingredient checked off or in the pantry (`boughtFor` in `grocery.ts`), in
+  one transaction. A recipe with a line left unchecked (the store was out of
+  chicken) stays on the list with that line's check, so its card never says
+  "Groceries bought" over an empty fridge. With everything checked, the list
+  says to tap "Done shopping". Checks left from a shop that never got "Done
+  shopping" (for recipes since cooked or taken off) are cleared when the
+  list grows again (`withoutStaleChecks` in `shop.ts`, on "Add to this
   week" and "Put it back on the list"), so a new list never opens with
-  things ticked that were never bought for it.
+  things checked that were never bought for it.
 - **Pantry** (`/pantry`). Every `staple: true` ingredient, filed like the kit
   under the first course that uses it (`staplesByCourse` in `grocery.ts`),
   with a toggle. The kit ends with "Next: your pantry" and the pantry with
@@ -1111,9 +1209,9 @@ precisely" and "Design").
 
 ## Where things stand, and what comes next
 
-As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
+As of October 9, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all eight migrations
-are on the live project, and every push runs 143 unit tests and 180 e2e tests before it deploys.
+are on the live project, and every push runs 157 unit tests and 193 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

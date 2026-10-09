@@ -1,5 +1,6 @@
-// Cook-mode timers, kept in sessionStorage so a reload or a phone that
-// discards a backgrounded tab does not lose them. Stored per recipe as the
+// Cook-mode timers, kept in localStorage so a reload, a phone that discards
+// a backgrounded tab, or an installed app the phone closed does not lose
+// them (session storage goes with the closed app). Stored per recipe as the
 // moment each timer ends, so nothing has to keep counting while the page is
 // away: the time left is always the end time minus now.
 //
@@ -9,6 +10,8 @@
 // Every timer started in a cook stays stored until the cook is over, even
 // once it is stopped or long finished, so cook mode knows which timers were
 // never started and can offer them on a later step.
+
+import { RESUME_FOR_MS } from './cooking'
 
 /**
  * One timer: when it ends, whether its ring is over (the cook tapped the
@@ -28,7 +31,8 @@ export type Timers = Readonly<Record<string, Timer>>
 export const STALE_AFTER_MS = 30 * 60 * 1000
 
 // The key names the format: timers were once keyed by step number.
-const key = (recipeId: string) => `first-course:timers-by-label:${recipeId}`
+const PREFIX = 'first-course:timers-by-label:'
+const key = (recipeId: string) => `${PREFIX}${recipeId}`
 
 /** The timers cook mode shows: not stopped, and not finished for longer than STALE_AFTER_MS. */
 export function shownTimers(timers: Timers, now: number): Timers {
@@ -79,4 +83,19 @@ export function saveTimers(storage: Storage, recipeId: string, timers: Timers) {
 /** Leaving cook mode or logging the cook stops every timer for that recipe. */
 export function clearTimers(storage: Storage, recipeId: string) {
   storage.removeItem(key(recipeId))
+}
+
+/**
+ * Forgets the timers of cooks left without leaving cook mode or logging: a
+ * recipe whose every timer ended longer ago than a cook in progress is kept
+ * (RESUME_FOR_MS). Run when the app opens, so storage does not fill with them.
+ */
+export function forgetOldTimers(storage: Storage, now: number) {
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
+    (stored): stored is string => stored !== null && stored.startsWith(PREFIX),
+  )
+  for (const stored of keys) {
+    const timers = loadTimers(storage, stored.slice(PREFIX.length))
+    if (Object.values(timers).every((timer) => now - timer.endsAt > RESUME_FOR_MS)) storage.removeItem(stored)
+  }
 }

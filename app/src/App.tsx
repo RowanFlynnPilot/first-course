@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { useEffect, useRef, useState } from 'react'
 import { HashRouter, Route, Routes, useLocation, useNavigationType } from 'react-router'
+import { loadChecks, saveChecks } from './lib/checks'
 import { fetchChef, type Chef } from './lib/chefs'
 import { fetchCookLogs } from './lib/cookLogs'
 import type { CookNotice } from './lib/notice'
@@ -24,6 +25,7 @@ import { menuScrollPosition } from './components/menuScroll'
 import { Plate } from './components/Plate'
 import { clearFocusTarget } from './components/useFocusTarget'
 import { plainMessage } from './lib/errors'
+import { forgetOldTimers } from './lib/timers'
 import { usePageTitle } from './components/usePageTitle'
 import { emailLink, fromPasswordReset, linkError, linkOwner, signInFromLink, supabase } from './supabase'
 
@@ -178,8 +180,10 @@ function Waiting({ text }: { text: string }) {
 /** Away from the app this long, and it loads everything again on return. */
 const REFRESH_AFTER_MS = 10 * 60 * 1000
 
-function loadKitchen() {
-  return Promise.all([fetchCookLogs(), fetchChef(), fetchShop()])
+// Async, so a problem with the checks saved on this phone fails the load like any other read.
+async function loadKitchen(userId: string) {
+  const checks = loadChecks(localStorage, userId)
+  return Promise.all([fetchCookLogs(), fetchChef(), fetchShop(checks)])
 }
 
 function Kitchen({
@@ -208,14 +212,23 @@ function Kitchen({
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
-    loadKitchen()
+    loadKitchen(userId)
       .then(([loadedLogs, loadedChef, loadedShop]) => {
         setLogs(loadedLogs)
         setChef(loadedChef)
         setShop(loadedShop)
       })
       .catch((cause: Error) => setError(cause.message))
-  }, [attempt])
+  }, [userId, attempt])
+
+  // Timers of cooks left without leaving cook mode or logging, from long ago, go when the app opens.
+  useEffect(() => forgetOldTimers(localStorage, Date.now()), [])
+
+  // The cart's checks are kept on this phone (lib/checks.ts): saved whenever they change.
+  const checks = shop?.checks
+  useEffect(() => {
+    if (checks !== undefined) saveChecks(localStorage, userId, checks)
+  }, [userId, checks])
 
   // Back after a while away, catch up with whatever another device did
   // meanwhile. An installed app is never reloaded, so this is how it learns.
@@ -249,7 +262,7 @@ function Kitchen({
     // A newer catch-up (Try again, or another return) replaces this one.
     let current = true
     const writesBefore = writes.current
-    loadKitchen()
+    loadKitchen(userId)
       .then(([loadedLogs, loadedChef, loadedShop]) => {
         if (!current) return
         if (writes.current !== writesBefore) {
@@ -266,7 +279,7 @@ function Kitchen({
     return () => {
       current = false
     }
-  }, [refreshes])
+  }, [userId, refreshes])
 
   if (error !== null) {
     return (
@@ -450,6 +463,7 @@ function Pages({
         path="/cook/:id/log"
         element={
           <LogScreen
+            userId={userId}
             chef={chef}
             logs={logs}
             prices={shop.prices}
@@ -460,7 +474,7 @@ function Pages({
           />
         }
       />
-      <Route path="/cook/:id/:step" element={<CookScreen logs={logs} kit={shop.kit} />} />
+      <Route path="/cook/:id/:step" element={<CookScreen userId={userId} logs={logs} kit={shop.kit} />} />
       <Route
         path="/cook-log/:id"
         element={<EditCookScreen logs={logs} plan={shop.plan} onUpdated={onLogUpdated} onDeleted={onLogDeleted} />}

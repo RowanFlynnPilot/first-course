@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { usePageTitle } from '../components/usePageTitle'
+import { Saving } from '../components/WriteStatus'
 import { plainMessage } from '../lib/errors'
 import { supabase } from '../supabase'
 
@@ -31,6 +32,19 @@ export function AuthScreen({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  // A tap while a request is out does nothing: the buttons say busy with aria-disabled and keep focus.
+  const running = useRef(false)
+  async function once(request: () => Promise<void>) {
+    if (running.current) return
+    running.current = true
+    setBusy(true)
+    try {
+      await request()
+    } finally {
+      running.current = false
+      setBusy(false)
+    }
+  }
   const [fromLink] = useState(linkError)
   const [error, setError] = useState<string | null>(linkError)
   useEffect(() => {
@@ -50,46 +64,46 @@ export function AuthScreen({
   const [unconfirmed, setUnconfirmed] = useState(false)
   const [confirmationResent, setConfirmationResent] = useState(false)
 
-  async function signIn(event: FormEvent) {
+  function signIn(event: FormEvent) {
     event.preventDefault()
-    setBusy(true)
-    setConfirmationResent(false)
-    const { error: failure } = await supabase.auth.signInWithPassword({ email, password })
-    setBusy(false)
-    setError(failure ? plainMessage(failure) : null)
-    setUnconfirmed(failure?.code === 'email_not_confirmed')
+    void once(async () => {
+      setConfirmationResent(false)
+      const { error: failure } = await supabase.auth.signInWithPassword({ email, password })
+      setError(failure ? plainMessage(failure) : null)
+      setUnconfirmed(failure?.code === 'email_not_confirmed')
+    })
   }
 
-  async function resendConfirmation() {
-    setBusy(true)
-    const { error: failure } = await supabase.auth.resend({ type: 'signup', email })
-    setBusy(false)
-    setError(failure ? plainMessage(failure) : null)
-    setUnconfirmed(failure !== null)
-    setConfirmationResent(failure === null)
+  function resendConfirmation() {
+    void once(async () => {
+      const { error: failure } = await supabase.auth.resend({ type: 'signup', email })
+      setError(failure ? plainMessage(failure) : null)
+      setUnconfirmed(failure !== null)
+      setConfirmationResent(failure === null)
+    })
   }
 
-  async function createAccount(event: FormEvent) {
+  function createAccount(event: FormEvent) {
     event.preventDefault()
-    setBusy(true)
-    const { data, error: failure } = await supabase.auth.signUp({ email, password })
-    setBusy(false)
-    setError(failure ? plainMessage(failure) : null)
-    if (failure === null && data.session === null) {
-      // Confirmation on: the account waits for its link, and then the cook signs in here.
-      setConfirmationSent(true)
-      setMode('sign-in')
-    }
+    void once(async () => {
+      const { data, error: failure } = await supabase.auth.signUp({ email, password })
+      setError(failure ? plainMessage(failure) : null)
+      if (failure === null && data.session === null) {
+        // Confirmation on: the account waits for its link, and then the cook signs in here.
+        setConfirmationSent(true)
+        setMode('sign-in')
+      }
+    })
   }
 
-  async function sendReset(event: FormEvent) {
+  function sendReset(event: FormEvent) {
     event.preventDefault()
-    setBusy(true)
-    // The link comes back to the Site URL set on the Supabase project: the deployed app.
-    const { error: failure } = await supabase.auth.resetPasswordForEmail(email)
-    setBusy(false)
-    setError(failure ? plainMessage(failure) : null)
-    setResetSent(failure === null)
+    void once(async () => {
+      // The link comes back to the Site URL set on the Supabase project: the deployed app.
+      const { error: failure } = await supabase.auth.resetPasswordForEmail(email)
+      setError(failure ? plainMessage(failure) : null)
+      setResetSent(failure === null)
+    })
   }
 
   function switchTo(next: Mode) {
@@ -110,13 +124,15 @@ export function AuthScreen({
         autoComplete="username"
         required
         value={email}
+        aria-invalid={error !== null && error !== fromLink}
+        aria-describedby={error === null ? undefined : 'auth-error'}
         onChange={(event) => setEmail(event.target.value)}
       />
     </label>
   )
   const errorNotice = error !== null && (
     <>
-      <p className="notice notice-error" role="alert">
+      <p className="notice notice-error" role="alert" id="auth-error">
         {error}
       </p>
       {error !== null && error === fromLink && (
@@ -145,14 +161,16 @@ export function AuthScreen({
           <p>Enter the email you signed up with, and we will send a link to set a new password.</p>
           {emailField}
           {errorNotice}
-          {resetSent && (
-            <p className="notice notice-info" role="status">
-              If there is an account for that email, the link is on its way.
-            </p>
-          )}
-          <button className="button" type="submit" disabled={busy}>
+          {/* Always there, so a screen reader hears the words arrive. */}
+          <div role="status">
+            {resetSent && (
+              <p className="notice notice-info">If there is an account for that email, the link is on its way.</p>
+            )}
+          </div>
+          <button className="button" type="submit" aria-disabled={busy}>
             Send the link
           </button>
+          <Saving busy={busy} text="Sending…" />
           <button className="link-button" type="button" onClick={() => switchTo('sign-in')}>
             Back to sign in
           </button>
@@ -163,20 +181,25 @@ export function AuthScreen({
           {emailField}
           <label className="field">
             Password
-            <span className="row-note">At least 8 characters.</span>
             <input
               type="password"
               autoComplete="new-password"
               required
               minLength={8}
               value={password}
+              aria-describedby="password-hint"
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
+          {/* Outside the label, so it is read as a hint and not as part of the field's name. */}
+          <p className="row-note field-hint" id="password-hint">
+            At least 8 characters.
+          </p>
           {errorNotice}
-          <button className="button" type="submit" disabled={busy || email === '' || password.length < 8}>
+          <button className="button" type="submit" aria-disabled={busy}>
             Create account
           </button>
+          <Saving busy={busy} text="Creating it…" />
           <button className="link-button" type="button" onClick={() => switchTo('sign-in')}>
             Have an account? Sign in
           </button>
@@ -192,33 +215,28 @@ export function AuthScreen({
               autoComplete="current-password"
               required
               value={password}
+              aria-invalid={error !== null && error !== fromLink}
+              aria-describedby={error === null ? undefined : 'auth-error'}
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
           {errorNotice}
           {unconfirmed && (
-            <button className="button button-quiet" type="button" disabled={busy} onClick={resendConfirmation}>
+            <button className="button button-quiet" type="button" aria-disabled={busy} onClick={resendConfirmation}>
               Send the confirmation email again
             </button>
           )}
-          {confirmationSent && (
-            <p className="notice notice-info" role="status">
-              Check your email to confirm the account, then sign in.
-            </p>
-          )}
-          {confirmationResent && (
-            <p className="notice notice-info" role="status">
-              Sent. Open the newest email’s link, then sign in.
-            </p>
-          )}
-          <button className="button" type="submit" disabled={busy}>
+          {/* Always there, so a screen reader hears the words arrive. */}
+          <div role="status">
+            {confirmationSent && (
+              <p className="notice notice-info">Check your email to confirm the account, then sign in.</p>
+            )}
+            {confirmationResent && <p className="notice notice-info">Sent. Open the newest email’s link, then sign in.</p>}
+          </div>
+          <button className="button" type="submit" aria-disabled={busy}>
             Sign in
           </button>
-          {busy && (
-            <span className="busy" role="status">
-              Signing in…
-            </span>
-          )}
+          <Saving busy={busy} text="Signing in…" />
           <div className="form-links">
             <button className="link-button" type="button" onClick={() => switchTo('create')}>
               New here? Create an account

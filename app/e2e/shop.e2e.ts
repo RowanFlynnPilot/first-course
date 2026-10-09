@@ -1,4 +1,9 @@
-import { expect, FRESH, rateAndSave, SALAD_DONE, test } from './kitchen'
+import type { Route } from '@playwright/test'
+import { recipeById } from '../src/curriculum/recipes'
+import { expect, FRESH, phoneChecks, rateAndSave, SALAD_DONE, test } from './kitchen'
+
+/** Everything the salad uses: a cart with all of it checked off covers the salad. */
+const SALAD = recipeById('chopped-salad').content.ingredients.map((line) => line.ingredientId)
 
 // The sheet pan's grocery list at the estimates in ingredients.ts, one whole
 // package each: sausage 4.49, potatoes 3.99, broccoli 1.99, pepper 1.29, red
@@ -19,10 +24,13 @@ test.describe('this week: the plan and the grocery list', () => {
     const total = page.locator('.tab-kept dd')
     await expect(total).toHaveText(SHEET_PAN_CHECKOUT)
 
-    // Check something off.
+    // Check something off: kept on the phone, through a reload, with nothing sent.
     await page.getByRole('checkbox', { name: /smoked sausage/ }).click()
     await expect(page.getByRole('checkbox', { name: /smoked sausage/ })).toBeChecked()
-    expect(kitchen.backend.table('grocery_checks')).toMatchObject([{ ingredient_id: 'kielbasa' }])
+    expect(await phoneChecks(page)).toEqual(['kielbasa'])
+    await page.reload()
+    await expect(page.getByRole('checkbox', { name: /smoked sausage/ })).toBeChecked()
+    expect(kitchen.backend.table('grocery_checks')).toEqual([])
 
     // Correct a price, then go back to the estimate.
     await page.getByRole('button', { name: 'Correct the price of Extra-virgin olive oil' }).click()
@@ -47,16 +55,27 @@ test.describe('this week: the plan and the grocery list', () => {
       void dialog.accept()
     })
     await page.getByRole('button', { name: 'Done shopping' }).click()
-    await expect(page.getByRole('status')).toHaveText(
-      'Done shopping. Into your pantry: extra-virgin olive oil and kosher salt. Go to the menu to cook',
+    await expect(page.getByText(/^Done shopping\./)).toHaveText(
+      'Done shopping. Into your pantry: extra-virgin olive oil and kosher salt. Sheet-pan sausage and vegetables stays on the list for what you did not check off. Go to the menu to cook',
     )
-    // The confirm names what was not bought.
+    // The confirm names what was not bought, and that its recipe stays on the list.
     expect(asked).toHaveLength(1)
-    expect(asked[0]).toMatch(/^Not checked off: .*red onion.*\. They come off the list\. Finish shopping anyway\?$/)
-    // The plan stays, shopped for; the list and the checks are cleared.
-    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'sheet-pan-sausage', shopped: true }])
-    expect(kitchen.backend.table('grocery_checks')).toEqual([])
+    expect(asked[0]).toMatch(/^Not checked off: .*red onion.*\. Sheet-pan sausage and vegetables stays on the list for them\. Finish shopping\?$/)
+    // The staples went into the pantry, but the recipe is not bought: the store may have been out.
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'sheet-pan-sausage', shopped: false }])
     expect(kitchen.backend.table('pantry_items').map((row) => row.ingredient_id).sort()).toEqual(['kosher-salt', 'olive-oil'])
+    // The sausage stays checked off; the rest is still to buy.
+    await expect(page.getByRole('checkbox', { name: /smoked sausage/ })).toBeChecked()
+    expect(await phoneChecks(page)).toEqual(['kielbasa'])
+
+    // Everything else, then Done shopping again: no question, and the recipe is bought.
+    const unchecked = page.getByRole('checkbox', { checked: false })
+    while ((await unchecked.count()) > 0) await unchecked.first().click()
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByText(/^Done shopping\./)).toHaveText('Done shopping. Into your pantry: black pepper. Go to the menu to cook')
+    expect(asked).toHaveLength(1)
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'sheet-pan-sausage', shopped: true }])
+    expect(await phoneChecks(page)).toEqual([])
     await expect(page.getByText('Groceries bought')).toBeVisible()
     await expect(page.getByText(/^Everything on the plan is bought\./)).toBeVisible()
     await expect(page.getByRole('checkbox')).toHaveCount(0)
@@ -109,7 +128,7 @@ test.describe('this week: the plan and the grocery list', () => {
     await kitchen.open('#/recipe/chopped-salad', { checks: ['lemon', 'feta'] })
     await page.getByRole('button', { name: 'Add to this week' }).click()
     await expect(page.getByRole('button', { name: 'Take off this week' })).toBeVisible()
-    expect(kitchen.backend.table('grocery_checks')).toEqual([])
+    expect(await phoneChecks(page)).toEqual([])
     await page.getByRole('link', { name: 'this week’s plan' }).click()
     await expect(page.getByRole('checkbox', { name: /Lemon/ })).not.toBeChecked()
   })
@@ -119,7 +138,7 @@ test.describe('this week: the plan and the grocery list', () => {
     await kitchen.open('#/recipe/chopped-salad', { plan: ['soft-scrambled-eggs'], checks: ['butter', 'lemon'] })
     await page.getByRole('button', { name: 'Add to this week' }).click()
     await expect(page.getByRole('button', { name: 'Take off this week' })).toBeVisible()
-    expect(kitchen.backend.table('grocery_checks').map((row) => row.ingredient_id)).toEqual(['butter'])
+    expect(await phoneChecks(page)).toEqual(['butter'])
   })
 
   test('with everything in the cart, the list says to finish', async ({ page, kitchen }) => {
@@ -153,9 +172,27 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(page.getByText(/Grilled cheese is on this week’s plan\./).first()).toBeVisible()
   })
 
-  test('a planned recipe that is locked says so on This week', async ({ page, kitchen }) => {
+  test('a planned recipe that is locked says which cooks open it', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['grilled-cheese'] })
-    await expect(page.getByText('Locked again: needs heat control')).toBeVisible()
+    await expect(page.locator('.plan-row').filter({ hasText: 'Grilled cheese' })).toContainText('Opens after you cook Soft scrambled eggs on toast')
+  })
+
+  test('planning ahead: a locked recipe goes on the plan once what opens it is planned', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/grilled-cheese', FRESH)
+    // Locked, and nothing that opens it is planned: no way to plan it yet.
+    await expect(page.getByRole('button', { name: 'Add to this week' })).toHaveCount(0)
+    await page.goto('#/shop')
+    await page.getByRole('button', { name: 'Add Soft scrambled eggs on toast to this week' }).click()
+    // The eggs open it, so This week offers it now, saying what it waits for.
+    const ahead = page.locator('.plan-row').filter({ hasText: 'Grilled cheese' })
+    await expect(ahead).toContainText('Opens after you cook Soft scrambled eggs on toast')
+    await page.getByRole('button', { name: 'Add Grilled cheese to this week' }).click()
+    expect(kitchen.backend.table('plan_items').map((row) => row.recipe_id)).toEqual(['soft-scrambled-eggs', 'grilled-cheese'])
+    // One list covers both: the bread and cheddar are on it.
+    await expect(page.getByRole('checkbox', { name: /Sandwich bread/ })).toBeVisible()
+    // Still locked: it cannot be cooked yet.
+    await page.goto('#/cook/grilled-cheese/0')
+    await expect(page.getByText(/Grilled cheese is locked/)).toBeVisible()
   })
 
   test('the pantry keeps a staple off the list until it is unticked', async ({ page, kitchen }) => {
@@ -175,12 +212,24 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(page.getByText('To cook these you also need: measuring spoons, small bowls, fork, paper towels, and plastic wrap.')).toBeVisible()
   })
 
-  test('a check that fails to save says why and stays unchecked', async ({ page, kitchen }) => {
+  test('with no signal, checks still work, and a failed Done shopping keeps them', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'] })
-    kitchen.backend.failNext('grocery_checks', 'POST', 'no signal in the store')
-    await page.getByRole('checkbox', { name: /Lemon/ }).click()
-    await expect(page.getByRole('alert')).toHaveText('Could not check it off: no signal in the store')
-    await expect(page.getByRole('checkbox', { name: /Lemon/ })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: /Lemon/ })).toBeVisible()
+    // The store has no signal: every request fails from here (this route goes ahead of the fake's).
+    const offline = (route: Route) => route.abort('internetdisconnected')
+    await page.route('https://e2e.supabase.test/**', offline)
+    for (const box of await page.getByRole('checkbox').all()) await box.click()
+    await expect(page.getByRole('checkbox', { checked: false })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByRole('alert')).toHaveText(
+      'Could not finish shopping: No connection. Check your signal and try again. Your checks are kept on this phone.',
+    )
+    expect(await phoneChecks(page)).toEqual(SALAD.toSorted())
+    // Signal again: the same tap finishes it.
+    await page.unroute('https://e2e.supabase.test/**', offline)
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByText(/^Done shopping\./)).toBeVisible()
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'chopped-salad', shopped: true }])
   })
 
   test('shares what is still to buy as text', async ({ page, kitchen }) => {
@@ -231,7 +280,7 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(page.getByRole('link', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
     // Since 00006 the plan keeps its row either way: what Done shopping would change is "shopped".
     expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'chopped-salad', shopped: false }])
-    expect(kitchen.backend.table('grocery_checks')).toHaveLength(1)
+    expect(await phoneChecks(page)).toEqual(['lemon'])
   })
 
   test('a corrected price changes what the recipe page says you keep', async ({ page, kitchen }) => {
@@ -274,20 +323,17 @@ test.describe('this week: the plan and the grocery list', () => {
     await tray.getByRole('button', { name: 'Add to this week' }).click()
     await expect(tray.getByText('On this week’s plan')).toBeVisible()
     await expect(tray.getByRole('button', { name: 'Add to this week' })).toHaveCount(0)
-    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'chopped-salad' }])
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: 'soft-scrambled-eggs' }])
   })
 
   test('Done shopping leaves alone what another device added meanwhile', async ({ page, kitchen }) => {
-    await kitchen.open('#/shop', { plan: ['chopped-salad'], checks: ['lemon'] })
+    await kitchen.open('#/shop', { plan: ['chopped-salad'], checks: SALAD })
     await expect(page.getByRole('checkbox', { name: /Lemon/ })).toBeChecked()
-    // The laptop plans the eggs and ticks the butter after the phone loaded its list.
+    // The laptop plans the eggs after the phone loaded its list.
     kitchen.backend.writeElsewhere('plan_items', { recipe_id: 'soft-scrambled-eggs', shopped: false })
-    kitchen.backend.writeElsewhere('grocery_checks', { ingredient_id: 'butter' })
-    page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('button', { name: 'Done shopping' }).click()
-    await expect(page.getByRole('status')).toHaveText(/^Done shopping\./)
+    await expect(page.getByText(/^Done shopping\./)).toBeVisible()
     const plan = Object.fromEntries(kitchen.backend.table('plan_items').map((row) => [row.recipe_id, row.shopped]))
     expect(plan).toEqual({ 'chopped-salad': true, 'soft-scrambled-eggs': false })
-    expect(kitchen.backend.table('grocery_checks').map((row) => row.ingredient_id)).toEqual(['butter'])
   })
 })

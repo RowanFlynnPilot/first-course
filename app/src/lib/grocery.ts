@@ -4,7 +4,7 @@
 
 import { INGREDIENTS, type IngredientId, type Section } from '../curriculum/ingredients'
 import { RECIPES, recipeById } from '../curriculum/recipes'
-import type { Tier } from '../curriculum/types'
+import type { Recipe, Tier } from '../curriculum/types'
 import { packagePriceCents, type Prices } from './cost'
 import { listOf, packagesOf } from './format'
 
@@ -95,6 +95,27 @@ export function groceryText(plan: readonly string[], list: GroceryList, checks: 
  * the kit is filed, so week one is not a list of curry paste and tamarind.
  * In store order, then by name.
  */
+/** Whether the pantry holds everything a recipe uses (grilled cheese, eggs on toast): no shop needed. */
+export function pantryCovers(recipe: Recipe, pantry: ReadonlySet<IngredientId>): boolean {
+  return recipe.content.ingredients.every(({ ingredientId }) => pantry.has(ingredientId))
+}
+
+/**
+ * The recipes on a list that a shop covers: every ingredient checked off or
+ * already in the pantry. One with a line left unchecked (the store was out of
+ * chicken) is not, so its card never says "Groceries bought" over an empty
+ * fridge.
+ */
+export function boughtFor(
+  toShop: readonly string[],
+  pantry: ReadonlySet<IngredientId>,
+  checks: ReadonlySet<IngredientId>,
+): string[] {
+  return toShop.filter((id) =>
+    recipeById(id).content.ingredients.every(({ ingredientId }) => pantry.has(ingredientId) || checks.has(ingredientId)),
+  )
+}
+
 export function staplesByCourse(): { tier: Tier; staples: IngredientId[] }[] {
   const firstTier = (id: IngredientId): Tier => {
     const tiers = RECIPES.filter((recipe) => recipe.content.ingredients.some((line) => line.ingredientId === id)).map(

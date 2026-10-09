@@ -1,5 +1,6 @@
 # Weekly pull requests for outdated packages and actions. Each one runs the
-# full check (lint, unit and e2e tests) before it can be merged; none deploys.
+# full check (lint, type check, unit and e2e tests) before it can be merged;
+# none deploys.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -7,9 +8,17 @@ updates:
     schedule:
       interval: weekly
     groups:
-      # One pull request for the dev tools, so a week's updates are one review.
+      # Minor and patch updates of the dev tools in one pull request, so a
+      # week's small updates are one review. A major update comes on its own,
+      # so one that breaks the build does not hold back the rest.
       dev:
         dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      # The types describe the Node that CI runs (24, in deploy.yml). A new
+      # major would type-check code that the runtime does not have.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:

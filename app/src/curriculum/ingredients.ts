@@ -24,6 +24,11 @@ interface IngredientBase {
     readonly priceCents: number
     readonly units: number
   }
+  /**
+   * No recipe uses it any more. It stays, because a cook's pantry or prices
+   * may hold its id, and loading throws on an id that is gone (ids.test.ts).
+   */
+  readonly retired?: true
 }
 
 /**

@@ -1,24 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { clearTimers, dueTimers, loadTimers, saveTimers, shownTimers, STALE_AFTER_MS, stopped } from './timers'
-
-// A minimal Storage, so the tests do not need a browser.
-function memoryStorage(): Storage {
-  const items = new Map<string, string>()
-  return {
-    get length() {
-      return items.size
-    },
-    clear: () => items.clear(),
-    getItem: (name) => items.get(name) ?? null,
-    key: (index) => [...items.keys()][index] ?? null,
-    removeItem: (name) => void items.delete(name),
-    setItem: (name, value) => void items.set(name, value),
-  }
-}
+import { RESUME_FOR_MS } from './cooking'
+import { memoryStorage } from './memoryStorage'
+import { clearTimers, dueTimers, forgetOldTimers, loadTimers, saveTimers, shownTimers, STALE_AFTER_MS, stopped } from './timers'
 
 const NOW = Date.parse('2026-10-04T18:00:00Z')
 
 describe('cook-mode timers', () => {
+  it('forget a cook left long ago, and keep one still going', () => {
+    const storage = memoryStorage()
+    saveTimers(storage, 'ragu-bolognese', { Ragù: { endsAt: NOW - RESUME_FOR_MS - 1, rang: true, stopped: false } })
+    saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW - 60_000, rang: true, stopped: false } })
+    storage.setItem('something-else', 'kept')
+    forgetOldTimers(storage, NOW)
+    expect(loadTimers(storage, 'ragu-bolognese')).toEqual({})
+    expect(Object.keys(loadTimers(storage, 'sheet-pan-sausage'))).toEqual(['Potatoes'])
+    expect(storage.getItem('something-else')).toBe('kept')
+  })
+
   it('survive a save and a load', () => {
     const storage = memoryStorage()
     saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW + 60_000, rang: false, stopped: false } })

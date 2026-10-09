@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
+import { EQUIPMENT, type Equipment, type EquipmentId } from '../curriculum/equipment'
 import { RECIPES, recipeById } from '../curriculum/recipes'
 import { hasKit, kitByCourse, kitFor, missingKit } from './kit'
 
 describe('the kit', () => {
-  it('lists only equipment some recipe uses', () => {
+  it('lists only equipment some recipe uses, and no recipe uses retired equipment', () => {
     const used = new Set(kitFor(RECIPES))
-    const unused = (Object.keys(EQUIPMENT) as EquipmentId[]).filter((id) => !used.has(id))
-    expect(unused).toEqual([])
+    const item = (id: EquipmentId): Equipment => EQUIPMENT[id]
+    const ids = Object.keys(EQUIPMENT) as EquipmentId[]
+    expect(ids.filter((id) => item(id).retired !== true && !used.has(id)), 'unused').toEqual([])
+    expect(ids.filter((id) => item(id).retired === true && used.has(id)), 'retired but used').toEqual([])
   })
 
   it('never says an item is covered by itself or by something unknown', () => {

@@ -14,6 +14,7 @@ export function ChefSprite({
   extras,
   scale,
   idle = false,
+  decorative = false,
 }: {
   rank: RankIndex
   look: Look
@@ -21,6 +22,8 @@ export function ChefSprite({
   extras: readonly ExtraId[]
   scale: number
   idle?: boolean
+  /** The text beside it names the chef or the rank (the menu's chef card, the ladder). */
+  decorative?: boolean
 }) {
   const frames = spriteFrames(rank, look, extras)
   return (
@@ -31,6 +34,7 @@ export function ChefSprite({
       label={`Your chef: ${RANKS[rank].name.toLowerCase()}`}
       className="sprite"
       idle={idle}
+      decorative={decorative}
     />
   )
 }

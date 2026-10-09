@@ -12,9 +12,9 @@ import { COURSE_NAMES } from '../lib/format'
 import { hasKit, kitByCourse } from '../lib/kit'
 import { addAllToKit, setInKit, type Shop, type ShopChange } from '../lib/shop'
 
-const COURSES = kitByCourse()
-
 export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: ShopChange }) {
+  // Worked out here, not when the file loads: a throw then would blank the page before the error screen is up.
+  const courses = kitByCourse()
   usePageTitle('Your kit')
   return (
     <main className="page">
@@ -28,7 +28,7 @@ export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: Sh
         Check off what you already own. Each course lists what it adds, so you can buy it before you need it, not halfway
         through a recipe.
       </p>
-      {COURSES.map(({ tier, items }) => {
+      {courses.map(({ tier, items }) => {
         const missing = items.filter((id) => !hasKit(id, shop.kit))
         return (
           <section className="section" key={tier}>

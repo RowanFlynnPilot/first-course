@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, FRESH, noticeLines, SALAD_DONE, test } from './kitchen'
+import { cookNotice, expect, FRESH, noticeLines, SALAD_DONE, test } from './kitchen'
 
 // Weak signal and a second device: answers that arrive late or never, and a
 // catch-up that brings in what another device did.
@@ -54,7 +54,7 @@ test.describe('weak signal and other devices', () => {
     await page.getByRole('button', { name: 'Save this cook' }).click()
     await expect(noticeLines(page).first()).toHaveText(/^Chopped salad with lemon vinaigrette: Decent\./)
     // A Nailed it and one Decent: two good cooks, not mastered.
-    await expect(page.getByRole('status')).not.toContainText('is mastered')
+    await expect(cookNotice(page)).not.toContainText('is mastered')
     await expect(page.locator('a.row').filter({ hasText: 'Chopped salad' })).toContainText('2 of 3 good cooks')
     expect(kitchen.backend.table('cook_logs')).toHaveLength(2)
   })
@@ -143,26 +143,18 @@ test.describe('weak signal and other devices', () => {
     await expect(page.getByRole('alert')).toHaveCount(0)
   })
 
-  test('Done shopping waits for a tick still saving, and the tick keeps focus', async ({ page, kitchen }) => {
+  test('a check is on the phone at once, and keeps focus', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'] })
-    const release = kitchen.backend.holdNext('grocery_checks', 'POST')
     const salt = page.getByRole('checkbox', { name: /Kosher salt/ })
     await salt.click()
-    await expect(page.getByText('Saving…')).toBeVisible()
-    await expect(salt).toBeFocused()
-    const done = page.getByRole('button', { name: 'Done shopping' })
-    await expect(done).toHaveAttribute('aria-disabled', 'true')
-    // Tapped while the tick is out, it does nothing: no question, no shop finished.
-    // (Playwright will not tap a button marked aria-disabled unless forced; a finger will.)
-    await done.click({ force: true })
-    await expect(page.getByRole('status')).toHaveCount(0)
-
-    release()
     await expect(salt).toBeChecked()
+    await expect(salt).toBeFocused()
     page.once('dialog', (dialog) => void dialog.accept())
-    await done.click()
-    await expect(page.getByRole('status')).toHaveText('Done shopping. Into your pantry: kosher salt. Go to the menu to cook')
-    await expect(page.getByRole('status')).toBeFocused()
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByText(/^Done shopping\./)).toHaveText(
+      'Done shopping. Into your pantry: kosher salt. Chopped salad with lemon vinaigrette stays on the list for what you did not check off. Go to the menu to cook',
+    )
+    await expect(page.getByText(/^Done shopping\./)).toBeFocused()
     expect(kitchen.backend.table('pantry_items').map((row) => row.ingredient_id)).toEqual(['kosher-salt'])
   })
 
@@ -179,7 +171,7 @@ test.describe('weak signal and other devices', () => {
     await expect(done).toHaveAttribute('aria-disabled', 'true')
     await done.click({ force: true })
     release()
-    await expect(page.getByRole('status')).toContainText('Done shopping.')
+    await expect(page.getByText(/^Done shopping\./)).toBeVisible()
     expect(asked).toHaveLength(1)
   })
 

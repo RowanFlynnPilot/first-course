@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
+import { INGREDIENTS, type Ingredient, type IngredientId } from '../curriculum/ingredients'
 import { ESTIMATES } from './cost'
-import { RECIPES } from '../curriculum/recipes'
+import { RECIPES, recipeById } from '../curriculum/recipes'
 import { formatAmount } from './format'
-import { groceryList, groceryText, staplesByCourse } from './grocery'
+import { boughtFor, groceryList, groceryText, pantryCovers, staplesByCourse } from './grocery'
 
 const NOTHING = new Set<IngredientId>()
 
@@ -94,12 +94,34 @@ describe('the grocery list', () => {
     const filed = staplesByCourse()
     const all = filed.flatMap((course) => course.staples)
     expect(new Set(all).size).toBe(all.length)
-    expect(all.sort()).toEqual((Object.keys(INGREDIENTS) as IngredientId[]).filter((id) => INGREDIENTS[id].staple).sort())
+    // A retired staple is used by no recipe, so it is filed nowhere.
+    const current = (Object.keys(INGREDIENTS) as IngredientId[]).filter((id) => {
+      const ingredient: Ingredient = INGREDIENTS[id]
+      return ingredient.staple && ingredient.retired !== true
+    })
+    expect(all.sort()).toEqual(current.sort())
     for (const { tier, staples } of filed) {
       for (const id of staples) {
         const tiers = RECIPES.filter((recipe) => recipe.content.ingredients.some((line) => line.ingredientId === id)).map((recipe) => recipe.tier)
         expect(Math.min(...tiers), id).toBe(tier)
       }
     }
+  })
+
+  it('marks bought only the recipes whose every line was checked off or is in the pantry', () => {
+    const plan = ['chopped-salad', 'sheet-pan-sausage']
+    const salad = recipeById('chopped-salad').content.ingredients.map((line) => line.ingredientId)
+    const sausage = recipeById('sheet-pan-sausage').content.ingredients.map((line) => line.ingredientId)
+    // Everything checked off but the kielbasa: the store was out.
+    const checks = new Set([...salad, ...sausage].filter((id) => id !== 'kielbasa'))
+    expect(boughtFor(plan, new Set(), checks)).toEqual(['chopped-salad'])
+    expect(boughtFor(plan, new Set(['kielbasa']), checks)).toEqual(plan)
+  })
+
+  it('knows a recipe the pantry alone covers', () => {
+    const eggs = recipeById('soft-scrambled-eggs')
+    const pantry = new Set(eggs.content.ingredients.map((line) => line.ingredientId))
+    expect(pantryCovers(eggs, pantry)).toBe(true)
+    expect(pantryCovers(recipeById('sheet-pan-sausage'), pantry)).toBe(false)
   })
 })

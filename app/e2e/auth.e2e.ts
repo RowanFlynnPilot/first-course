@@ -16,7 +16,11 @@ test.describe('signing in and creating a chef', () => {
     await page.getByRole('button', { name: 'Sign in' }).click()
 
     await expect(page.getByRole('heading', { name: 'Create your chef' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Create chef' })).toBeDisabled()
+    // Says it cannot go yet, and keeps focus: a tap goes to the name it needs.
+    await expect(page.getByRole('button', { name: 'Create chef' })).toHaveAttribute('aria-disabled', 'true')
+    // (Playwright will not tap a button marked aria-disabled unless forced; a finger will.)
+    await page.getByRole('button', { name: 'Create chef' }).click({ force: true })
+    await expect(page.getByLabel('Chef’s name')).toBeFocused()
     // Nothing is earned yet, so the extras are one line, not eight locked ones.
     await expect(page.getByText(/^Extras, like clogs or a tool in hand, are earned by cooking\./)).toBeVisible()
     await expect(page.getByRole('group', { name: 'In hand' })).toHaveCount(0)
@@ -25,10 +29,10 @@ test.describe('signing in and creating a chef', () => {
     await page.getByRole('radio', { name: 'Red', exact: true }).check()
     await page.getByRole('button', { name: 'Create chef' }).click()
 
-    await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 1 dishwasher')
-    await expect(page.getByRole('img', { name: 'Your chef: dishwasher' })).toBeVisible()
-    await expect(page.getByText('Cook this next')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
+    // The card's words name the chef and the rank, so its sprite is not read as well.
+    await expect(page.getByRole('link', { name: /Remy/ })).toHaveAccessibleName(/^Remy Level 1 dishwasher/)
+    // Two recipes are open, and the salad is a side: night one is the eggs.
+    await expect(page.getByRole('heading', { name: 'Cook this next: Soft scrambled eggs on toast' })).toBeVisible()
     expect(kitchen.backend.table('chefs')).toMatchObject([{ name: 'Remy', skin: 3, hair: 3 }])
   })
 
@@ -46,7 +50,8 @@ test.describe('signing in and creating a chef', () => {
     await page.getByRole('button', { name: 'New here? Create an account' }).click()
     await expect(page).toHaveTitle('Create an account · First Course')
     await expect(page.getByLabel('Password')).toHaveAttribute('autocomplete', 'new-password')
-    await expect(page.getByRole('button', { name: 'Create account' })).toBeDisabled()
+    // The hint is read with the field, not as part of its name.
+    await expect(page.getByLabel('Password')).toHaveAccessibleDescription('At least 8 characters.')
     await page.getByLabel('Email').fill('new-cook@example.test')
     await page.getByLabel('Password').fill('a long enough password')
     await page.getByRole('button', { name: 'Create account' }).click()
@@ -60,7 +65,7 @@ test.describe('signing in and creating a chef', () => {
     await page.getByLabel('Password').fill('a long enough password')
     await page.getByRole('button', { name: 'Create account' }).click()
     // Good news, so a plain notice, not an error.
-    await expect(page.getByRole('status')).toHaveText('Check your email to confirm the account, then sign in.')
+    await expect(page.getByText('Check your email to confirm the account, then sign in.')).toBeVisible()
     await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
   })
@@ -79,7 +84,7 @@ test.describe('signing in and creating a chef', () => {
     await expect(page.getByLabel('Password')).toHaveCount(0)
     await page.getByLabel('Email').fill(EMAIL)
     await page.getByRole('button', { name: 'Send the link' }).click()
-    await expect(page.getByRole('status')).toHaveText('If there is an account for that email, the link is on its way.')
+    await expect(page.getByText('If there is an account for that email, the link is on its way.')).toBeVisible()
     expect(kitchen.backend.resetRequests).toEqual([EMAIL])
     await page.getByRole('button', { name: 'Back to sign in' }).click()
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
@@ -92,10 +97,10 @@ test.describe('signing in and creating a chef', () => {
     await expect(page).toHaveTitle('Set a new password · First Course')
     // The client took the tokens out of the address.
     expect(new URL(page.url()).hash).toBe('')
-    await expect(page.getByRole('button', { name: 'Save new password' })).toBeDisabled()
+    await expect(page.getByLabel('New password')).toHaveAccessibleDescription('At least 8 characters.')
     await page.getByLabel('New password').fill('a brand new password')
     await page.getByRole('button', { name: 'Save new password' }).click()
-    await expect(page.getByRole('status')).toHaveText('Saved.')
+    await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Go to the menu' }).click()
     await expect(page.getByText('Cook this next')).toBeVisible()
 
@@ -197,7 +202,7 @@ test.describe('signing in and creating a chef', () => {
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByRole('alert')).toHaveText('Confirm your email first: open the link we sent, then sign in.')
     await page.getByRole('button', { name: 'Send the confirmation email again' }).click()
-    await expect(page.getByRole('status')).toHaveText('Sent. Open the newest email’s link, then sign in.')
+    await expect(page.getByText('Sent. Open the newest email’s link, then sign in.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Send the confirmation email again' })).toHaveCount(0)
     expect(kitchen.backend.resendRequests).toEqual([EMAIL])
   })

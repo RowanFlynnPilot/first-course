@@ -162,7 +162,7 @@ export interface Seed {
   readonly shopped?: readonly string[]
   /** Ingredient ids. */
   readonly pantry?: readonly string[]
-  /** Ingredient ids already in the cart. */
+  /** Ingredient ids already in the cart, kept on the phone (lib/checks.ts). */
   readonly checks?: readonly string[]
   /** Package prices the cook corrected, by ingredient id. */
   readonly prices?: Readonly<Record<string, number>>
@@ -273,21 +273,27 @@ export class FakeSupabase {
       this.insertRow('plan_items', { user_id, recipe_id, shopped: seed.shopped?.includes(recipe_id) ?? false })
     }
     for (const ingredient_id of seed.pantry ?? []) this.insertRow('pantry_items', { user_id, ingredient_id })
-    for (const ingredient_id of seed.checks ?? []) this.insertRow('grocery_checks', { user_id, ingredient_id })
     for (const [ingredient_id, price_cents] of Object.entries(seed.prices ?? {})) {
       this.insertRow('price_overrides', { user_id, ingredient_id, price_cents })
     }
     for (const equipment_id of seed.kit ?? []) this.insertRow('kit_items', { user_id, equipment_id })
     if (seed.signedIn === false) return
-    // Store the session once per tab, as supabase-js would after a sign-in.
-    // A reload keeps whatever the app has done to it since (a sign-out stays signed out).
+    // Store the session once per tab, as supabase-js would after a sign-in, and
+    // the cart's checks, which the app keeps on the phone (lib/checks.ts).
+    // A reload keeps whatever the app has done to them since (a sign-out stays signed out).
     await page.addInitScript(
-      ([key, value]) => {
+      ([key, value, checksKey, checks]) => {
         if (sessionStorage.getItem('e2e-session-seeded') !== null) return
         localStorage.setItem(key, value)
+        if (checks !== null) localStorage.setItem(checksKey, checks)
         sessionStorage.setItem('e2e-session-seeded', 'yes')
       },
-      [STORAGE_KEY, JSON.stringify(this.session(this.userId))] as const,
+      [
+        STORAGE_KEY,
+        JSON.stringify(this.session(this.userId)),
+        `first-course:grocery-checks:${user_id}`,
+        seed.checks === undefined ? null : JSON.stringify(seed.checks),
+      ] as const,
     )
   }
 

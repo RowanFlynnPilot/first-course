@@ -230,6 +230,7 @@ p {
 .cook-head > a {
   display: inline-flex;
   align-items: center;
+  min-width: 3rem;
   min-height: 3rem;
 }
 
@@ -334,15 +335,18 @@ p {
   display: none;
 }
 
-/* The idle bob: stand for most of the beat, dip for the rest. */
+/* The idle bob: stand for most of the beat, dip for the rest. Twice, then
+   still: motion that runs on draws the eye from everything else on the page
+   (WCAG 2.2.2 allows 5 seconds). Each frame's last state is held, so the chef
+   ends standing. */
 @media (prefers-reduced-motion: no-preference) {
   .pixels-idle .pixel-frame-0 {
-    animation: frame-stand 2s steps(1, end) infinite;
+    animation: frame-stand 2s steps(1, end) 2;
   }
 
   .pixels-idle .pixel-frame-1 {
     display: inline;
-    animation: frame-dip 2s steps(1, end) infinite;
+    animation: frame-dip 2s steps(1, end) 2;
   }
 }
 
@@ -558,8 +562,8 @@ p {
 .beat-plate {
   position: relative;
   place-items: end center;
-  width: 16rem;
-  height: 16rem;
+  width: min(16rem, 100%);
+  aspect-ratio: 1;
   padding-bottom: 2.5rem;
   background: var(--plate);
   border: 1rem solid var(--rim);
@@ -757,9 +761,10 @@ p {
   outline-offset: 3px;
 }
 
+/* Three across on a phone; fewer as the text grows, so a figure never runs off the side. */
 .record {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
   gap: 0.875rem 0.5rem;
   margin: 1.5rem 0 0;
   padding: 0.875rem 0;
@@ -792,6 +797,7 @@ p {
 
 .discipline-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
@@ -806,8 +812,10 @@ p {
   margin-bottom: 0.5rem;
 }
 
+/* With very large text, a long row of skills wraps under the heading rather than off the side. */
 .pips {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.3rem;
 }
 
@@ -889,9 +897,10 @@ p {
 
 /* ── Up next: the tray ── */
 
+/* The title's column may narrow below its longest word (very large text), which then breaks, rather than push the plate off the side. */
 .tray {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     'head plate'
     'rest rest';
@@ -928,12 +937,32 @@ p {
 
 .tray-title {
   margin: 0.125rem 0 0.5rem;
+  overflow-wrap: break-word;
   font: 700 var(--xl) / 1.12 var(--display);
   letter-spacing: -0.02em;
 }
 
 .tray-body {
   margin: 0;
+}
+
+/* Other dinners that need no shop tonight: under the tray, quieter than it. */
+.tonight {
+  margin-top: 1.25rem;
+}
+
+.tonight-title {
+  margin: 0;
+  font: 700 var(--h3) / 1.3 var(--display);
+}
+
+/* The cook in progress, when the app closed in the middle of it. */
+.resume p {
+  margin: 0;
+}
+
+.resume .actions {
+  margin-top: 0.75rem;
 }
 
 
@@ -1054,12 +1083,14 @@ p {
 
 .check-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 0.75rem;
 }
 
+/* Wide enough for most names; with very large text the price and "Have it" wrap below. */
 .check-label {
-  flex: 1;
+  flex: 1 1 12rem;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.875rem;
@@ -1267,11 +1298,21 @@ input[aria-disabled='true'] {
   opacity: 0.6;
 }
 
-/* "Saving…" beside a button busy with its write. */
+/* "Saving…" beside a button busy with its write. Always on the page, so a
+   screen reader hears it change; empty, it takes no room in a row of buttons. */
 .busy {
   align-self: center;
   color: var(--muted);
   font-size: var(--small);
+}
+
+.busy:empty {
+  position: absolute;
+}
+
+/* A hint under a field, outside its label, tied to it with aria-describedby. */
+.field-hint {
+  margin-top: -0.5rem;
 }
 
 .link-button {
@@ -1445,10 +1486,16 @@ input[aria-disabled='true'] {
 
 .tab > div {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
   gap: 1rem;
   padding: 0.625rem 0;
+}
+
+/* The label gives way first; with very large text the amount wraps below it. */
+.tab dt {
+  flex: 1 1 12rem;
 }
 
 .tab > div + div {
@@ -1663,11 +1710,27 @@ mark {
   color: var(--ketchup);
 }
 
+/* A simmer asking to be stirred: tap once it is done. */
+.timer-chip-stir {
+  color: var(--rim);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Under a long timer's clock: the page rings only while it is on screen. */
+.timer-away {
+  margin-top: 0.5rem;
+}
+
+/* Back takes a third, the way on two thirds. With very large text, when
+   even their longest words do not fit side by side, they take a row each
+   rather than run off the side. */
 .cook-nav {
   position: sticky;
   bottom: 0;
-  display: grid;
-  grid-template-columns: 1fr 2fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding: 0.875rem 0 calc(0.875rem + env(safe-area-inset-bottom));
   background: var(--enamel);
@@ -1675,8 +1738,13 @@ mark {
 }
 
 .cook-nav .button {
+  flex: 1 1 0;
   min-height: 3.5rem;
   font-size: var(--large);
+}
+
+.cook-nav .button:last-child {
+  flex-grow: 2;
 }
 
 /* ── The spice guide ── */
@@ -1726,6 +1794,7 @@ mark {
   font-weight: 600;
 }
 
+/* The edge is muted, not a hairline: with the radio hidden, it is all that shows a choice is there (3:1 at least). */
 .choice {
   position: relative;
   display: inline-flex;
@@ -1733,7 +1802,7 @@ mark {
   min-height: 3rem;
   padding: 0 1rem;
   background: var(--plate);
-  border: 2px solid var(--line);
+  border: 2px solid var(--muted);
   border-radius: var(--radius-control);
   cursor: pointer;
 }
@@ -1806,11 +1875,32 @@ mark {
     padding-right: 0.75rem;
   }
 
+  /* The full-screen moment's plate, and the chef or dish on it, shrink
+     together: the art at a whole 4 screen pixels a pixel, so it stays crisp. */
+  .beat-plate {
+    border-width: 0.5rem;
+    padding-bottom: 1rem;
+  }
+
+  .beat-plate::after {
+    inset: -0.5rem;
+    border-width: 0.5rem;
+  }
+
+  .beat-plate .pixels {
+    width: 80px;
+    height: auto;
+  }
+
+  .beat-dish .pixels {
+    width: 64px;
+  }
+
   /* Stacked, the buttons would hold a third of the screen if they stayed
      pinned to the bottom; they scroll with the step instead. */
   .cook-nav {
     position: static;
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   /* The price lines and the chef sheet's head stack instead of sitting side by side. */
@@ -1820,10 +1910,6 @@ mark {
 
   .sheet-head {
     grid-template-columns: 1fr;
-  }
-
-  .record {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   .row-title,
@@ -1865,10 +1951,6 @@ mark {
   }
 }
 
-/* Step 0 has no Back: "Everything is out" takes the whole row. */
-.cook-nav-first .button {
-  grid-column: 1 / -1;
-}
 
 /* The meat line on step 0 is read from across the counter like the rest. */
 .cook-meat {
