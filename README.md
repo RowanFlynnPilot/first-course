@@ -19,6 +19,11 @@ things they currently order. Built so far:
   cooking each kind of dish and worn over the rank's outfit.
 - **Recipes.** All 31 are written: four courses and the seven dishes of the
   usual.
+- **A real week.** Planning ahead of what is open, checks that work in a
+  store with no signal, Done shopping that marks bought only what was,
+  when to cook bought meat by (needs migration 00009), what is ready
+  tonight, leftovers and how to reheat them, the kit on the grocery list,
+  stir reminders, and a cook the phone interrupted coming back.
 
 Read `CLAUDE.md` for the brief, the locked decisions and how everything works
 before changing anything.
@@ -117,14 +122,14 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 163 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 174 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, the serial comma and names
       without commas, XP and levels, costs and corrected prices, the
       grocery list, the kit, timers, the streak, the badges, and errors in
       plain words.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 198 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 204 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired or forged email link, creating
     and changing the chef, the character
@@ -136,7 +141,11 @@ The deploy workflow runs these, and nothing deploys unless all pass:
   - the plan, the grocery list, sharing it, prices, Done shopping, the
     pantry, the kit and the spice guide
   - a save retried after its answer was lost, catching up after time away,
-    and no screen running off the side at 200% zoom
+    and no screen running off the side at 200% zoom or 200% text
+  - a weeknight: what is ready tonight, a cook the phone interrupted,
+    stirring, bought meat and leftovers
+  - 3rem tap targets on every control, and focus and announcements for a
+    screen reader
   - each screen's title, where focus lands, where the menu was scrolled,
     and that nothing loads from another site
   - changing and deleting a cook
