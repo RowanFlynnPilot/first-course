@@ -48,6 +48,9 @@ export function ShopScreen() {
   const toShop = toShopFor(shop)
   const list = groceryList(toShop, shop.pantry, shop.prices)
   const needKit = missingKit(planned, shop.kit)
+  // Until anything is checked off in the kit, it would list the chef's knife and every pan: one pointer instead.
+  const kitKnown = shop.kit.size > 0
+  const kitToGet = kitKnown ? needKit : []
   const inCart = list.lines.filter((line) => shop.checks.has(line.ingredientId))
   const notInCart = list.lines.filter((line) => !shop.checks.has(line.ingredientId))
   const toBuy = notInCart.length
@@ -105,7 +108,7 @@ export function ShopScreen() {
       <p className="section-note">
         {inCart.length} of {plural(list.lines.length, 'thing', 'things')} in the cart.
       </p>
-      {toBuy + needKit.length > 0 && <ShareButton text={groceryText(toShop, list, shop.checks, needKit)} />}
+      {toBuy + kitToGet.length > 0 && <ShareButton text={groceryText(toShop, list, shop.checks, kitToGet)} />}
       {list.sections.map((section) => (
         <div className="aisle" key={section.id}>
           <h3 className="aisle-title">{section.name}</h3>
@@ -125,15 +128,23 @@ export function ShopScreen() {
       {needKit.length > 0 && (
         <div className="aisle">
           <h3 className="aisle-title">Kit</h3>
-          <p className="section-note">
-            This week’s recipes use these, and <Link to="/kit">your kit</Link> does not have them yet. Check one off
-            once you have it.
-          </p>
-          <ul className="checks checks-cart">
-            {needKit.map((id, index) => (
-              <KitRow key={id} id={id} neighbor={kitNeighbor(needKit, index)} onShopChange={onShopChange} />
-            ))}
-          </ul>
+          {kitKnown ? (
+            <>
+              <p className="section-note">
+                This week’s recipes use these, and <Link to="/kit">your kit</Link> does not have them yet. Check one off
+                once you have it.
+              </p>
+              <ul className="checks checks-cart">
+                {kitToGet.map((id, index) => (
+                  <KitRow key={id} id={id} neighbor={kitNeighbor(kitToGet, index)} onShopChange={onShopChange} />
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="section-note">
+              Check off <Link to="/kit">your kit</Link> first, and this list will say which tools you still need.
+            </p>
+          )}
         </div>
       )}
       {list.inPantry.length > 0 && (

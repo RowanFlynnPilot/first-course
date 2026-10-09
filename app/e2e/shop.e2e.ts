@@ -219,6 +219,13 @@ test.describe('this week: the plan and the grocery list', () => {
     expect(kitchen.backend.table('kit_items').map((row) => row.equipment_id)).toContain('fork')
   })
 
+  test('with nothing checked off in the kit, the list points to it instead of listing every tool', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['chopped-salad'] })
+    const kit = page.locator('.aisle').filter({ has: page.getByRole('heading', { name: 'Kit' }) })
+    await expect(kit).toContainText('Check off your kit first, and this list will say which tools you still need.')
+    await expect(kit.getByRole('checkbox')).toHaveCount(0)
+  })
+
   test('with the groceries bought, the plan still says what kit it needs', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'], shopped: ['chopped-salad'], kit: ['chefs-knife', 'cutting-board', 'large-bowl'] })
     await expect(page.getByText('To cook these you also need: measuring spoons, small bowls, fork, paper towels, and plastic wrap.')).toBeVisible()
