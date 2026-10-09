@@ -11,6 +11,9 @@ test.describe('the menu', () => {
     await expect(page.locator('.row-ready')).toHaveCount(2)
     await expect(page.getByRole('link', { name: /Grilled cheese/ })).toContainText('Needs heat control')
     await expect(page.getByText('$0.00')).toBeVisible()
+    // Nothing checked off in the kit yet: one pointer, not "25 things to get".
+    await expect(page.getByRole('link', { name: 'Check your kit' })).toHaveCount(1)
+    await expect(page.getByText(/things to get/)).toHaveCount(0)
   })
 
   test('opens a recipe with its cost, the ordering price and the pairing', async ({ page, kitchen }) => {

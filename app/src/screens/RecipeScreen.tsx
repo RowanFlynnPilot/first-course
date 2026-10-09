@@ -20,6 +20,7 @@ import {
   TIP_RATE,
 } from '../lib/cost'
 import { TRACK_NAMES } from '../lib/extras'
+import { FRIED_RICE, LEFTOVER_DAYS, makesRice } from '../lib/leftovers'
 import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, formatMinutes, plural } from '../lib/format'
 import {
   goodCooks,
@@ -124,7 +125,7 @@ export function RecipeScreen({
         </section>
       )}
 
-      <Written content={recipe.content} shop={shop} />
+      <Written content={recipe.content} riceLeft={makesRice(recipe)} shop={shop} />
 
       {history.length > 0 && (
         <section className="section">
@@ -188,7 +189,7 @@ function RecipeActions({
   )
 }
 
-function Written({ content, shop }: { content: RecipeContent; shop: Shop }) {
+function Written({ content, riceLeft, shop }: { content: RecipeContent; riceLeft: boolean; shop: Shop }) {
   const feesPercent = Math.round((SERVICE_FEE_RATE + TIP_RATE) * 100)
   return (
     <>
@@ -246,6 +247,22 @@ function Written({ content, shop }: { content: RecipeContent; shop: Shop }) {
           <strong>{content.pairing.principle}.</strong> {content.pairing.why}
         </p>
       </section>
+
+      {content.leftovers !== null && (
+        <section className="section">
+          <h2 className="section-title">Leftovers</h2>
+          <p>
+            It makes {content.servings} servings. What is left keeps {LEFTOVER_DAYS} days in a lidded container in the
+            fridge. {content.leftovers.reheat}
+          </p>
+          {riceLeft && (
+            <p className="section-note">
+              Leftover rice: reheat it only once, until it is steaming hot, or make{' '}
+              <Link to={`/recipe/${FRIED_RICE.id}`}>{FRIED_RICE.title.toLowerCase()}</Link> with it the next day.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="section">
         <h2 className="section-title">Method</h2>

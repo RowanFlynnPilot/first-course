@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { BadgeArt } from '../components/BadgeArt'
 import { PromotionBeat, UsualBeat } from '../components/Beats'
 import { RecipeLinks } from '../components/LockedNotice'
-import { focusAfter, useFocusTarget } from '../components/useFocusTarget'
+import { focusAfter, focusNext, useFocusTarget } from '../components/useFocusTarget'
 import { useKeepMenuScroll } from '../components/menuScroll'
 import { useNow } from '../components/useNow'
 import { usePageTitle } from '../components/usePageTitle'
@@ -21,6 +21,7 @@ import { clearCooking, loadCooking } from '../lib/cooking'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents } from '../lib/cost'
 import { extraById, wornExtras, type ExtraId } from '../lib/extras'
 import { cookByDates, dayName } from '../lib/freshness'
+import { FRIED_RICE, LEFTOVER_DAYS, leftoversOf, loadEaten, makesRice, markEaten } from '../lib/leftovers'
 import {
   COURSE_NAMES,
   formatCents,
@@ -225,6 +226,7 @@ export function MenuScreen({
           onShopChange={onShopChange}
         />
         <Tonight except={next} logs={logs} shop={shop} now={now} />
+        <Leftovers userId={userId} logs={logs} today={today} />
 
         <nav className="quick-links" aria-label="Shopping, kit, and spices">
           <Link to="/shop">{shop.plan.length === 0 ? 'This week' : `This week (${shop.plan.length})`}</Link>
@@ -256,14 +258,22 @@ export function MenuScreen({
               <h2 className="section-title">{COURSE_NAMES[tier]}</h2>
               <p className="section-note">
                 {have} of {skills.length} skills learned
-                {toGet > 0 && (
-                  <>
-                    {'. '}
-                    <Link to="/kit">
-                      Kit: {tier === 1 ? plural(toGet, 'thing', 'things') : plural(toGet, 'new thing', 'new things')} to get
-                    </Link>
-                  </>
-                )}
+                {/* Until anything is checked off, a count would say a kitchen with pans needs 25 things. */}
+                {shop.kit.size === 0
+                  ? tier === 1 && (
+                      <>
+                        {'. '}
+                        <Link to="/kit">Check your kit</Link>
+                      </>
+                    )
+                  : toGet > 0 && (
+                      <>
+                        {'. '}
+                        <Link to="/kit">
+                          Kit: {tier === 1 ? plural(toGet, 'thing', 'things') : plural(toGet, 'new thing', 'new things')} to get
+                        </Link>
+                      </>
+                    )}
               </p>
               {shut && tier > 1 && (
                 <p className="section-note">
@@ -516,6 +526,72 @@ function Tonight({ except, logs, shop, now }: { except: Recipe; logs: readonly C
                 </span>
               </span>
             </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * What is left from a recent cook (lib/leftovers.ts): from when, the last
+ * day to eat it, how to reheat it, and what leftover rice can become.
+ */
+function Leftovers({ userId, logs, today }: { userId: string; logs: readonly CookLog[]; today: string }) {
+  const [eaten, setEaten] = useState(() => loadEaten(localStorage, userId))
+  const title = useFocusTarget<HTMLHeadingElement>('leftovers-title')
+  const left = leftoversOf(logs, today, eaten)
+  if (left.length === 0) return null
+  const friedRiceOpen = recipeState(FRIED_RICE, logs) !== 'locked'
+  return (
+    <section className="tonight" aria-labelledby="leftovers-title">
+      <h2 className="tonight-title" id="leftovers-title" ref={title} tabIndex={-1}>
+        Leftovers
+      </h2>
+      <ul className="rows">
+        {left.map(({ cook, recipe, eatBy }) => (
+          <li key={cook.id} className="leftover">
+            <div className="plan-row">
+              <span>
+                <Link className="row-title" to={`/recipe/${recipe.id}`}>
+                  {recipe.title}
+                </Link>
+                <span className="row-note">
+                  From {dayName(cook.cookedOn, today)}. {eatBy === today ? 'Eat it today.' : `Eat by ${dayName(eatBy, today)}.`}
+                </span>
+              </span>
+              <button
+                className="link-button"
+                type="button"
+                aria-label={`All eaten: ${recipe.title}`}
+                onClick={() => {
+                  focusNext('leftovers-title')
+                  setEaten(
+                    markEaten(
+                      localStorage,
+                      userId,
+                      cook.id,
+                      left.map((each) => each.cook.id),
+                    ),
+                  )
+                }}
+              >
+                All eaten
+              </button>
+            </div>
+            <p className="row-note">{recipe.content.leftovers?.reheat}</p>
+            {makesRice(recipe) && (
+              <p className="row-note">
+                Leftover rice: reheat it only once, until it is steaming hot
+                {friedRiceOpen ? (
+                  <>
+                    , or <Link to={`/cook/${FRIED_RICE.id}/3`}>make egg fried rice with it, from step 3</Link>.
+                  </>
+                ) : (
+                  `, within the same ${LEFTOVER_DAYS} days.`
+                )}
+              </p>
+            )}
           </li>
         ))}
       </ul>

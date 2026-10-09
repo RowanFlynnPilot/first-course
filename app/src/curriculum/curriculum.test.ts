@@ -171,6 +171,20 @@ describe('written recipes', () => {
     }
   })
 
+  it('say how to reheat what is left of every recipe that makes more than two servings, and only those', () => {
+    for (const { id, content } of written) {
+      expect(content.leftovers !== null, `${id} serves ${content.servings}`).toBe(content.servings > 2)
+      if (content.leftovers === null) continue
+      // The last step already says how to keep them; the reheat says how to eat them again, safely.
+      expect(content.steps.at(-1)?.why ?? '', id).toMatch(/lidded container/)
+      const poultry = content.ingredients.some(({ ingredientId }) => {
+        const ingredient: Ingredient = INGREDIENTS[ingredientId]
+        return ingredient.safeTempF === 165
+      })
+      if (poultry) expect(content.leftovers.reheat, id).toContain('at least 165°F')
+    }
+  })
+
   it('never say "until done": every doneness cue is something you can see, smell, hear or measure', () => {
     for (const { id, content } of written) {
       for (const step of content.steps) expect(step.text, id).not.toMatch(/until (it is |they are )?done/i)
@@ -388,6 +402,7 @@ describe('the copy', () => {
       [recipe.id, recipe.blurb],
       [recipe.id, recipe.content.pairing.principle],
       [recipe.id, recipe.content.pairing.why],
+      [`${recipe.id} leftovers`, recipe.content.leftovers?.reheat ?? ''],
       ...recipe.content.steps.flatMap((step, index): Copy[] => [
         [`${recipe.id} step ${index + 1}`, step.text],
         [`${recipe.id} step ${index + 1} why`, step.why ?? ''],

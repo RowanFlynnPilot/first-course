@@ -213,3 +213,46 @@ test.describe('bought meat', () => {
     await expect(page.locator('.plan-row').filter({ hasText: 'Seared chicken thighs' }).locator('.row-note')).toHaveText('Groceries bought')
   })
 })
+
+test.describe('leftovers', () => {
+  const WEDNESDAY = new Date('2026-10-07T17:00:00-05:00')
+
+  test('the day after a cook that made more than two servings, the menu says what is left and how to reheat it', async ({ page, kitchen }) => {
+    await page.clock.install({ time: WEDNESDAY })
+    await kitchen.open('./', { logs: [{ recipe: 'chopped-salad', rating: 2, cookedOn: '2026-10-06' }, { recipe: 'sheet-pan-sausage', rating: 2, cookedOn: '2026-10-06' }] })
+    const left = page.getByRole('region', { name: 'Leftovers' })
+    // The salad makes two: nothing of it is left.
+    await expect(left.getByRole('listitem')).toHaveCount(1)
+    await expect(left).toContainText('Sheet-pan sausage and vegetables')
+    await expect(left).toContainText('From yesterday. Eat by Saturday.')
+    await expect(left).toContainText('reheat in a 400°F oven for about 10 minutes')
+
+    await left.getByRole('button', { name: 'All eaten: Sheet-pan sausage and vegetables' }).click()
+    await expect(left).toHaveCount(0)
+    await page.reload()
+    await expect(page.getByText('Cook this next')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Leftovers' })).toHaveCount(0)
+  })
+
+  test('leftover rice points to egg fried rice, from the step after the rice', async ({ page, kitchen }) => {
+    await page.clock.install({ time: WEDNESDAY })
+    const chana = recipeById('chana-masala')
+    const friedRice = recipeById('egg-fried-rice')
+    const cooked = [...new Set([...pathTo(chana, []), ...pathTo(friedRice, [])].map((recipe) => recipe.id))]
+    await kitchen.open('./', {
+      logs: [...cooked.map((recipe) => ({ recipe, rating: 2 as const, cookedOn: '2026-09-01' })), { recipe: chana.id, rating: 2, cookedOn: '2026-10-06' }],
+    })
+    const left = page.getByRole('region', { name: 'Leftovers' })
+    await left.getByRole('link', { name: 'make egg fried rice with it, from step 3' }).click()
+    await expect(page.locator('.cook-count')).toHaveText(/^Step 3 of/)
+  })
+
+  test('the recipe page says how to keep and reheat what is left, when there is some', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/sheet-pan-sausage', SALAD_DONE)
+    await expect(page.getByRole('heading', { name: 'Leftovers' })).toBeVisible()
+    await expect(page.getByText(/^It makes 3 servings\. What is left keeps 4 days in a lidded container in the fridge\./)).toBeVisible()
+    await page.goto('#/recipe/chopped-salad')
+    await expect(page.getByRole('heading', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Leftovers' })).toHaveCount(0)
+  })
+})

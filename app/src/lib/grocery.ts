@@ -2,6 +2,7 @@
 // packages, never a share of one (locked decision 6). Derived from the plan,
 // the pantry and the prices; nothing here is stored.
 
+import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId, type Section } from '../curriculum/ingredients'
 import { RECIPES, recipeById } from '../curriculum/recipes'
 import type { Recipe, Tier } from '../curriculum/types'
@@ -75,7 +76,12 @@ export function groceryList(plan: readonly string[], pantry: ReadonlySet<Ingredi
  * What is still to buy, as plain text: for a note on the phone that works
  * with no signal in the store, or for someone else doing the shop.
  */
-export function groceryText(plan: readonly string[], list: GroceryList, checks: ReadonlySet<IngredientId>): string {
+export function groceryText(
+  plan: readonly string[],
+  list: GroceryList,
+  checks: ReadonlySet<IngredientId>,
+  kit: readonly EquipmentId[],
+): string {
   const aisles = list.sections.flatMap(({ name, lines }) => {
     const left = lines.filter((line) => !checks.has(line.ingredientId))
     if (left.length === 0) return []
@@ -85,16 +91,13 @@ export function groceryText(plan: readonly string[], list: GroceryList, checks: 
     })
     return [[name, ...items].join('\n')]
   })
-  if (aisles.length === 0) throw new Error('Everything on the list is in the cart, so there is nothing to share')
+  // The tools the plan needs and the kit does not have, so the thermometer is not left on the shelf.
+  const tools = kit.length === 0 ? [] : [['Kit', ...kit.map((id) => `- ${EQUIPMENT[id].name}`)].join('\n')]
+  if (aisles.length + tools.length === 0) throw new Error('Everything on the list is in the cart, so there is nothing to share')
   const recipes = listOf(plan.map((id) => recipeById(id).title))
-  return [`Grocery list for ${recipes}`, ...aisles].join('\n\n')
+  return [`Grocery list for ${recipes}`, ...aisles, ...tools].join('\n\n')
 }
 
-/**
- * The pantry's staples, each under the first course whose recipes use it, as
- * the kit is filed, so week one is not a list of curry paste and tamarind.
- * In store order, then by name.
- */
 /** Whether the pantry holds everything a recipe uses (grilled cheese, eggs on toast): no shop needed. */
 export function pantryCovers(recipe: Recipe, pantry: ReadonlySet<IngredientId>): boolean {
   return recipe.content.ingredients.every(({ ingredientId }) => pantry.has(ingredientId))
@@ -116,6 +119,11 @@ export function boughtFor(
   )
 }
 
+/**
+ * The pantry's staples, each under the first course whose recipes use it, as
+ * the kit is filed, so week one is not a list of curry paste and tamarind.
+ * In store order, then by name.
+ */
 export function staplesByCourse(): { tier: Tier; staples: IngredientId[] }[] {
   const firstTier = (id: IngredientId): Tier => {
     const tiers = RECIPES.filter((recipe) => recipe.content.ingredients.some((line) => line.ingredientId === id)).map(

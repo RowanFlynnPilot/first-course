@@ -42,11 +42,15 @@ export function cookByDates(shoppedOn: ReadonlyMap<string, string>): Map<string,
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-/** A day near today, as a cook says it: "today", "tomorrow", "Tuesday", or "Oct 14" further off. */
+/**
+ * A day near today, as a cook says it: "today", "tomorrow", "yesterday", a
+ * weekday within the week either side ("Tuesday"), or "Oct 14, 2026" further off.
+ */
 export function dayName(date: string, today: string): string {
   const days = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
   if (days === 0) return 'today'
   if (days === 1) return 'tomorrow'
-  if (days > 1 && days < 7) return WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()] ?? date
+  if (days === -1) return 'yesterday'
+  if (Math.abs(days) < 7) return WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()] ?? date
   return formatCookedOn(date)
 }

@@ -20,7 +20,8 @@ test.describe('this week: the plan and the grocery list', () => {
     await page.getByRole('link', { name: 'Menu' }).click()
     await page.getByRole('link', { name: 'This week (1)' }).click()
     await expect(page.getByRole('heading', { name: 'This week', level: 1 })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Produce', 'Meat', 'Pantry'])
+    // The kit the plan still needs is on the list too, last.
+    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Produce', 'Meat', 'Pantry', 'Kit'])
     const total = page.locator('.tab-kept dd')
     await expect(total).toHaveText(SHEET_PAN_CHECKOUT)
 
@@ -207,8 +208,19 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(page.getByRole('checkbox', { name: /Salted butter/ })).toBeVisible()
   })
 
-  test('says what kit the plan still needs', async ({ page, kitchen }) => {
+  test('puts the kit the plan still needs on the list, and a check puts it in the kit', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'], kit: ['chefs-knife', 'cutting-board', 'large-bowl'] })
+    const kit = page.locator('.aisle').filter({ has: page.getByRole('heading', { name: 'Kit' }) })
+    await expect(kit.locator('.row-title')).toHaveText(['Measuring spoons', 'Small bowls', 'Fork', 'Paper towels', 'Plastic wrap'])
+    await kit.getByRole('checkbox', { name: /^Fork/ }).click()
+    await expect(kit.getByRole('checkbox', { name: /^Fork/ })).toHaveCount(0)
+    // Focus goes to the next line, not the top of the page.
+    await expect(kit.getByRole('checkbox', { name: /^Paper towels/ })).toBeFocused()
+    expect(kitchen.backend.table('kit_items').map((row) => row.equipment_id)).toContain('fork')
+  })
+
+  test('with the groceries bought, the plan still says what kit it needs', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['chopped-salad'], shopped: ['chopped-salad'], kit: ['chefs-knife', 'cutting-board', 'large-bowl'] })
     await expect(page.getByText('To cook these you also need: measuring spoons, small bowls, fork, paper towels, and plastic wrap.')).toBeVisible()
   })
 
@@ -218,8 +230,10 @@ test.describe('this week: the plan and the grocery list', () => {
     // The store has no signal: every request fails from here (this route goes ahead of the fake's).
     const offline = (route: Route) => route.abort('internetdisconnected')
     await page.route('https://e2e.supabase.test/**', offline)
-    for (const box of await page.getByRole('checkbox').all()) await box.click()
-    await expect(page.getByRole('checkbox', { checked: false })).toHaveCount(0)
+    // The groceries: a check of one is on the phone. (A kit line is a write to the kit, which needs signal.)
+    const groceries = page.locator('.aisle').filter({ hasNot: page.getByRole('heading', { name: 'Kit' }) })
+    for (const box of await groceries.getByRole('checkbox').all()) await box.click()
+    await expect(groceries.getByRole('checkbox', { checked: false })).toHaveCount(0)
     await page.getByRole('button', { name: 'Done shopping' }).click()
     await expect(page.getByRole('alert')).toHaveText(
       'Could not finish shopping: No connection. Check your signal and try again. Your checks are kept on this phone.',
@@ -294,8 +308,9 @@ test.describe('this week: the plan and the grocery list', () => {
     await kitchen.open('#/shop', { ...SALAD_DONE, plan: ['sheet-pan-sausage'] })
     // The line after it in the list, by the order the list shows, once the list is on screen.
     await expect(page.getByRole('checkbox', { name: /Kosher salt/ })).toBeVisible()
-    const boxes = page.locator('.checks-cart input[type=checkbox]')
-    const names = await page.locator('.checks-cart .check-label .row-title').allTextContents()
+    const groceries = page.locator('.aisle').filter({ hasNot: page.getByRole('heading', { name: 'Kit' }) })
+    const boxes = groceries.locator('.checks-cart input[type=checkbox]')
+    const names = await groceries.locator('.checks-cart .check-label .row-title').allTextContents()
     const after = names[names.indexOf('Kosher salt') + 1] ?? names[names.indexOf('Kosher salt') - 1]
     expect(await boxes.count()).toBe(names.length)
     await page.getByRole('button', { name: 'Have it: kosher salt' }).click()

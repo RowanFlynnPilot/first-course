@@ -46,15 +46,19 @@ describe('the grocery list', () => {
   it('shares what is still to buy as plain text, aisle by aisle', () => {
     const list = groceryList(['grilled-cheese'], NOTHING, ESTIMATES)
     const { butter, cheddar } = INGREDIENTS
-    expect(groceryText(['grilled-cheese'], list, new Set<IngredientId>(['sandwich-bread']))).toBe(
+    expect(groceryText(['grilled-cheese'], list, new Set<IngredientId>(['sandwich-bread']), [])).toBe(
       [
         'Grocery list for Grilled cheese',
         `Dairy and eggs\n- ${butter.name}: ${butter.package.label}\n- ${cheddar.name}: ${cheddar.package.label}`,
       ].join('\n\n'),
     )
-    expect(() => groceryText(['grilled-cheese'], list, new Set(list.lines.map((line) => line.ingredientId)))).toThrow(
-      'nothing to share',
+    // The kit the plan still needs goes last, so it is not left on the shelf.
+    expect(groceryText(['grilled-cheese'], list, new Set<IngredientId>(['sandwich-bread']), ['spatula'])).toMatch(
+      /\n\nKit\n- Spatula$/,
     )
+    const everything = new Set(list.lines.map((line) => line.ingredientId))
+    expect(() => groceryText(['grilled-cheese'], list, everything, [])).toThrow('nothing to share')
+    expect(groceryText(['grilled-cheese'], list, everything, ['spatula'])).toContain('Kit')
   })
 
   it('prints every line for any two recipes planned together, and for the whole menu', () => {

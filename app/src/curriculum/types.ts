@@ -46,6 +46,14 @@ export interface RecipeContent {
    * A side rides on another order, so it carries no delivery fee of its own.
    */
   readonly delivery: { readonly label: string; readonly menuPriceCents: number; readonly side: boolean }
+  /**
+   * How to eat it again, for a recipe that makes more than two servings: the
+   * cost counts two (lib/cost.ts), so the rest is leftovers. Its last step
+   * says how to keep them (a lidded container, in the fridge within 2 hours,
+   * 4 days); this says how to reheat them, safely and well. Null for one
+   * that makes two or fewer.
+   */
+  readonly leftovers: { readonly reheat: string } | null
   readonly pairing: Pairing
 }
 

@@ -27,6 +27,7 @@ const content: RecipeContent = {
   ],
   steps: [{ text: 'Cook.', why: null, timer: null }],
   delivery: { label: 'Eggs', menuPriceCents: 1000, side: false },
+  leftovers: null,
   pairing: { wine: 'Cava', principle: 'Bubbles cut richness', why: '' },
 }
 

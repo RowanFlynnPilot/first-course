@@ -10,7 +10,7 @@ import { useNow } from '../components/useNow'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
-import { EQUIPMENT } from '../curriculum/equipment'
+import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
@@ -37,6 +37,7 @@ import {
   planRecipe,
   resetPrice,
   setChecked,
+  setInKit,
   setInPantry,
   setPrice,
   shopForAgain,
@@ -113,7 +114,7 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
       <p className="section-note">
         {inCart.length} of {plural(list.lines.length, 'thing', 'things')} in the cart.
       </p>
-      {toBuy > 0 && <ShareButton text={groceryText(toShop, list, shop.checks)} />}
+      {toBuy + needKit.length > 0 && <ShareButton text={groceryText(toShop, list, shop.checks, needKit)} />}
       {list.sections.map((section) => (
         <div className="aisle" key={section.id}>
           <h3 className="aisle-title">{section.name}</h3>
@@ -130,6 +131,20 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
           </ul>
         </div>
       ))}
+      {needKit.length > 0 && (
+        <div className="aisle">
+          <h3 className="aisle-title">Kit</h3>
+          <p className="section-note">
+            This week’s recipes use these, and <Link to="/kit">your kit</Link> does not have them yet. Check one off
+            once you have it.
+          </p>
+          <ul className="checks checks-cart">
+            {needKit.map((id, index) => (
+              <KitRow key={id} id={id} neighbor={kitNeighbor(needKit, index)} onShopChange={onShopChange} />
+            ))}
+          </ul>
+        </div>
+      )}
       {list.inPantry.length > 0 && (
         <>
           <p className="section-note">
@@ -193,7 +208,8 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
       {!shopping && planned.length > 0 && (
         <p className="section-note">Everything on the plan is bought. Add a recipe and its groceries go on a new list.</p>
       )}
-      {needKit.length > 0 && (
+      {/* With a grocery list on screen, the kit to get is on it; with everything bought, it is said here. */}
+      {!shopping && needKit.length > 0 && (
         <p className="notice notice-info">
           To cook these you also need: {listOf(needKit.map((id) => inSentence(EQUIPMENT[id].name)))}.{' '}
           <Link to="/kit">Your kit</Link>
@@ -378,6 +394,26 @@ function boughtNote(recipe: Recipe, boughtOn: string | undefined, today: string)
   if (boughtOn === undefined || by === null) return 'Groceries bought'
   if (by < today) return `Bought ${formatCookedOn(boughtOn)}: check the date on the meat`
   return `Groceries bought. Cook by ${dayName(by, today)}`
+}
+
+/** Where focus goes when a kit line leaves the list: the next one, or the one before, or the list's heading. */
+function kitNeighbor(kit: readonly EquipmentId[], index: number): string {
+  const near = kit[index + 1] ?? kit[index - 1]
+  return near === undefined ? 'grocery-title' : `kit:${near}`
+}
+
+/** A tool the plan needs and the kit does not have. Checked off, it goes into the kit, and off the list. */
+function KitRow({ id, neighbor, onShopChange }: { id: EquipmentId; neighbor: string; onShopChange: ShopChange }) {
+  const { name, note } = EQUIPMENT[id]
+  return (
+    <CheckRow
+      checked={false}
+      label={name}
+      note={note ?? undefined}
+      onChange={(own) => focusAfter(neighbor, () => setInKit(id, own, onShopChange))}
+      focusTarget={`kit:${id}`}
+    />
+  )
 }
 
 /** A staple left off the list because the pantry has it, with how much this list uses, and a way to say it ran out. */

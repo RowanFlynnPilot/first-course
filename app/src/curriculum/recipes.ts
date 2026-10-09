@@ -79,6 +79,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Side Greek salad', menuPriceCents: 950, side: true },
+      leftovers: null,
       pairing: {
         wine: 'Sauvignon Blanc',
         principle: 'Match acid with acid',
@@ -139,6 +140,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Eggs and toast breakfast plate', menuPriceCents: 1100, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Cava or another dry sparkling wine',
         principle: 'Bubbles cut richness',
@@ -227,6 +229,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Spaghetti aglio e olio', menuPriceCents: 1600, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Vermentino or Pinot Grigio',
         principle: 'What grows together goes together',
@@ -285,6 +288,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Grilled cheese sandwich', menuPriceCents: 1000, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Beaujolais (Gamay)',
         principle: 'High acid and low tannin for rich, salty food',
@@ -358,6 +362,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Rice bowl with egg', menuPriceCents: 1000, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Off-dry Riesling',
         principle: 'A little sweetness for salty, savory food',
@@ -431,6 +436,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Sausage and roasted vegetable plate', menuPriceCents: 1500, side: false },
+      leftovers: {
+        reheat: 'Spread them on the sheet pan and reheat in a 400°F oven for about 10 minutes, until the potatoes sizzle again. A microwave works, but the potatoes go soft.',
+      },
       pairing: {
         wine: 'Côtes du Rhône',
         principle: 'Match weight with weight',
@@ -535,6 +543,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Spaghetti marinara', menuPriceCents: 1400, side: false },
+      leftovers: {
+        reheat: 'Add a splash of water, cover, and microwave in 1-minute bursts, stirring between, until it is steaming hot all the way through. The water loosens the sauce the pasta soaked up overnight.',
+      },
       pairing: {
         wine: 'Chianti (Sangiovese)',
         principle: 'Tomato sauce needs a high-acid wine',
@@ -622,6 +633,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Lemon butter pasta', menuPriceCents: 1500, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Chablis (unoaked Chardonnay)',
         principle: 'Pair with the sauce, not the pasta',
@@ -736,6 +748,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Grilled chicken plate with broccoli', menuPriceCents: 1700, side: false },
+      leftovers: {
+        reheat: 'Reheat the chicken in a covered skillet over medium-low heat with a tablespoon of water, turning once, until the thickest piece reads at least 165°F. The broccoli needs only the last 2 minutes.',
+      },
       pairing: {
         wine: 'Pinot Noir',
         principle: 'Pair with the cooking method, not just the meat',
@@ -823,6 +838,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Egg fried rice', menuPriceCents: 1200, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Alsace Pinot Gris',
         principle: 'Aromatic food, aromatic wine',
@@ -917,6 +933,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Grilled cheese with caramelized onions', menuPriceCents: 1300, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Vouvray demi-sec (Chenin Blanc)',
         principle: 'Sweet flavors want a touch of sweetness in the glass',
@@ -1013,6 +1030,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Dal tadka with rice', menuPriceCents: 1500, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Grüner Veltliner',
         principle: 'Echo a flavor in the dish',
@@ -1122,6 +1140,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Side of fries with garlic aioli', menuPriceCents: 550, side: true },
+      leftovers: null,
       pairing: {
         wine: 'Crémant or another dry sparkling wine',
         principle: 'Crisp food, crisp wine',
@@ -1258,6 +1277,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Lemon chicken with roasted potatoes', menuPriceCents: 1900, side: false },
+      leftovers: {
+        reheat: 'Warm the chicken and the sauce together in a covered skillet over low heat, with a splash of water if the sauce has set, until the chicken reads at least 165°F. Any hotter and the butter in the sauce separates.',
+      },
       pairing: {
         wine: 'Albariño',
         principle: 'Match the loudest flavor on the plate',
@@ -1355,6 +1377,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Two cheeseburgers', menuPriceCents: 1350, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Zinfandel',
         principle: 'Char and fat want ripe fruit',
@@ -1486,6 +1509,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Spaghetti with meat sauce', menuPriceCents: 1700, side: false },
+      leftovers: {
+        reheat: 'Add a splash of water, cover, and microwave in 1-minute bursts, stirring between, until it is steaming hot all the way through. The sauce on its own freezes for 3 months.',
+      },
       pairing: {
         wine: 'Montepulciano d’Abruzzo',
         principle: 'Fat softens a firm red',
@@ -1603,6 +1629,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Chicken and broccoli with white rice', menuPriceCents: 1600, side: false },
+      leftovers: {
+        reheat: 'Reheat it in the skillet over medium-high heat with a tablespoon of water, stirring, until it is steaming and the chicken reads at least 165°F, about 3 minutes.',
+      },
       pairing: {
         wine: 'Dry rosé',
         principle: 'Rosé fits food that sits between red and white',
@@ -1702,6 +1731,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Chana masala with rice', menuPriceCents: 1500, side: false },
+      leftovers: {
+        reheat: 'It is better the next day. Warm it in a covered saucepan over medium-low heat, stirring now and then, with a splash of water if it has thickened, until it bubbles. It freezes for 3 months.',
+      },
       pairing: {
         wine: 'Gewürztraminer',
         principle: 'Spice wants fruit, not oak or tannin',
@@ -1844,6 +1876,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Medium cheese pan pizza', menuPriceCents: 800, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Lambrusco (dry)',
         principle: 'Bubbles and acid cut melted cheese',
@@ -1961,6 +1994,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Breaded chicken cutlets with lemon', menuPriceCents: 1600, side: false },
+      leftovers: {
+        reheat: 'Reheat them on the wire rack in the sheet pan in a 400°F oven for 8 to 10 minutes, until they read at least 165°F and the crust is crisp again. A microwave turns the crust soggy.',
+      },
       pairing: {
         wine: 'Soave',
         principle: 'Acid cuts oil',
@@ -2099,6 +2135,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Chicken tikka with rice and raita', menuPriceCents: 1700, side: false },
+      leftovers: {
+        reheat: 'Warm the chicken in a covered skillet over medium-low heat with a splash of water until it reads at least 165°F. It is good cold, too, sliced into a wrap with the cucumber.',
+      },
       pairing: {
         wine: 'Valpolicella',
         principle: 'With spice, serve a light red a little cool',
@@ -2212,6 +2251,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Spaghetti carbonara', menuPriceCents: 1800, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Verdicchio',
         principle: 'A rich dish can take a rich white, if it has acid',
@@ -2332,6 +2372,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Green curry with chicken and rice', menuPriceCents: 1600, side: false },
+      leftovers: {
+        reheat: 'Warm it in a saucepan over medium-low heat, stirring, until it bubbles and the chicken reads at least 165°F. Tear in fresh basil after: the first lot has wilted.',
+      },
       pairing: {
         wine: 'Vinho Verde',
         principle: 'Chili heat wants low alcohol',
@@ -2468,6 +2511,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Beef and broccoli with white rice', menuPriceCents: 1750, side: false },
+      leftovers: {
+        reheat: 'Reheat it in the skillet over medium-high heat with a tablespoon of water, stirring, until it is steaming, about 3 minutes. The sauce thickens in the fridge, and the water loosens it.',
+      },
       pairing: {
         wine: 'Merlot',
         principle: 'Umami makes tannin taste harsher',
@@ -2651,6 +2697,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Double smash burger with fries', menuPriceCents: 1750, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Malbec',
         principle: 'Pair with the toppings, not just the meat',
@@ -2795,6 +2842,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Crispy chicken sandwich', menuPriceCents: 1200, side: false },
+      leftovers: {
+        reheat: 'Keep the chicken, the buns, and the sauce apart. Reheat the chicken on the wire rack in the sheet pan in a 400°F oven for 8 to 10 minutes, until it reads at least 165°F and is crisp again, then build the sandwich.',
+      },
       pairing: {
         wine: 'Picpoul de Pinet',
         principle: 'Salt makes a sharp wine taste rounder',
@@ -2946,6 +2996,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Margherita pizza', menuPriceCents: 1000, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Falanghina',
         principle: 'Tomato does not require a red',
@@ -3100,6 +3151,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Tagliatelle bolognese', menuPriceCents: 2100, side: false },
+      leftovers: {
+        reheat: 'Warm the ragù in a saucepan over low heat with a splash of water, stirring, until it bubbles, then toss it with fresh pasta if you have some. The ragù on its own freezes for 3 months: thaw it overnight in the fridge.',
+      },
       pairing: {
         wine: 'Barbera d’Asti',
         principle: 'Cream wants acid more than tannin',
@@ -3221,6 +3275,7 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Pad thai with chicken', menuPriceCents: 1550, side: false },
+      leftovers: null,
       pairing: {
         wine: 'Dry Riesling from Australia',
         principle: 'Oak clashes with fish sauce and lime',
@@ -3355,6 +3410,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'General Tso’s chicken with white rice', menuPriceCents: 1600, side: false },
+      leftovers: {
+        reheat: 'Reheat the chicken on the wire rack in the sheet pan in a 400°F oven for 8 to 10 minutes, until it reads at least 165°F, so the coating crisps instead of steaming.',
+      },
       pairing: {
         wine: 'Off-dry Chenin Blanc from South Africa',
         principle: 'A busy dish wants a simple wine',
@@ -3525,6 +3583,9 @@ export const RECIPES: readonly Recipe[] = [
         },
       ],
       delivery: { label: 'Chicken tikka masala with rice', menuPriceCents: 1800, side: false },
+      leftovers: {
+        reheat: 'Warm it in a covered saucepan over medium-low heat, stirring, until it bubbles and the chicken reads at least 165°F. It freezes for 3 months: thaw it overnight in the fridge.',
+      },
       pairing: {
         wine: 'Off-dry Riesling',
         principle: 'A touch of sweetness tames chili heat',

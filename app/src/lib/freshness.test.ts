@@ -31,5 +31,7 @@ describe('how long bought meat keeps', () => {
     expect(dayName('2026-10-06', today)).toBe('Tuesday')
     expect(dayName('2026-10-10', today)).toBe('Saturday')
     expect(dayName('2026-10-11', today)).toMatch(/Oct 11/)
+    expect(dayName('2026-10-03', today)).toBe('yesterday')
+    expect(dayName('2026-09-30', today)).toBe('Wednesday')
   })
 })
