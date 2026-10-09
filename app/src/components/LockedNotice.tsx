@@ -36,7 +36,7 @@ export function LockedNotice({ recipe, logs }: { recipe: Recipe; logs: readonly 
   }
   const path = pathTo(recipe, logs)
   return (
-    <p className="notice">
+    <p className="notice notice-info">
       Locked.
       {[...teachers].map(([teacher, skills]) => (
         <span key={teacher.id}>
@@ -47,7 +47,7 @@ export function LockedNotice({ recipe, logs }: { recipe: Recipe; logs: readonly 
       {path.length > teachers.size && (
         <>
           {' '}
-          The way there, each cooked at “Decent” or better: <RecipeLinks recipes={path} />, then this.
+          The way there, each cooked at Decent or better: <RecipeLinks recipes={path} />, then this.
         </>
       )}
     </p>

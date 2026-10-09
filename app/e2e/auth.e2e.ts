@@ -1,5 +1,12 @@
 import { EMAIL, expect, FRESH, PASSWORD, test } from './kitchen'
 
+/** An email link whose access token claims an account in a token the server never issued. */
+function forgedHash(hash: string): string {
+  const b64 = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  const forged = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: 'nobody', email: 'someone.else@example.test', role: 'authenticated', exp: 4102444800 })}.e2e`
+  return hash.replace(/access_token=[^&]+/, `access_token=${forged}`)
+}
+
 test.describe('signing in and creating a chef', () => {
   test('signs in, creates a chef, and lands on the menu as a level 1 dishwasher', async ({ page, kitchen }) => {
     await kitchen.open('./', { signedIn: false, chef: null })
@@ -19,7 +26,7 @@ test.describe('signing in and creating a chef', () => {
     await page.getByRole('button', { name: 'Create chef' }).click()
 
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 1 dishwasher')
-    await expect(page.getByRole('img', { name: 'Your chef, a dishwasher' })).toBeVisible()
+    await expect(page.getByRole('img', { name: 'Your chef: dishwasher' })).toBeVisible()
     await expect(page.getByText('Cook this next')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
     expect(kitchen.backend.table('chefs')).toMatchObject([{ name: 'Remy', skin: 3, hair: 3 }])
@@ -30,7 +37,7 @@ test.describe('signing in and creating a chef', () => {
     await page.getByLabel('Email').fill(EMAIL)
     await page.getByLabel('Password').fill('not the password')
     await page.getByRole('button', { name: 'Sign in' }).click()
-    await expect(page.getByRole('alert')).toHaveText('Invalid login credentials')
+    await expect(page.getByRole('alert')).toHaveText('That email and password do not match an account.')
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled()
   })
 
@@ -125,13 +132,18 @@ test.describe('signing in and creating a chef', () => {
   })
 
   test('a link that cannot sign in says so in the app’s words', async ({ page, kitchen }) => {
-    const b64 = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
-    const stranger = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: 'nobody', role: 'authenticated', exp: 4102444800 })}.e2e`
-    const hash = kitchen.backend.recoveryHash().replace(/access_token=[^&]+/, `access_token=${stranger}`)
-    await kitchen.open(`./${hash}`, { signedIn: false })
-    await expect(page.getByRole('alert')).toHaveText(/^That email link did not sign you in: /)
+    await kitchen.open(`./${forgedHash(kitchen.backend.recoveryHash())}`, { signedIn: false })
+    await expect(page.getByRole('alert')).toHaveText('That email link did not work.')
     await expect(page.getByRole('heading', { name: 'Set a new password' })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  })
+
+  test('a forged link never asks to switch accounts: the server has to vouch for it first', async ({ page, kitchen }) => {
+    // Anyone can write a token that claims an account. Only one the server accepts gets as far as "Switch accounts?".
+    await kitchen.open(`./${forgedHash(kitchen.backend.recoveryHash())}`, FRESH)
+    await expect(page.getByRole('alert')).toHaveText('That email link did not work. You are still signed in.')
+    await expect(page.getByRole('heading', { name: 'Switch accounts?' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: /Remy/ })).toBeVisible()
   })
 
   test('a failed link while already signed in says so above the menu', async ({ page, kitchen }) => {
@@ -171,8 +183,9 @@ test.describe('signing in and creating a chef', () => {
     await kitchen.open('./', FRESH)
     kitchen.backend.failNext('auth/logout', 'POST', 'The server is away')
     await page.getByRole('button', { name: 'Sign out' }).click()
+    // The server's own words are not repeated: the cook needs to know what happened, not what the server said.
     await expect(page.getByRole('alert')).toHaveText(
-      'Signed out on this phone, but the sign-out did not reach the server: The server is away. Sign in and out again when you have signal.',
+      'Signed out on this phone, but the sign-out did not reach the server. Sign in and out again when you have signal.',
     )
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
   })
@@ -182,7 +195,7 @@ test.describe('signing in and creating a chef', () => {
     await page.getByLabel('Email').fill(EMAIL)
     await page.getByLabel('Password').fill(PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
-    await expect(page.getByRole('alert')).toHaveText('Email not confirmed')
+    await expect(page.getByRole('alert')).toHaveText('Confirm your email first: open the link we sent, then sign in.')
     await page.getByRole('button', { name: 'Send the confirmation email again' }).click()
     await expect(page.getByRole('status')).toHaveText('Sent. Open the newest email’s link, then sign in.')
     await expect(page.getByRole('button', { name: 'Send the confirmation email again' })).toHaveCount(0)

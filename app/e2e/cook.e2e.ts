@@ -44,7 +44,7 @@ test.describe('cooking and logging', () => {
       'Kept $16.76 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
-      'You cooked with 8 things not ticked in your kit. Add them to your kit',
+      'You cooked with 8 things not checked off in your kit. Add them to your kit',
     ])
     // Focus is on what the cook earned, so a screen reader reads it first.
     await expect(page.getByRole('status')).toBeFocused()
@@ -55,9 +55,9 @@ test.describe('cooking and logging', () => {
     await expect(page.getByRole('status').getByRole('img', { name: 'First cook badge' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Remy/ })).toContainText('Level 2 dishwasher')
     await expect(page.locator('.kept')).toHaveText('$16.76 kept by cooking')
-    // The yolk lands on the plate just cooked, and only there.
+    // The yolk lands on the plate just cooked, at the top of the notice where the cook is looking, and only there.
     await expect(page.locator('.plate-celebrate')).toHaveCount(1)
-    await expect(page.getByRole('link', { name: /Chopped salad/ }).locator('.plate-celebrate')).toHaveCount(1)
+    await expect(page.getByRole('status').locator('.notice-cooked .plate-celebrate')).toHaveCount(1)
     // What unlocked is linked from the notice, and ready on the menu.
     await expect(page.getByRole('status').getByRole('link', { name: 'Sheet-pan sausage and vegetables' })).toBeVisible()
     await expect(page.locator('a.row').filter({ hasText: 'Sheet-pan sausage' })).toContainText('Teaches roasting')
@@ -94,8 +94,8 @@ test.describe('cooking and logging', () => {
     await expect(noticeLines(page)).toHaveText([
       'Soft scrambled eggs on toast: Rough. +10 XP.',
       'Kept $17.12 by not ordering.',
-      'Cook it again at “Decent” or better to learn heat control.',
-      'You cooked with 7 things not ticked in your kit. Add them to your kit',
+      'Cook it again at Decent or better to learn heat control.',
+      'You cooked with 7 things not checked off in your kit. Add them to your kit',
     ])
     // The menu row says what a Decent cook would do.
     await expect(page.getByRole('link', { name: /Soft scrambled eggs/ })).toContainText('Rough so far. A Decent cook teaches heat control')

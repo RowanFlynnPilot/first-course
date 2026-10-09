@@ -48,7 +48,7 @@ test.describe('this week: the plan and the grocery list', () => {
     })
     await page.getByRole('button', { name: 'Done shopping' }).click()
     await expect(page.getByRole('status')).toHaveText(
-      'Done shopping. Extra-virgin olive oil and Kosher salt went into your pantry. Go to the menu to cook',
+      'Done shopping. Into your pantry: extra-virgin olive oil and kosher salt. Go to the menu to cook',
     )
     // The confirm names what was not bought.
     expect(asked).toHaveLength(1)

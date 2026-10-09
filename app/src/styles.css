@@ -59,9 +59,65 @@
 
   --small: 0.9375rem;
   --base: 1.0625rem;
+  --h3: 1.125rem;
   --large: 1.25rem;
   --xl: 1.5rem;
   --xxl: 2rem;
+
+  /* Three radii: the tray, controls, notices and chips. */
+  --radius-tray: 1.5rem;
+  --radius-control: 0.75rem;
+  --radius-small: 0.5rem;
+}
+
+/* A phone tap: no grey flash, no double-tap zoom (pinch still zooms), and no
+   link menu from a long press on a control, which in the installed app could
+   throw the cook into the browser mid-recipe. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.button,
+.link-button,
+.row,
+.usual-item,
+.chef-card,
+.history,
+.quick-links a,
+.back a,
+.cook-head > a,
+.timer-chip,
+.check-label,
+.choice,
+.swatch,
+.rating,
+.price-button,
+summary {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Long titles break evenly, and paragraphs do not end on one word. */
+.title,
+.tray-title,
+.beat-title,
+.section-title,
+.usual-title,
+.row-title,
+.wordmark {
+  text-wrap: balance;
+}
+
+.lede,
+.cook-text,
+.why,
+.section-note,
+.row-note,
+.notice,
+.tray-body {
+  text-wrap: pretty;
 }
 
 *,
@@ -136,10 +192,12 @@ p {
   margin: 0;
   color: var(--muted);
   font-size: var(--small);
+  line-height: 1.2;
   text-align: right;
 }
 
 .kept strong {
+  display: block;
   color: var(--ink);
   font-size: var(--large);
   font-variant-numeric: tabular-nums;
@@ -241,7 +299,7 @@ p {
   stroke-opacity: 0.4;
 }
 
-/* The one piece of motion: the yolk lands on the plate you just cooked. */
+/* The yolk lands on the plate you just cooked, at the head of the after-cook notice. */
 .plate-celebrate .plate-yolk {
   transform-box: fill-box;
   transform-origin: center;
@@ -376,6 +434,7 @@ p {
   }
   40% {
     transform: translateY(-6px);
+    animation-timing-function: ease-in;
   }
 }
 
@@ -415,17 +474,17 @@ p {
 
 @keyframes badge-pop {
   from {
-    transform: scale(0) rotate(-20deg);
+    transform: scale(0);
   }
   to {
-    transform: scale(1) rotate(0deg);
+    transform: scale(1);
   }
 }
 
 .badges {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
-  gap: 1.25rem 0.75rem;
+  gap: 1rem 0.75rem;
   margin: 0.75rem 0 0;
   padding: 0;
   list-style: none;
@@ -441,7 +500,9 @@ p {
 
 .badge .row-title {
   color: var(--muted);
+  font-size: var(--small);
   font-weight: 400;
+  line-height: 1.25;
 }
 
 .badge-earned .row-title {
@@ -450,8 +511,15 @@ p {
 }
 
 .badge .row-note {
-  font-size: 0.8125rem;
-  line-height: 1.35;
+  font-size: var(--small);
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+/* In the after-cook notice, a badge's name reads as it does on the chef sheet. */
+.notice-badges .row-note {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* ── Beats: the full-screen moments after a cook ── */
@@ -494,21 +562,29 @@ p {
   height: 16rem;
   padding-bottom: 2.5rem;
   background: var(--plate);
-  border: 6px solid var(--rim);
+  border: 1rem solid var(--rim);
   border-radius: 50%;
 }
 
-/* The dish sits in the middle of the plate. */
+/* The dish sits in the middle of the plate, in its well. */
 .beat-dish {
   place-items: center;
   padding-bottom: 0;
 }
 
+.beat-dish::before {
+  content: '';
+  position: absolute;
+  inset: 19%;
+  border: 2px solid rgb(29 58 158 / 0.18);
+  border-radius: 50%;
+}
+
 .beat-plate::after {
   content: '';
   position: absolute;
-  inset: -6px;
-  border: 6px solid var(--yolk);
+  inset: -1rem;
+  border: 1rem solid var(--yolk);
   border-radius: 50%;
   opacity: 0;
 }
@@ -541,13 +617,7 @@ p {
     animation: stage-in 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) 0.1s both;
   }
 
-  /* The dish sits in the middle of the plate. */
-.beat-dish {
-  place-items: center;
-  padding-bottom: 0;
-}
-
-.beat-plate::after {
+  .beat-plate::after {
     animation: ring-out 1.1s ease-out 0.6s both;
   }
 
@@ -658,7 +728,7 @@ p {
   display: block;
   padding: 0.25rem;
   border: 3px solid transparent;
-  border-radius: 0.875rem;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 
@@ -675,7 +745,7 @@ p {
   width: 2.5rem;
   height: 2.5rem;
   border: 2px solid var(--ink);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-small);
 }
 
 .swatch-chosen {
@@ -729,7 +799,7 @@ p {
 
 .discipline-head h3 {
   margin: 0;
-  font: 700 1.125rem / 1.3 var(--display);
+  font: 700 var(--h3) / 1.3 var(--display);
 }
 
 .discipline .section-note {
@@ -821,14 +891,33 @@ p {
 
 .tray {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1.25rem;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'head plate'
+    'rest rest';
+  gap: 0.75rem 1rem;
   align-items: start;
   margin-top: 1.5rem;
   padding: 1.25rem;
   background: var(--plate);
   border: 3px solid var(--rim);
-  border-radius: 1.5rem;
+  border-radius: var(--radius-tray);
+}
+
+.tray-head {
+  grid-area: head;
+}
+
+.tray > .plate {
+  grid-area: plate;
+}
+
+.tray-rest {
+  grid-area: rest;
+}
+
+.tray .actions {
+  display: grid;
 }
 
 .tray-label {
@@ -847,11 +936,6 @@ p {
   margin: 0;
 }
 
-@media (max-width: 26rem) {
-  .tray {
-    grid-template-columns: 1fr;
-  }
-}
 
 /* ── Lists of recipes ── */
 
@@ -970,7 +1054,7 @@ p {
 
 .check-line {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
 }
 
@@ -999,9 +1083,14 @@ p {
   text-decoration: line-through;
 }
 
+.checks-cart .check-on .price-button {
+  color: var(--muted);
+}
+
+/* The one size for a heading inside a section: an aisle, a discipline, a spice. */
 .aisle-title {
   margin: 1.25rem 0 0;
-  font: 700 1.0625rem / 1.3 var(--display);
+  font: 700 var(--h3) / 1.3 var(--display);
 }
 
 .price-button {
@@ -1037,7 +1126,7 @@ p {
 .plan-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   min-height: 3rem;
   padding: 0.375rem 0;
@@ -1128,7 +1217,7 @@ p {
   border: 2px solid var(--rim);
   border-radius: 999px;
   background: var(--rim);
-  color: #fff;
+  color: var(--plate);
   font: 700 var(--base) / 1.2 var(--body);
   text-align: center;
   text-decoration: none;
@@ -1146,6 +1235,43 @@ input[aria-disabled='true'] {
 .button-quiet {
   background: transparent;
   color: var(--rim);
+}
+
+/* Pressed: no motion, only color, so a tap answers at once. */
+.button:active:not(:disabled, [aria-disabled='true']) {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.button-quiet:active:not(:disabled, [aria-disabled='true']),
+.timer-chip:active {
+  background: var(--plate);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.row:active,
+.usual-item:active,
+.chef-card:active,
+.history:active,
+.check-label:active,
+.rating:active,
+.choice:active {
+  background: rgb(29 58 158 / 0.06);
+}
+
+.link-button:active,
+.back a:active,
+.quick-links a:active,
+.price-button:active {
+  opacity: 0.6;
+}
+
+/* "Saving…" beside a button busy with its write. */
+.busy {
+  align-self: center;
+  color: var(--muted);
+  font-size: var(--small);
 }
 
 .link-button {
@@ -1169,7 +1295,25 @@ input[aria-disabled='true'] {
   padding: 0.875rem 1rem;
   background: var(--plate);
   border-left: 6px solid var(--yolk);
-  border-radius: 0 0.5rem 0.5rem 0;
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
+}
+
+/* Information, not something earned: a locked recipe, a warning, a reminder. */
+.notice-info {
+  border-left-color: var(--rim);
+}
+
+/* The after-cook notice opens with the plate just cooked, where the yolk lands in view. */
+.notice-cooked {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.875rem;
+  align-items: start;
+}
+
+/* An action in the notice sits on its own line, a full tap target that does not stretch the sentence. */
+.notice-lines .link-button {
+  display: flex;
 }
 
 .notice-lines {
@@ -1206,6 +1350,11 @@ input[aria-disabled='true'] {
   margin-top: 1.5rem;
 }
 
+.form-links {
+  display: grid;
+  justify-items: start;
+}
+
 .field {
   display: grid;
   gap: 0.375rem;
@@ -1217,7 +1366,7 @@ input[aria-disabled='true'] {
   width: 100%;
   padding: 0.75rem;
   border: 2px solid var(--rim);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-control);
   background: var(--plate);
   color: var(--ink);
   font: 400 var(--base) / 1.4 var(--body);
@@ -1238,7 +1387,7 @@ input[aria-disabled='true'] {
   padding: 0.875rem 1rem;
   background: var(--plate);
   border: 2px solid var(--line);
-  border-radius: 1rem;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 
@@ -1250,7 +1399,10 @@ input[aria-disabled='true'] {
   accent-color: var(--rim);
 }
 
+/* Chosen: a heavier rim than any text field, so a choice never reads as an empty box. */
 .rating-chosen {
+  padding: 0.8125rem 0.9375rem;
+  border-width: 3px;
   border-color: var(--rim);
 }
 
@@ -1324,8 +1476,11 @@ input[aria-disabled='true'] {
 
 mark {
   padding: 0 0.1em;
-  background: linear-gradient(transparent 55%, var(--yolk) 55%);
+  background: none;
   color: inherit;
+  text-decoration: underline 0.4em var(--yolk);
+  text-underline-offset: -0.3em;
+  text-decoration-skip-ink: none;
 }
 
 .ingredients li {
@@ -1418,7 +1573,7 @@ mark {
 
 .cook-text {
   margin: 0 0 1.25rem;
-  font: 600 clamp(1.5rem, 5.5vw, 1.875rem) / 1.3 var(--body);
+  font: 600 clamp(1.5rem, 5.5vmin, 1.875rem) / 1.3 var(--body);
   overflow-wrap: anywhere;
 }
 
@@ -1542,7 +1697,7 @@ mark {
 
 .spice-name {
   margin: 0;
-  font: 700 1.125rem / 1.3 var(--display);
+  font: 700 var(--h3) / 1.3 var(--display);
 }
 
 .spice .skills {
@@ -1579,7 +1734,7 @@ mark {
   padding: 0 1rem;
   background: var(--plate);
   border: 2px solid var(--line);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 
@@ -1676,6 +1831,14 @@ mark {
   .section-title {
     overflow-wrap: anywhere;
   }
+
+  .price-button {
+    min-width: 0;
+  }
+
+  .check-line {
+    flex-wrap: wrap;
+  }
 }
 
 /* The way on from a long list: the kit to the pantry, the pantry to the week. */
@@ -1693,4 +1856,116 @@ mark {
 /* "13 cooks, last Oct 2" under the blurb: the way to "Your cooks" at the foot of a long recipe. */
 .history-jump {
   margin: -0.5rem 0 0.5rem;
+}
+
+/* A short screen (a phone on its side): the buttons scroll with the step instead of holding a quarter of it. */
+@media (max-height: 30rem) {
+  .cook-nav {
+    position: static;
+  }
+}
+
+/* Step 0 has no Back: "Everything is out" takes the whole row. */
+.cook-nav-first .button {
+  grid-column: 1 / -1;
+}
+
+/* The meat line on step 0 is read from across the counter like the rest. */
+.cook-meat {
+  margin: 0 0 1rem;
+  color: var(--ink);
+  font-size: var(--base);
+}
+
+/* A recipe's method, step by step: a hairline between steps, the number bold, and each why under its step. */
+.method {
+  padding-left: 2rem;
+}
+
+.method li + li {
+  margin-top: 0.625rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--line);
+}
+
+.method li::marker {
+  font-weight: 700;
+}
+
+.method .why {
+  margin: 0.5rem 0 0;
+  font-size: var(--base);
+}
+
+/* The recipe page's actions: the two that start the week full width, the rare one a link. */
+.recipe-actions {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.recipe-actions .plan-note {
+  align-self: start;
+}
+
+/* The spice guide: quiet labels, the advice itself in ink. */
+.spice-facts {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+}
+
+.spice-facts dt {
+  color: var(--muted);
+  font-size: var(--small);
+  font-weight: 600;
+}
+
+.spice-facts dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.spice-try {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+/* An earned extra gets the yolk dot a learned skill has. */
+.extra-earned::before {
+  content: '';
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  background: var(--yolk);
+}
+
+/* The loading screen and a failed load: the app's own name and its plate, not a blank page. */
+.loading {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  padding-top: 25vh;
+  text-align: center;
+}
+
+.loading .status {
+  padding: 0;
+}
+
+/* A full-screen moment keeps its own scroll. */
+.beat {
+  overscroll-behavior: contain;
+}
+
+/* Cook mode in a browser tab: a pull down does not reload the page mid-cook. */
+.cook {
+  overscroll-behavior-y: contain;
+}
+
+.recipe-actions .link-button {
+  justify-self: start;
 }

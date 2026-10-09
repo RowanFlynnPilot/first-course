@@ -3,6 +3,7 @@
 // asks about salt and oil, not curry paste.
 
 import { Link } from 'react-router'
+import { BACK_TO_MENU } from '../components/menuScroll'
 import { CheckRow } from '../components/CheckRow'
 import { usePageTitle } from '../components/usePageTitle'
 import { INGREDIENTS } from '../curriculum/ingredients'
@@ -17,12 +18,14 @@ export function PantryScreen({ shop, onShopChange }: { shop: Shop; onShopChange:
   return (
     <main className="page">
       <nav className="back">
-        <Link to="/">Menu</Link>
+        <Link to="/" state={BACK_TO_MENU}>
+          Menu
+        </Link>
       </nav>
       <h1 className="title">Your pantry</h1>
       <p className="lede">
         Staples you have at home stay off the grocery list. “Done shopping” adds the ones you bought. When one runs
-        out, untick it. New to spices? The <Link to="/spices">spice guide</Link> says what to buy and how to start
+        out, uncheck it. New to spices? The <Link to="/spices">spice guide</Link> says what to buy and how to start
         using it.
       </p>
       {COURSES.map(({ tier, staples }) => (

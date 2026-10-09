@@ -4,6 +4,7 @@ import { BadgeArt } from '../components/BadgeArt'
 import { PromotionBeat, UsualBeat } from '../components/Beats'
 import { RecipeLinks } from '../components/LockedNotice'
 import { focusAfter, useFocusTarget } from '../components/useFocusTarget'
+import { useKeepMenuScroll } from '../components/menuScroll'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { ChefSprite } from '../components/ChefSprite'
@@ -92,6 +93,39 @@ export function MenuScreen({
     if (settled && notice !== null) noticeRef.current?.focus()
   }, [settled, notice])
   const signOut = useWrite()
+  useKeepMenuScroll()
+  // The usual leads the menu once one of its dishes is in reach; until then the courses come first,
+  // so a beginner meets what they can cook before seven locked plates (Rowan's call, October 9, 2026).
+  const usualFirst = usual.some((recipe) => recipeState(recipe, logs) !== 'locked')
+  const usualSection = (
+          <section className="section">
+            <h2 className="section-title">{COURSE_NAMES[5]}</h2>
+            <p className="section-note">
+              {usual.every((recipe) => recipeState(recipe, logs) === 'mastered')
+                ? 'What you used to order. You have mastered every one of them.'
+                : `What you order now. Everything ${usualFirst ? 'below' : 'above'} builds toward cooking these.`}
+            </p>
+            <ul className="usual">
+              {usual.map((recipe) => {
+                const state = recipeState(recipe, logs)
+                const have = recipe.requires.length - missingTechniques(recipe, logs).length
+                return (
+                  <li key={recipe.id}>
+                    <Link className="usual-item" to={`/recipe/${recipe.id}`}>
+                      <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={56} />
+                      <span className="usual-title">{recipe.title}</span>
+                      <span className="row-note">
+                        {state === 'locked'
+                          ? `${have} of ${plural(recipe.requires.length, 'skill', 'skills')} learned`
+                          : rowNote(recipe, logs)}
+                      </span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+  )
 
   return (
     <>
@@ -120,20 +154,28 @@ export function MenuScreen({
 
         {notice !== null && (
           <div className="notice" role="status" ref={noticeRef} tabIndex={-1}>
-            <ul className="notice-lines">
-              {notice.lines.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-              {notice.readyNow.length > 0 && (
-                <li>
-                  Now ready to cook: <RecipeLinks recipes={notice.readyNow} />.
-                </li>
-              )}
-              {notice.newExtras.map((id) => (
-                <NewExtra key={id} id={id} userId={userId} chef={chef} onChefSaved={onChefSaved} />
-              ))}
-              <CookedWithKit recipe={recipeById(notice.cookedId)} shop={shop} onShopChange={onShopChange} />
-            </ul>
+            <div className="notice-cooked">
+              <Plate
+                state={recipeState(recipeById(notice.cookedId), logs)}
+                goodCooks={goodCooks(recipeById(notice.cookedId), logs)}
+                size={44}
+                celebrate={settled}
+              />
+              <ul className="notice-lines">
+                {notice.lines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+                {notice.readyNow.length > 0 && (
+                  <li>
+                    Now ready to cook: <RecipeLinks recipes={notice.readyNow} />.
+                  </li>
+                )}
+                {notice.newExtras.map((id) => (
+                  <NewExtra key={id} id={id} userId={userId} chef={chef} onChefSaved={onChefSaved} />
+                ))}
+                <CookedWithKit recipe={recipeById(notice.cookedId)} shop={shop} onShopChange={onShopChange} />
+              </ul>
+            </div>
             {notice.badges.length > 0 && (
               <ul className="notice-badges">
                 {notice.badges.map((id) => (
@@ -157,42 +199,14 @@ export function MenuScreen({
           onShopChange={onShopChange}
         />
 
-        <nav className="quick-links" aria-label="Shopping, kit and spices">
+        <nav className="quick-links" aria-label="Shopping, kit, and spices">
           <Link to="/shop">{shop.plan.length === 0 ? 'This week' : `This week (${shop.plan.length})`}</Link>
           <Link to="/pantry">Pantry</Link>
           <Link to="/kit">Kit</Link>
           <Link to="/spices">Spices</Link>
         </nav>
 
-        <section className="section">
-          <h2 className="section-title">{COURSE_NAMES[5]}</h2>
-          <p className="section-note">
-            {usual.every((recipe) => recipeState(recipe, logs) === 'mastered')
-              ? 'What you used to order. You have mastered every one of them.'
-              : 'What you order now. Everything below builds toward cooking these.'}
-          </p>
-          <ul className="usual">
-            {usual.map((recipe) => {
-              const state = recipeState(recipe, logs)
-              const have = recipe.requires.length - missingTechniques(recipe, logs).length
-              return (
-                <li key={recipe.id}>
-                  <Link className="usual-item" to={`/recipe/${recipe.id}`}>
-                    <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={56} />
-                    <span className="usual-title">{recipe.title}</span>
-                    <span className="row-note">
-                      {state === 'locked'
-                        ? `${have} of ${plural(recipe.requires.length, 'skill', 'skills')}`
-                        : state === 'ready'
-                          ? 'In reach. Cook it any time.'
-                          : rowNote(recipe, logs)}
-                    </span>
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
+        {usualFirst && usualSection}
 
         {COURSES.map((tier) => {
           const recipes = RECIPES.filter((recipe) => recipe.tier === tier)
@@ -206,12 +220,7 @@ export function MenuScreen({
           const rows = (
             <ul className="rows">
               {recipes.map((recipe) => (
-                <RecipeRow
-                  key={recipe.id}
-                  recipe={recipe}
-                  logs={logs}
-                  celebrate={settled && notice?.cookedId === recipe.id}
-                />
+                <RecipeRow key={recipe.id} recipe={recipe} logs={logs} />
               ))}
             </ul>
           )
@@ -231,8 +240,8 @@ export function MenuScreen({
               </p>
               {shut && tier > 1 && (
                 <p className="section-note">
-                  Opens as you learn {COURSE_NAMES[(tier - 1) as Tier].toLowerCase()} skills. Each dish below says which
-                  it needs.
+                  Opens as you learn {COURSE_NAMES[(tier - 1) as Tier].toLowerCase()} skills. Each recipe below says
+                  which it needs.
                 </p>
               )}
               {done ? (
@@ -246,6 +255,8 @@ export function MenuScreen({
             </section>
           )
         })}
+
+        {!usualFirst && usualSection}
 
         <footer className="footer">
           <button
@@ -296,8 +307,8 @@ function StreakLine({ streak }: { streak: Streak }) {
  */
 function FirstSteps({ shop }: { shop: Shop }) {
   const steps = [
-    { done: shop.kit.size > 0, to: '/kit', text: 'Tick the kit you already own' },
-    { done: shop.pantry.size > 0, to: '/pantry', text: 'Tick the staples already in your pantry' },
+    { done: shop.kit.size > 0, to: '/kit', text: 'Check off the kit you already own' },
+    { done: shop.pantry.size > 0, to: '/pantry', text: 'Check off the staples already in your pantry' },
     { done: shop.plan.length > 0, to: '/shop', text: 'Add a recipe or two to this week' },
     { done: shop.shopped.size > 0, to: '/shop', text: 'Shop for them, and tap “Done shopping”' },
     { done: false, to: null, text: 'Cook, then log how it went' },
@@ -389,8 +400,8 @@ function CookedWithKit({ recipe, shop, onShopChange }: { recipe: Recipe; shop: S
   return (
     <li>
       {missing.length <= 3
-        ? `You cooked with ${listOf(missing.map((id) => inSentence(EQUIPMENT[id].name)))}, not ticked in your kit.`
-        : `You cooked with ${missing.length} things not ticked in your kit.`}{' '}
+        ? `You cooked with ${listOf(missing.map((id) => inSentence(EQUIPMENT[id].name)))}, not checked off in your kit.`
+        : `You cooked with ${missing.length} things not checked off in your kit.`}{' '}
       <button
         className="link-button"
         type="button"
@@ -449,8 +460,7 @@ function UpNext({
   )
   return (
     <section className="tray">
-      <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={88} />
-      <div>
+      <div className="tray-head">
         <p className="tray-label" aria-hidden="true">
           {label}
         </p>
@@ -458,6 +468,9 @@ function UpNext({
         <h2 className="tray-title" aria-label={`${label}: ${recipe.title}`}>
           {recipe.title}
         </h2>
+      </div>
+      <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={64} />
+      <div className="tray-rest">
         <p className="tray-body">
           {formatMinutes(content.totalMinutes)}. {formatCents(cookCostPerServingCents(content, shop.prices))} a serving
           instead of {formatCents(orderCostPerServingCents(content))} delivered.
@@ -474,6 +487,11 @@ function UpNext({
             >
               Add to this week
             </button>
+          )}
+          {add.busy && (
+            <span className="busy" role="status">
+              Saving…
+            </span>
           )}
           {plan === 'planned' && <ShopForIt />}
           {start}
@@ -501,12 +519,12 @@ function ShopForIt() {
   )
 }
 
-function RecipeRow({ recipe, logs, celebrate }: { recipe: Recipe; logs: readonly CookLog[]; celebrate: boolean }) {
+function RecipeRow({ recipe, logs }: { recipe: Recipe; logs: readonly CookLog[] }) {
   const state = recipeState(recipe, logs)
   return (
     <li>
       <Link className={`row row-${state}`} to={`/recipe/${recipe.id}`}>
-        <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={44} celebrate={celebrate} />
+        <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={44} />
         <span>
           <span className="row-title">{recipe.title}</span>
           <span className="row-note">{rowNote(recipe, logs)}</span>

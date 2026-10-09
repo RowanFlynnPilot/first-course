@@ -79,7 +79,7 @@ export function PromotionBeat({
   return (
     <Beat
       kicker="Promoted"
-      title={`${chef.name} is now a ${RANKS[rank].name.toLowerCase()}`}
+      title={`${chef.name} is promoted to ${RANKS[rank].name.toLowerCase()}`}
       art={
         <div className="beat-stage beat-plate">
           <ChefSprite rank={rank} look={chef} extras={extras} scale={7} idle />
@@ -102,7 +102,7 @@ export function UsualBeat({ recipe, last, onDone }: { recipe: Recipe; last: bool
   const badge = usualBadge(recipe)
   return (
     <Beat
-      kicker="From the usual"
+      kicker="The usual"
       title={`${recipe.title} is in reach`}
       art={
         // The dish, on a plate.
@@ -114,12 +114,12 @@ export function UsualBeat({ recipe, last, onDone }: { recipe: Recipe; last: bool
       doneLabel={last ? 'Back to the menu' : 'Next'}
       extra={
         <Link className="button button-quiet" to={`/recipe/${recipe.id}`}>
-          See the dish
+          See the recipe
         </Link>
       }
     >
-      <p>You have learned every skill it needs. It is one of the dishes you order.</p>
-      <p>Cook it any time. Cooking it earns the {badgeById(badge).name} badge.</p>
+      <p>You have learned every skill it needs. Next time you would order it, cook it instead.</p>
+      <p>A cook at Decent or better earns the {badgeById(badge).name} badge.</p>
     </Beat>
   )
 }

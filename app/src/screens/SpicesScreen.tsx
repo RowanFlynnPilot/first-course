@@ -2,6 +2,7 @@
 // using it on everyday food.
 
 import { Link } from 'react-router'
+import { BACK_TO_MENU } from '../components/menuScroll'
 import { usePageTitle } from '../components/usePageTitle'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import { SPICE_HABITS, SPICES, SPICES_LATER } from '../curriculum/spices'
@@ -17,7 +18,9 @@ export function SpicesScreen({ shop }: { shop: Shop }) {
   return (
     <main className="page">
       <nav className="back">
-        <Link to="/">Menu</Link>
+        <Link to="/" state={BACK_TO_MENU}>
+          Menu
+        </Link>
       </nav>
       <h1 className="title">Spices</h1>
       <p className="lede">
@@ -57,7 +60,7 @@ export function SpicesScreen({ shop }: { shop: Shop }) {
                       {shop.pantry.has(id) && 'In your pantry. '}
                       First used in <Link to={`/recipe/${firstIn.id}`}>{firstIn.title}</Link>.
                     </p>
-                    <dl className="skills">
+                    <dl className="spice-facts">
                       <div>
                         <dt>Tastes</dt>
                         <dd>{guide.tastes}</dd>
@@ -71,7 +74,7 @@ export function SpicesScreen({ shop }: { shop: Shop }) {
                         <dd>{guide.use}</dd>
                       </div>
                       <div>
-                        <dt>Start with</dt>
+                        <dt>Try it on</dt>
                         <dd>
                           <ul className="spice-try">
                             {guide.tryOn.map((idea) => (

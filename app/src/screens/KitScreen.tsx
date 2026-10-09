@@ -1,6 +1,7 @@
 // The kit: equipment the cook owns, filed under the first course that needs it.
 
 import { Link } from 'react-router'
+import { BACK_TO_MENU } from '../components/menuScroll'
 import { CheckRow } from '../components/CheckRow'
 import { focusAfter, useFocusTarget } from '../components/useFocusTarget'
 import { useWrite } from '../components/useWrite'
@@ -18,11 +19,13 @@ export function KitScreen({ shop, onShopChange }: { shop: Shop; onShopChange: Sh
   return (
     <main className="page">
       <nav className="back">
-        <Link to="/">Menu</Link>
+        <Link to="/" state={BACK_TO_MENU}>
+          Menu
+        </Link>
       </nav>
       <h1 className="title">Your kit</h1>
       <p className="lede">
-        Tick what you already own. Each course lists what it adds, so you can buy it before the shop, not halfway
+        Check off what you already own. Each course lists what it adds, so you can buy it before you need it, not halfway
         through a recipe.
       </p>
       {COURSES.map(({ tier, items }) => {

@@ -20,9 +20,12 @@ import { RecipeScreen } from './screens/RecipeScreen'
 import { SetPasswordScreen } from './screens/SetPasswordScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { SpicesScreen } from './screens/SpicesScreen'
+import { menuScrollPosition } from './components/menuScroll'
+import { Plate } from './components/Plate'
 import { clearFocusTarget } from './components/useFocusTarget'
+import { plainMessage } from './lib/errors'
 import { usePageTitle } from './components/usePageTitle'
-import { emailLink, fromPasswordReset, linkError, signInFromLink, supabase } from './supabase'
+import { emailLink, fromPasswordReset, linkError, linkOwner, signInFromLink, supabase } from './supabase'
 
 export default function App() {
   // undefined = still asking Supabase; null = signed out.
@@ -45,30 +48,30 @@ export default function App() {
   // loaded at all (no signal and an expired token): then nothing changed.
   const signedOut = useRef(false)
 
+  // A link that did not sign anyone in leaves no password to set, and says why.
+  function linkFailed(cause: Error) {
+    setSettingPassword(false)
+    setLinkProblem(cause.message)
+    setLanded(true)
+  }
+
   function land() {
     if (emailLink === null) throw new Error('No email link to sign in with')
-    signInFromLink(emailLink).then(
-      () => setLanded(true),
-      (cause: Error) => {
-        // A reset link that did not sign anyone in leaves no password to set.
-        setSettingPassword(false)
-        setLinkProblem(cause.message)
-        setLanded(true)
-      },
-    )
+    signInFromLink(emailLink).then(() => setLanded(true), linkFailed)
   }
 
   useEffect(() => {
     if (emailLink === null) return
     const link = emailLink
-    void supabase.auth.getSession().then(({ data }) => {
+    // Who the link really signs in, checked by Supabase, against who is signed in here already.
+    Promise.all([supabase.auth.getSession(), linkOwner(link)]).then(([{ data }, owner]) => {
       const current = data.session?.user
-      if (current !== undefined && link.owner !== null && current.id !== link.owner.id) {
-        setSwitching({ from: current.email ?? 'another account', to: link.owner.email ?? 'another account' })
+      if (current !== undefined && current.id !== owner.id) {
+        setSwitching({ from: current.email ?? 'another account', to: owner.email ?? 'another account' })
         return
       }
       land()
-    })
+    }, linkFailed)
   }, [])
 
   useEffect(() => {
@@ -97,7 +100,7 @@ export default function App() {
       />
     )
   }
-  if (session === undefined || !landed) return <p className="status">Loading…</p>
+  if (session === undefined || !landed) return <Waiting text="Loading…" />
   if (session === null) {
     return (
       <AuthScreen
@@ -119,8 +122,8 @@ export default function App() {
         signedOut.current = false
         const { error } = await supabase.auth.signOut()
         if (error === null) return
-        if (!signedOut.current) throw new Error(`Could not sign out: ${error.message}. Try again with signal.`)
-        const problem = `Signed out on this phone, but the sign-out did not reach the server: ${error.message}`
+        if (!signedOut.current) throw new Error(`Could not sign out: ${plainMessage(error)}`)
+        const problem = 'Signed out on this phone, but the sign-out did not reach the server.'
         setSignOutProblem(problem)
         throw new Error(problem)
       }}
@@ -151,6 +154,23 @@ function SwitchAccount({ from, to, onSwitch, onStay }: { from: string; to: strin
           Switch to {to}
         </button>
       </div>
+    </main>
+  )
+}
+
+/**
+ * While the app loads: its name and its plate, not a blank page. The
+ * installed app opens on this every time, so it is the first thing a cook
+ * sees. Still: nothing here moves.
+ */
+function Waiting({ text }: { text: string }) {
+  return (
+    <main className="page loading">
+      <p className="wordmark">First Course</p>
+      <Plate state="ready" goodCooks={0} size={64} />
+      <p className="status" role="status">
+        {text}
+      </p>
     </main>
   )
 }
@@ -250,7 +270,9 @@ function Kitchen({
 
   if (error !== null) {
     return (
-      <main className="page">
+      <main className="page loading">
+        <p className="wordmark">First Course</p>
+        <h1 className="title">Could not load your kitchen</h1>
         <p className="notice notice-error" role="alert">
           {error}
         </p>
@@ -269,7 +291,7 @@ function Kitchen({
       </main>
     )
   }
-  if (logs === null || chef === undefined || shop === null) return <p className="status">Loading your kitchen…</p>
+  if (logs === null || chef === undefined || shop === null) return <Waiting text="Loading your kitchen…" />
   // Creating the chef is a write like any other: a catch-up that was out meanwhile reads again.
   function chefSaved(saved: Chef) {
     writes.current += 1
@@ -290,7 +312,8 @@ function Kitchen({
     writes.current += 1
     setLogs((previous) => {
       if (previous === null) throw new Error('The cook log changed before it loaded')
-      return change(previous)
+      // A new, frozen array every time: progress is kept per log array (progress.ts).
+      return Object.freeze(change(previous))
     })
   }
 
@@ -371,7 +394,9 @@ function Pages({
   onShopChange: ShopChange
   onSignOut: () => Promise<void>
 }) {
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const { pathname } = location
+  const backToMenu = pathname === '/' && (location.state as { back?: unknown } | null)?.back === true
   const navigationType = useNavigationType()
   const [notice, setNotice] = useState<CookNotice | null>(null)
 
@@ -383,13 +408,13 @@ function Pages({
     // A focus target named on the screen just left must not pull focus here.
     clearFocusTarget()
     if (navigationType === 'POP') return
-    window.scrollTo(0, 0)
+    window.scrollTo(0, backToMenu ? menuScrollPosition() : 0)
     if (document.activeElement !== null && document.activeElement !== document.body) return
     const heading = document.querySelector<HTMLElement>('main h1')
     if (heading === null) throw new Error(`The page at ${pathname} has no heading`)
     heading.tabIndex = -1
     heading.focus({ preventScroll: true })
-  }, [pathname, navigationType])
+  }, [pathname, navigationType, backToMenu])
 
   // The after-cook notice is shown once. It goes when you leave the menu.
   const [lastPathname, setLastPathname] = useState(pathname)

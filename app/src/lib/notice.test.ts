@@ -27,7 +27,7 @@ describe('the after-cook notice', () => {
   it('says what a rough cook still owes', () => {
     const notice = cookNotice(recipeById('soft-scrambled-eggs'), [], log('soft-scrambled-eggs', 1), 'Remy', ESTIMATES)
     expect(notice.lines[0]).toBe('Soft scrambled eggs on toast: Rough. +10 XP.')
-    expect(notice.lines).toContain('Cook it again at “Decent” or better to learn heat control.')
+    expect(notice.lines).toContain('Cook it again at Decent or better to learn heat control.')
   })
 
   it('names the promotion with the chef’s name', () => {
@@ -46,7 +46,7 @@ describe('the after-cook notice', () => {
   })
 
   it('opens a Fourth-course recipe only once a Third-course skill it needs is learned', () => {
-    // Carbonara needs the pasta-water sauce, separating an egg (the aioli) and spooning off fat (the pan sauce).
+    // Carbonara needs saucing with pasta water, separating an egg (the aioli), and spooning off fat (the pan sauce).
     const before = ['chopped-salad', 'soft-scrambled-eggs', 'aglio-e-olio', 'pasta-al-limone', 'seared-chicken-thighs', 'oven-fries-aioli']
       .map((id) => log(id, 2))
     const notice = cookNotice(recipeById('chicken-pan-sauce'), before, log('chicken-pan-sauce', 2), 'Remy', ESTIMATES)
@@ -62,7 +62,7 @@ describe('the after-cook notice', () => {
     expect(cookNotice(eggs, five, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe('Soft scrambled eggs on toast: Nailed it. +10 XP.')
     const nailedFive = Array.from({ length: 5 }, () => log(eggs.id, 3))
     expect(cookNotice(eggs, nailedFive, log(eggs.id, 3), 'Remy', ESTIMATES).lines[0]).toBe(
-      "Soft scrambled eggs on toast: Nailed it. No XP this time: a recipe's best 5 cooks count, and this one did not beat them.",
+      "Soft scrambled eggs on toast: Nailed it. No XP this time: a recipe’s best 5 cooks count, and this one did not beat them.",
     )
   })
 
@@ -73,7 +73,7 @@ describe('the after-cook notice', () => {
   })
 
   it('makes a dish of the usual coming into reach its own moment, not a line', () => {
-    // The double smash burger needs the smash crust, caramelizing and cold emulsions.
+    // The double smash burger needs smashing burgers, caramelizing onions, and whisking an emulsion.
     const before = [log('smash-cheeseburger', 2), log('onion-melt', 2)]
     const notice = cookNotice(recipeById('oven-fries-aioli'), before, log('oven-fries-aioli', 2), 'Remy', ESTIMATES)
     expect(notice.usualUnlocked.map((recipe) => recipe.id)).toEqual(['double-smash-burger'])

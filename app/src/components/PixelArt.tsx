@@ -41,8 +41,8 @@ export function PixelArt({
     >
       {frames.map((rows, frame) => (
         <g key={frame} className={`pixel-frame pixel-frame-${frame}`}>
-          {runs(rows, palette, label).map((run) => (
-            <rect key={`${run.x}-${run.y}`} x={run.x} y={run.y} width={run.width} height={1} fill={run.fill} />
+          {[...shapes(rows, palette, label)].map(([fill, d]) => (
+            <path key={fill} d={d} fill={fill} />
           ))}
         </g>
       ))}
@@ -50,9 +50,11 @@ export function PixelArt({
   )
 }
 
-// One rect per horizontal run of the same color.
-function runs(rows: readonly string[], palette: Readonly<Record<string, string>>, label: string) {
-  const out: { x: number; y: number; width: number; fill: string }[] = []
+// One path per color, made of a rectangle for each horizontal run of it. The
+// chef sheet draws 31 badges and seven chefs: a rect per run came to about
+// 3,700 elements, a path per color to a few hundred.
+function shapes(rows: readonly string[], palette: Readonly<Record<string, string>>, label: string): Map<string, string> {
+  const byFill = new Map<string, string>()
   rows.forEach((row, y) => {
     let x = 0
     while (x < row.length) {
@@ -62,10 +64,11 @@ function runs(rows: readonly string[], palette: Readonly<Record<string, string>>
       if (key !== '.') {
         const fill = palette[key]
         if (fill === undefined) throw new Error(`${label}: unknown pixel key "${key}"`)
-        out.push({ x, y, width: end - x, fill })
+        const width = end - x
+        byFill.set(fill, `${byFill.get(fill) ?? ''}M${x} ${y}h${width}v1h-${width}z`)
       }
       x = end
     }
   })
-  return out
+  return byFill
 }

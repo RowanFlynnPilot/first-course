@@ -22,7 +22,7 @@ export const SPICES = {
     tryOn: ['A sliced tomato with olive oil and a pinch of salt', 'Eggs, salted before they go in the pan', 'Pasta water that tastes like mild seawater'],
   },
   'black-pepper': {
-    tastes: 'Warm, woody and gently hot. Its smell starts fading as soon as it is ground, which is why pre-ground pepper tastes flat and dusty.',
+    tastes: 'Warm, woody, and gently hot. Its smell starts fading as soon as it is ground, which is why pre-ground pepper tastes flat and dusty.',
     buy: 'Whole peppercorns in a grinder. When it runs out, refill it from a bag of whole peppercorns, which costs far less. If yours will not open, buy a refillable grinder once.',
     use: 'Grind it over food near the end, or just before it cooks; long, hard heat dulls it. Most grinders twist to set coarse or fine. To measure it, grind straight into the measuring spoon.',
     tryOn: ['A fried egg', 'Buttered pasta with parmesan', 'Avocado on toast'],
@@ -34,7 +34,7 @@ export const SPICES = {
     tryOn: ['A pinch on a slice of pizza', 'Buttered noodles for two, with ¼ teaspoon', 'Roasted broccoli'],
   },
   'cumin-seeds': {
-    tastes: 'Earthy, warm and a little smoky: the smell of dal, chili and taco seasoning.',
+    tastes: 'Earthy, warm, and a little smoky: the smell of dal, chili, and taco seasoning.',
     buy: 'Whole seeds in a small jar. Whole seeds keep for two years or more; ground cumin fades within a year.',
     use: 'Bloom them in hot fat: first, before the onion, as in the chana masala, or in butter at the end, poured over, as in the dal. Test the fat with one seed. They sizzle at once, and in 20 to 30 seconds they darken a shade and smell toasty.',
     tryOn: [
@@ -44,13 +44,13 @@ export const SPICES = {
     ],
   },
   turmeric: {
-    tastes: 'Mild, earthy and a little bitter. It is there mostly for its deep yellow color.',
+    tastes: 'Mild, earthy, and a little bitter. It is there mostly for its deep yellow color.',
     buy: 'Ground, in a small jar. One lasts a long time: recipes use ½ teaspoon at a time.',
-    use: 'Cook it in the fat: a minute with the onions, as in the dal, or 30 seconds with the other ground spices. That takes away its raw, dusty taste, so never sprinkle it on at the end. It stains plastic tubs, silicone spatulas, wooden boards and clothes: wipe spills right away with soapy water. A stain on a board fades in sunlight.',
+    use: 'Cook it in the fat: a minute with the onions, as in the dal, or 30 seconds with the other ground spices. That takes away its raw, dusty taste, so never sprinkle it on at the end. It stains plastic tubs, silicone spatulas, wooden boards, and clothes: wipe spills right away with soapy water. A stain on a board fades in sunlight.',
     tryOn: ['A pinch in the pot for yellow rice, with a teaspoon of butter', 'A pinch beaten into eggs before they cook', 'Lentil or chicken soup'],
   },
   coriander: {
-    tastes: 'Citrusy, floral and mild. It is the seed of the cilantro plant, but tastes nothing like the leaves.',
+    tastes: 'Citrusy, floral, and mild. It is the seed of the cilantro plant, but tastes nothing like the leaves.',
     buy: 'Ground coriander, in a small jar in the spice aisle. Not the green bunch in produce: that is cilantro, which tastes completely different.',
     use: 'The easygoing one: it rarely overpowers anything. Bloom it in the fat for 30 seconds with the other ground spices. It often travels with cumin.',
     tryOn: [
@@ -60,7 +60,7 @@ export const SPICES = {
     ],
   },
   'garam-masala': {
-    tastes: 'A blend, not one spice: warm and sweet-smelling, usually from cinnamon, cardamom, clove, black pepper, cumin and coriander. Brands vary; some add nutmeg, bay or chili.',
+    tastes: 'A blend, not one spice: warm and sweet-smelling, usually from cinnamon, cardamom, clove, black pepper, cumin, and coriander. Brands vary; some add nutmeg, bay, or chili.',
     buy: 'A small jar. An Indian grocery sells it fresher and cheaper.',
     use: 'The recipes add it with the other ground spices. In your own curries, a pinch stirred in off the heat at the end brings back its perfume.',
     tryOn: ['Roasted sweet potatoes or squash', 'Roasted chickpeas', 'Plain yogurt with salt and lemon, as a dip'],
@@ -113,18 +113,18 @@ export const SPICE_HABITS: readonly { readonly habit: string; readonly why: stri
 
 /** Not on the menu, but the next jars worth owning. */
 export const SPICES_LATER: readonly { readonly name: string; readonly why: string }[] = [
-  { name: 'Dried oregano', why: 'Tomato sauce, pizza and Greek salad. Crush it between your fingers as it goes in.' },
+  { name: 'Dried oregano', why: 'Tomato sauce, pizza, and Greek salad. Crush it between your fingers as it goes in.' },
   {
     name: 'Smoked paprika',
-    why: 'Eggs, potatoes and beans, and anything you want to taste a little of the campfire. Buy the sweet kind (dulce) unless you want heat.',
+    why: 'Eggs, potatoes, and beans, and anything you want to taste a little of the campfire. Buy the sweet kind (dulce) unless you want heat.',
   },
   { name: 'Ground cinnamon', why: 'Oatmeal and baking, and a pinch in chili or a tomato sauce.' },
   {
     name: 'Chili powder',
-    why: 'A blend of ground chili, cumin, oregano and garlic, sometimes with salt, for chili and tacos. In Indian and British recipes, “chili powder” means pure ground chili, which is far hotter.',
+    why: 'A blend of ground chili, cumin, oregano, and garlic, sometimes with salt, for chili and tacos. In Indian and British recipes, “chili powder” means pure ground chili, which is far hotter.',
   },
   {
     name: 'Bay leaves',
-    why: 'One or two in soup, beans or ragù while it simmers. Take them out before serving: they stay stiff and sharp and can scratch your throat.',
+    why: 'One or two in soup, beans, or ragù while it simmers. Take them out before serving: they stay stiff and sharp and can scratch your throat.',
   },
 ]

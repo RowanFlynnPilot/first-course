@@ -87,12 +87,12 @@ function CookMode({
 
   // What comes after this step, so the cook can look ahead without tapping away.
   const following = content.steps[step]
-  const nextLine = following === undefined ? 'log how it went.' : firstSentence(following.text)
+  const nextLine = following === undefined ? 'Log how it went.' : firstSentence(following.text)
 
   return (
     <main className="page cook">
       <header className="cook-head">
-        <Link to={`/recipe/${recipe.id}`} onClick={confirmStop('A timer is still running. Leaving cook mode stops it.')}>
+        <Link to={`/recipe/${recipe.id}`} onClick={confirmStop('A timer is still running. Leave cook mode and stop it?')}>
           Leave cook mode
         </Link>
         <p className="cook-count">
@@ -103,12 +103,12 @@ function CookMode({
 
       {timers.soundError !== null && (
         <p className="notice notice-error" role="alert">
-          The timer could not make a sound: {timers.soundError}
+          This phone would not play the timer’s ring. Turn the volume up and tap the page; until then, watch the clock.
         </p>
       )}
       {timers.needsTap && (
-        <p className="notice timer-sound" role="status">
-          The page reloaded. Tap anywhere so your timers can chime.
+        <p className="notice notice-info timer-sound" role="status">
+          The page reloaded. Tap anywhere so your timers can ring.
         </p>
       )}
 
@@ -143,10 +143,11 @@ function CookMode({
       {current === null ? (
         <section className="cook-body">
           <h1 className="cook-text">Get everything out before you turn anything on.</h1>
-          {note !== null && <p className="notice">Last time you wrote: “{note}”</p>}
+          <p className="cook-meat">Read every step through once first.</p>
           {content.ingredients.some(({ ingredientId }) => INGREDIENTS[ingredientId].section === 'meat') && (
-            <p className="section-note">Leave the meat in the fridge until the step that uses it.</p>
+            <p className="cook-meat">Leave the meat in the fridge until the step that uses it.</p>
           )}
+          {note !== null && <p className="notice notice-info">Last time you wrote: “{note}”</p>}
           <h2 className="section-title">Ingredients</h2>
           <IngredientList ingredients={content.ingredients} />
           <h2 className="section-title">Equipment</h2>
@@ -188,13 +189,11 @@ function CookMode({
 
       {screenStaysOn === false && <p className="row-note">This browser will not keep the screen awake here.</p>}
 
-      <nav className="cook-nav">
-        {step > 0 ? (
+      <nav className={step === 0 ? 'cook-nav cook-nav-first' : 'cook-nav'}>
+        {step > 0 && (
           <Link className="button button-quiet" to={`/cook/${recipe.id}/${step - 1}`}>
             Back
           </Link>
-        ) : (
-          <span />
         )}
         {step < last ? (
           <Link className="button" to={`/cook/${recipe.id}/${step + 1}`}>
@@ -204,7 +203,7 @@ function CookMode({
           <Link
             className="button"
             to={`/cook/${recipe.id}/log`}
-            onClick={confirmStop('A timer is still running. Logging the cook now stops it.')}
+            onClick={confirmStop('A timer is still running. Stop it and log the cook?')}
           >
             Finish and log it
           </Link>

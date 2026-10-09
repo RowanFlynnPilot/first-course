@@ -62,16 +62,18 @@ describe('xp', () => {
   })
 
   it('never goes down when a cook is added', () => {
-    const logs: CookLog[] = []
+    // A new array for every cook, as the app makes one: progress is kept per log array.
+    let logs: readonly CookLog[] = []
     let previous = 0
     for (const recipe of RECIPES) {
       for (const rating of [1, 2, 3] as const) {
-        logs.push(log(recipe.id, rating))
+        logs = [...logs, log(recipe.id, rating)]
         const xp = totalXp(logs)
         expect(xp).toBeGreaterThanOrEqual(previous)
         previous = xp
       }
     }
+    expect(previous).toBeGreaterThan(0)
   })
 })
 

@@ -12,6 +12,7 @@ import {
   type Look,
 } from '../components/chefSprites'
 import { supabase } from '../supabase'
+import { plainMessage } from './errors'
 import { extraById, isExtraId, type ExtraId } from './extras'
 
 export const CHEF_NAME_MAX = 24
@@ -82,7 +83,7 @@ function toRow(chef: Chef): ChefRow {
 /** null means this account has not created a chef yet. */
 export async function fetchChef(): Promise<Chef | null> {
   const { data, error } = await supabase.from('chefs').select(COLUMNS).maybeSingle()
-  if (error) throw new Error(`Could not load your chef: ${error.message}`)
+  if (error) throw new Error(`Could not load your chef: ${plainMessage(error)}`)
   return data === null ? null : toChef(data as ChefRow)
 }
 
@@ -95,15 +96,15 @@ export async function createChef(chef: Chef): Promise<Chef> {
   const { data, error } = await supabase.from('chefs').insert(toRow(chef)).select(COLUMNS).single()
   if (error?.code === '23505') {
     const existing = await fetchChef()
-    if (existing === null) throw new Error(`Could not create your chef: ${error.message}`)
+    if (existing === null) throw new Error(`Could not create your chef: ${plainMessage(error)}`)
     return existing
   }
-  if (error) throw new Error(`Could not create your chef: ${error.message}`)
+  if (error) throw new Error(`Could not create your chef: ${plainMessage(error)}`)
   return toChef(data as ChefRow)
 }
 
 export async function updateChef(userId: string, chef: Chef): Promise<Chef> {
   const { data, error } = await supabase.from('chefs').update(toRow(chef)).eq('user_id', userId).select(COLUMNS).single()
-  if (error) throw new Error(`Could not save your chef: ${error.message}`)
+  if (error) throw new Error(`Could not save your chef: ${plainMessage(error)}`)
   return toChef(data as ChefRow)
 }

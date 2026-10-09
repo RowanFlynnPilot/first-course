@@ -37,31 +37,74 @@ export const MASTERED_COOKS = 3
 
 export type RecipeState = 'locked' | 'ready' | 'cooked' | 'mastered'
 
-export function learnedTechniques(logs: readonly CookLog[]): ReadonlySet<TechniqueId> {
+/** What one recipe's cooks add up to. */
+interface RecipeRecord {
+  readonly good: number
+  readonly nailed: boolean
+  /** The latest day it was cooked, YYYY-MM-DD. */
+  readonly last: string
+  /** Every cook's rating, in log order. */
+  readonly ratings: readonly Rating[]
+}
+
+interface Progress {
+  readonly learned: ReadonlySet<TechniqueId>
+  readonly records: ReadonlyMap<string, RecipeRecord>
+}
+
+// Progress is derived, never stored (locked decision 2), and every screen
+// asks for it many times a render: each recipe's state needs the learned
+// skills, which need every recipe's good cooks. One pass over the log builds
+// all of it, kept per log array. The app never changes a log array in place
+// (it makes a new one for every change, and freezes it), so a log array's
+// progress never goes stale.
+const progressByLog = new WeakMap<readonly CookLog[], Progress>()
+
+function progressOf(logs: readonly CookLog[]): Progress {
+  const known = progressByLog.get(logs)
+  if (known !== undefined) return known
+  const building = new Map<string, { good: number; nailed: boolean; last: string; ratings: Rating[] }>()
+  for (const log of logs) {
+    const record = building.get(log.recipeId) ?? { good: 0, nailed: false, last: log.cookedOn, ratings: [] }
+    if (log.rating >= LEARNED_RATING) record.good += 1
+    if (log.rating === 3) record.nailed = true
+    if (log.cookedOn > record.last) record.last = log.cookedOn
+    record.ratings.push(log.rating)
+    building.set(log.recipeId, record)
+  }
   const learned = new Set<TechniqueId>()
   for (const recipe of RECIPES) {
-    if (goodCooks(recipe, logs) > 0) {
-      for (const technique of recipe.teaches) learned.add(technique)
-    }
+    if ((building.get(recipe.id)?.good ?? 0) > 0) for (const technique of recipe.teaches) learned.add(technique)
   }
-  return learned
+  const progress: Progress = { learned, records: building }
+  progressByLog.set(logs, progress)
+  return progress
+}
+
+export function learnedTechniques(logs: readonly CookLog[]): ReadonlySet<TechniqueId> {
+  return progressOf(logs).learned
 }
 
 export function missingTechniques(recipe: Recipe, logs: readonly CookLog[]): TechniqueId[] {
-  const learned = learnedTechniques(logs)
+  const { learned } = progressOf(logs)
   return recipe.requires.filter((technique) => !learned.has(technique))
 }
 
 export function goodCooks(recipe: Recipe, logs: readonly CookLog[]): number {
-  return logs.filter((log) => log.recipeId === recipe.id && log.rating >= LEARNED_RATING).length
+  return progressOf(logs).records.get(recipe.id)?.good ?? 0
+}
+
+/** Every cook's rating of a recipe, in log order. */
+export function ratingsOf(recipe: Recipe, logs: readonly CookLog[]): readonly Rating[] {
+  return progressOf(logs).records.get(recipe.id)?.ratings ?? []
 }
 
 export function recipeState(recipe: Recipe, logs: readonly CookLog[]): RecipeState {
-  if (missingTechniques(recipe, logs).length > 0) return 'locked'
-  const own = logs.filter((log) => log.recipeId === recipe.id)
-  if (own.length === 0) return 'ready'
-  const nailedOnce = own.some((log) => log.rating === 3)
-  if (goodCooks(recipe, logs) >= MASTERED_COOKS && nailedOnce) return 'mastered'
+  const { learned, records } = progressOf(logs)
+  if (recipe.requires.some((technique) => !learned.has(technique))) return 'locked'
+  const record = records.get(recipe.id)
+  if (record === undefined) return 'ready'
+  if (record.good >= MASTERED_COOKS && record.nailed) return 'mastered'
   return 'cooked'
 }
 
@@ -70,10 +113,7 @@ export const REST_DAYS = 7
 
 /** The latest day a recipe was cooked (YYYY-MM-DD), or null. */
 export function lastCooked(recipe: Recipe, logs: readonly CookLog[]): string | null {
-  return logs.reduce<string | null>(
-    (latest, log) => (log.recipeId === recipe.id && (latest === null || log.cookedOn > latest) ? log.cookedOn : latest),
-    null,
-  )
+  return progressOf(logs).records.get(recipe.id)?.last ?? null
 }
 
 /** Whole days from one local date to another, both YYYY-MM-DD. */
@@ -85,16 +125,17 @@ function daysBetween(from: string, to: string): number {
  * Unlocked recipes in the order the menu suggests them: a dish of the usual
  * that has come into reach without a good cook yet (what everything builds
  * toward), then recipes without a good cook, then those not yet mastered,
- * then mastered ones, the longest uncooked first. A recipe cooked in the
- * last REST_DAYS goes to the back, so the suggestion is never what was
- * cooked yesterday.
+ * then mastered ones, the longest uncooked first. A recipe cooked well in
+ * the last REST_DAYS goes to the back, so the suggestion is never what was
+ * cooked well yesterday; one with only Rough cooks comes straight back.
  */
 function suggestionOrder(logs: readonly CookLog[], today: string, exclude: readonly string[]): Recipe[] {
   const open = RECIPES.filter((recipe) => !exclude.includes(recipe.id) && recipeState(recipe, logs) !== 'locked')
   const since = (recipe: Recipe) => lastCooked(recipe, logs) ?? '0000-00-00'
+  // Only a recipe cooked well rests: a Rough cook comes back next time, before anything new.
   const recent = (recipe: Recipe) => {
     const last = lastCooked(recipe, logs)
-    return last !== null && daysBetween(last, today) < REST_DAYS
+    return last !== null && goodCooks(recipe, logs) > 0 && daysBetween(last, today) < REST_DAYS
   }
   const rested = open.filter((recipe) => !recent(recipe))
   const ordered = [
@@ -146,7 +187,7 @@ export function rowNote(recipe: Recipe, logs: readonly CookLog[]): string {
   const state = recipeState(recipe, logs)
   if (state === 'locked') return `Needs ${skillList(missingTechniques(recipe, logs))}`
   if (state === 'mastered') return 'Mastered'
-  if (state === 'ready') return recipe.teaches.length > 0 ? `Teaches ${skillList(recipe.teaches)}` : 'In reach. Cook it any time.'
+  if (state === 'ready') return recipe.teaches.length > 0 ? `Teaches ${skillList(recipe.teaches)}` : 'In reach. Cook it any time'
   const good = goodCooks(recipe, logs)
   if (good === 0) {
     return recipe.teaches.length > 0

@@ -214,7 +214,7 @@ function Extras({
     <div className="extras">
       <h2 className="section-title">Extras</h2>
       <p className="section-note">
-        Rank decides the hat and the jacket. Extras go over them, and you earn them by cooking one kind of dish.
+        Rank decides the hat and the outfit. Extras go over them, and you earn them by cooking one kind of dish.
       </p>
       {SLOTS.map((slot) => {
         const options = EXTRAS.filter((extra) => extra.slot === slot.id)

@@ -4,6 +4,7 @@
 import { useState, type FormEvent } from 'react'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
+import { plainMessage } from '../lib/errors'
 import { supabase } from '../supabase'
 
 export function SetPasswordScreen({ email, onDone }: { email: string | undefined; onDone: () => void }) {
@@ -17,7 +18,7 @@ export function SetPasswordScreen({ email, onDone }: { email: string | undefined
     event.preventDefault()
     void run(async () => {
       const { error: failure } = await supabase.auth.updateUser({ password })
-      if (failure) throw new Error(`Could not set the password: ${failure.message}`)
+      if (failure) throw new Error(`Could not set the password: ${plainMessage(failure)}`)
       setSaved(true)
     })
   }
@@ -28,7 +29,7 @@ export function SetPasswordScreen({ email, onDone }: { email: string | undefined
       <p className="lede">For {email}. You will sign in with it from now on.</p>
       {saved ? (
         <>
-          <p className="notice" role="status">
+          <p className="notice notice-info" role="status">
             Saved.
           </p>
           <div className="actions">

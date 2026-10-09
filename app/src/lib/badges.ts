@@ -36,13 +36,13 @@ export function usualBadge(recipe: Recipe): BadgeId {
   return id
 }
 
-/** `dish` is how the dish reads in "Cook ___ at “Decent” or better." */
+/** `dish` is how the dish reads in "Cook ___ at Decent or better." */
 const usual = (id: string, name: string, dish: string): Omit<Badge, 'id'> => {
   const recipe = RECIPES.find((candidate) => candidate.id === id && candidate.tier === 5)
   if (recipe === undefined) throw new Error(`Badge for ${id}, which is not a dish of the usual`)
   return {
     name,
-    how: `Cook ${dish} at “Decent” or better.`,
+    how: `Cook ${dish} at Decent or better.`,
     earned: (logs) => goodCooks(recipe, logs) > 0,
   }
 }
@@ -107,7 +107,7 @@ const DEFINITIONS = {
   },
   mastered: {
     name: 'Mastered',
-    how: 'Master a recipe: three good cooks, one of them “Nailed it”.',
+    how: 'Master a recipe: 3 good cooks, one of them “Nailed it”.',
     earned: (logs) => RECIPES.some((recipe) => recipeState(recipe, logs) === 'mastered'),
   },
   'course-1': course(1),

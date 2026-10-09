@@ -28,7 +28,7 @@ export function ChefSprite({
       frames={idle ? frames : frames.slice(0, 1)}
       palette={spritePalette(look)}
       scale={scale}
-      label={`Your chef, a ${RANKS[rank].name.toLowerCase()}`}
+      label={`Your chef: ${RANKS[rank].name.toLowerCase()}`}
       className="sprite"
       idle={idle}
     />

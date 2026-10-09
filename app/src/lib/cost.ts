@@ -3,9 +3,9 @@
 // grocery.ts).
 
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
-import { recipeById } from '../curriculum/recipes'
+import { RECIPES } from '../curriculum/recipes'
 import type { RecipeContent } from '../curriculum/types'
-import type { CookLog } from './progress'
+import { ratingsOf, type CookLog } from './progress'
 
 // Delivery assumptions, applied to the in-app menu price. Tune these here.
 export const SERVICE_FEE_RATE = 0.15
@@ -75,8 +75,10 @@ export function keptPerCookCents(content: RecipeContent, prices: Prices): number
   return orderCostCents(content) - Math.round(cookCost)
 }
 
+/** Every cook keeps the same for its recipe, so the total is each recipe's kept times its cooks, Rough ones included. */
 export function totalKeptCents(logs: readonly CookLog[], prices: Prices): number {
-  return logs.reduce((sum, log) => {
-    return sum + keptPerCookCents(recipeById(log.recipeId).content, prices)
+  return RECIPES.reduce((sum, recipe) => {
+    const cooks = ratingsOf(recipe, logs).length
+    return cooks === 0 ? sum : sum + cooks * keptPerCookCents(recipe.content, prices)
   }, 0)
 }

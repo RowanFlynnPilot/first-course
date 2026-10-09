@@ -5,7 +5,7 @@
 import { RECIPES } from '../curriculum/recipes'
 import { DISCIPLINES, TECHNIQUES, type DisciplineId, type TechniqueId } from '../curriculum/techniques'
 import type { Tier } from '../curriculum/types'
-import { learnedTechniques, recipeState, type CookLog, type Rating } from './progress'
+import { learnedTechniques, ratingsOf, recipeState, type CookLog, type Rating } from './progress'
 
 /**
  * Only a recipe's best few cooks earn XP, so nobody levels up on grilled
@@ -25,10 +25,8 @@ export function cookXp(tier: Tier, rating: Rating): number {
 export function totalXp(logs: readonly CookLog[]): number {
   let xp = learnedTechniques(logs).size * XP_PER_SKILL
   for (const recipe of RECIPES) {
-    const best = logs
-      .filter((log) => log.recipeId === recipe.id)
-      .map((log) => log.rating)
-      .sort((a, b) => b - a)
+    const best = ratingsOf(recipe, logs)
+      .toSorted((a, b) => b - a)
       .slice(0, XP_COOKS_PER_RECIPE)
     for (const rating of best) xp += cookXp(recipe.tier, rating)
     if (recipeState(recipe, logs) === 'mastered') xp += XP_PER_MASTERY
@@ -58,7 +56,7 @@ export function levelFraction(xp: number): number {
 export const RANKS = [
   { name: 'Dishwasher', fromLevel: 1, costume: 'A bandana and yellow rubber gloves.' },
   { name: 'Prep cook', fromLevel: 3, costume: 'A skull cap and a cobalt apron.' },
-  { name: 'Line cook', fromLevel: 6, costume: 'A white jacket and a first toque.' },
+  { name: 'Line cook', fromLevel: 6, costume: 'A white jacket and a short toque.' },
   { name: 'Sous chef', fromLevel: 10, costume: 'A taller toque and a yolk neckerchief.' },
   { name: 'Head chef', fromLevel: 14, costume: 'A taller toque still, and cobalt buttons.' },
   { name: 'Executive chef', fromLevel: 18, costume: 'Gold buttons and a gold hat band.' },

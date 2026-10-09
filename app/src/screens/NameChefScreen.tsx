@@ -8,7 +8,7 @@ export function NameChefScreen({ onCreated }: { onCreated: (chef: Chef) => void 
     <main className="page auth">
       <h1 className="title">Create your chef</h1>
       <p className="lede">
-        Everyone starts at the sink. Every cook earns XP, and XP moves your chef up the kitchen, from dishwasher to
+        Everyone starts at the sink. Each time you cook, your chef earns XP and moves up the kitchen, from dishwasher to
         executive chef.
       </p>
       <ChefEditor

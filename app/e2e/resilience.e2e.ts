@@ -161,7 +161,7 @@ test.describe('weak signal and other devices', () => {
     await expect(salt).toBeChecked()
     page.once('dialog', (dialog) => void dialog.accept())
     await done.click()
-    await expect(page.getByRole('status')).toContainText('Kosher salt went into your pantry.')
+    await expect(page.getByRole('status')).toHaveText('Done shopping. Into your pantry: kosher salt. Go to the menu to cook')
     await expect(page.getByRole('status')).toBeFocused()
     expect(kitchen.backend.table('pantry_items').map((row) => row.ingredient_id)).toEqual(['kosher-salt'])
   })

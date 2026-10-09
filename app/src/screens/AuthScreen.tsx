@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { usePageTitle } from '../components/usePageTitle'
+import { plainMessage } from '../lib/errors'
 import { supabase } from '../supabase'
 
 /**
@@ -55,7 +56,7 @@ export function AuthScreen({
     setConfirmationResent(false)
     const { error: failure } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false)
-    setError(failure ? failure.message : null)
+    setError(failure ? plainMessage(failure) : null)
     setUnconfirmed(failure?.code === 'email_not_confirmed')
   }
 
@@ -63,7 +64,7 @@ export function AuthScreen({
     setBusy(true)
     const { error: failure } = await supabase.auth.resend({ type: 'signup', email })
     setBusy(false)
-    setError(failure ? failure.message : null)
+    setError(failure ? plainMessage(failure) : null)
     setUnconfirmed(failure !== null)
     setConfirmationResent(failure === null)
   }
@@ -73,7 +74,7 @@ export function AuthScreen({
     setBusy(true)
     const { data, error: failure } = await supabase.auth.signUp({ email, password })
     setBusy(false)
-    setError(failure ? failure.message : null)
+    setError(failure ? plainMessage(failure) : null)
     if (failure === null && data.session === null) {
       // Confirmation on: the account waits for its link, and then the cook signs in here.
       setConfirmationSent(true)
@@ -87,7 +88,7 @@ export function AuthScreen({
     // The link comes back to the Site URL set on the Supabase project: the deployed app.
     const { error: failure } = await supabase.auth.resetPasswordForEmail(email)
     setBusy(false)
-    setError(failure ? failure.message : null)
+    setError(failure ? plainMessage(failure) : null)
     setResetSent(failure === null)
   }
 
@@ -106,7 +107,7 @@ export function AuthScreen({
       Email
       <input
         type="email"
-        autoComplete="email"
+        autoComplete="username"
         required
         value={email}
         onChange={(event) => setEmail(event.target.value)}
@@ -133,7 +134,7 @@ export function AuthScreen({
       <p className="lede">Learn to cook the things you keep ordering, one skill at a time.</p>
       {signOutProblem !== null && (
         <p className="notice notice-error" role="alert">
-          {signOutProblem}. Sign in and out again when you have signal.
+          {signOutProblem} Sign in and out again when you have signal.
         </p>
       )}
       <h2 className="section-title" ref={heading} tabIndex={-1}>
@@ -145,7 +146,7 @@ export function AuthScreen({
           {emailField}
           {errorNotice}
           {resetSent && (
-            <p className="notice" role="status">
+            <p className="notice notice-info" role="status">
               If there is an account for that email, the link is on its way.
             </p>
           )}
@@ -201,24 +202,31 @@ export function AuthScreen({
             </button>
           )}
           {confirmationSent && (
-            <p className="notice" role="status">
+            <p className="notice notice-info" role="status">
               Check your email to confirm the account, then sign in.
             </p>
           )}
           {confirmationResent && (
-            <p className="notice" role="status">
+            <p className="notice notice-info" role="status">
               Sent. Open the newest email’s link, then sign in.
             </p>
           )}
           <button className="button" type="submit" disabled={busy}>
             Sign in
           </button>
-          <button className="link-button" type="button" onClick={() => switchTo('create')}>
-            New here? Create an account
-          </button>
-          <button className="link-button" type="button" onClick={() => switchTo('reset')}>
-            Forgot your password?
-          </button>
+          {busy && (
+            <span className="busy" role="status">
+              Signing in…
+            </span>
+          )}
+          <div className="form-links">
+            <button className="link-button" type="button" onClick={() => switchTo('create')}>
+              New here? Create an account
+            </button>
+            <button className="link-button" type="button" onClick={() => switchTo('reset')}>
+              Forgot your password?
+            </button>
+          </div>
         </form>
       )}
     </main>

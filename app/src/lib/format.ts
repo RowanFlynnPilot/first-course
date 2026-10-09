@@ -88,6 +88,9 @@ export function inSentence(name: string): string {
   return PROPER.has(first) ? name : name.charAt(0).toLowerCase() + name.slice(1)
 }
 
+/** The earliest date a cook can carry, as the database checks it (00008). The date fields' min. */
+export const EARLIEST_COOK = '1900-01-01'
+
 /**
  * A cook's date as the forms send it: YYYY-MM-DD, and never after today. The
  * date field's max says so too, but not every phone enforces it.
@@ -96,6 +99,7 @@ export function checkCookedOn(cookedOn: string, today: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(cookedOn)) throw new Error('Choose the date you cooked it.')
   // Dates in this form compare correctly as text.
   if (cookedOn > today) throw new Error('A cook cannot be dated after today.')
+  if (cookedOn < EARLIEST_COOK) throw new Error('Choose a date after 1900.')
 }
 
 /** Today's date where the cook is standing, not in UTC. */

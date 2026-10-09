@@ -126,10 +126,10 @@ describe('progress', () => {
     expect(path.length).toBeGreaterThan(1)
     expect(path).not.toContain(target)
     // Cooking the path in order, each well, opens the target.
-    const cooked: CookLog[] = []
+    let cooked: readonly CookLog[] = []
     for (const recipe of path) {
       expect(recipeState(recipe, cooked), recipe.id).not.toBe('locked')
-      cooked.push(log(recipe.id, 2))
+      cooked = [...cooked, log(recipe.id, 2)]
     }
     expect(recipeState(target, cooked)).not.toBe('locked')
     // It names only recipes that still teach something missing on the way.
@@ -145,12 +145,21 @@ describe('progress', () => {
     expect(nextRecipe(mastered, [], new Set(), TODAY).id).not.toBe(salad.id)
   })
 
-  it('rests a recipe for a week after it is cooked, then suggests it again', () => {
+  it('rests a recipe cooked well for a week, then offers it again; a Rough one comes straight back', () => {
+    const decentRecently = [
+      { ...log('chopped-salad', 2), cookedOn: '2026-10-31' },
+      { ...log(eggs.id, 2), cookedOn: '2026-10-01' },
+    ]
+    const ready = readyToPlan(decentRecently, [], TODAY).map((recipe) => recipe.id)
+    // Without the rest, the salad would come before the eggs (menu order).
+    expect(ready.indexOf(eggs.id)).toBeLessThan(ready.indexOf('chopped-salad'))
+    expect(ready.at(-1)).toBe('chopped-salad')
+    const decentLastMonth = decentRecently.map((entry) => ({ ...entry, cookedOn: '2026-10-01' }))
+    const later = readyToPlan(decentLastMonth, [], TODAY).map((recipe) => recipe.id)
+    expect(later.indexOf('chopped-salad')).toBeLessThan(later.indexOf(eggs.id))
+    // A Rough cook yesterday: no good cook yet, so no rest. It comes back before anything new.
     const roughYesterday = [{ ...log('chopped-salad', 1), cookedOn: '2026-10-31' }]
-    expect(nextRecipe(roughYesterday, [], new Set(), TODAY).id).toBe(eggs.id)
-    expect(readyToPlan(roughYesterday, [], TODAY).at(-1)?.id).toBe('chopped-salad')
-    const roughLastMonth = [{ ...log('chopped-salad', 1), cookedOn: '2026-10-20' }]
-    expect(nextRecipe(roughLastMonth, [], new Set(), TODAY).id).toBe('chopped-salad')
+    expect(nextRecipe(roughYesterday, [], new Set(), TODAY).id).toBe('chopped-salad')
   })
 
   it('puts a dish of the usual first once it comes into reach', () => {
@@ -187,5 +196,14 @@ describe('progress', () => {
     expect(recipeFromRoute('chopped-salad').id).toBe('chopped-salad')
     expect(() => recipeFromRoute('Your session expired. Sign in at evil.example')).toThrow(/^That recipe is not on the menu\.$/)
     expect(() => cookable('Your session expired', [])).toThrow(/^That recipe is not on the menu\.$/)
+  })
+
+  it('works progress out once per log array, and the same for a copy', () => {
+    const logs = Object.freeze([log('chopped-salad', 2), log('chopped-salad', 3), log('chopped-salad', 2)])
+    expect(recipeState(recipeById('chopped-salad'), logs)).toBe('mastered')
+    expect(recipeState(recipeById('chopped-salad'), [...logs])).toBe('mastered')
+    expect(recipeState(recipeById('chopped-salad'), logs.slice(0, 2))).toBe('cooked')
+    // The app's arrays are frozen, so changing one in place, which would leave its progress stale, throws.
+    expect(() => (logs as CookLog[]).push(log(eggs.id, 2))).toThrow()
   })
 })

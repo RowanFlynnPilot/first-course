@@ -85,4 +85,10 @@ describe('format', () => {
     expect(() => parseCents('1000.01')).toThrow('more than $1,000')
     expect(() => parseCents('99999999999')).toThrow('more than $1,000')
   })
+
+  it('refuses a cook dated before 1900, as the database does, in plain words', () => {
+    expect(() => checkCookedOn('1900-01-01', '2026-10-09')).not.toThrow()
+    expect(() => checkCookedOn('1899-12-31', '2026-10-09')).toThrow('Choose a date after 1900.')
+    expect(() => checkCookedOn('0026-10-09', '2026-10-09')).toThrow('Choose a date after 1900.')
+  })
 })

@@ -26,7 +26,12 @@ function contentSecurityPolicy(supabaseUrl: string | undefined): Plugin {
         "base-uri 'none'",
         "form-action 'none'",
       ].join('; ')
-      return html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`)
+      // The connection to Supabase (DNS, TCP, TLS) opens while the scripts download, not after they run.
+      const origin = new URL(supabaseUrl).origin
+      return html.replace(
+        '<meta charset="UTF-8" />',
+        `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />\n    <link rel="preconnect" href="${origin}" crossorigin />`,
+      )
     },
   }
 }
@@ -43,6 +48,9 @@ export default defineConfig(({ mode }) => ({
         codeSplitting: {
           groups: [
             { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/ },
+            // The recipes change often while they are revised from real cooks, the code less often: apart, a
+            // recipe edit does not re-download the code, nor a code change the recipes.
+            { name: 'curriculum', test: /src[\\/]curriculum[\\/]/ },
             { name: 'react', test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ },
           ],
         },

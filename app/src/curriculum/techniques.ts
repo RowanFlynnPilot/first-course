@@ -5,10 +5,10 @@
 export const DISCIPLINES = {
   prep: { name: 'Prep', summary: 'Knife work and getting ready.' },
   pan: { name: 'Pan', summary: 'Dry heat on the stove.' },
-  pot: { name: 'Pot', summary: 'Water, steam and simmering.' },
-  oven: { name: 'Oven', summary: 'Roasting, baking and broiling.' },
+  pot: { name: 'Pot', summary: 'Water, steam, and simmering.' },
+  oven: { name: 'Oven', summary: 'Roasting, baking, and broiling.' },
   sauce: { name: 'Sauce', summary: 'Building sauces and holding them together.' },
-  palate: { name: 'Palate', summary: 'Tasting, seasoning and judging.' },
+  palate: { name: 'Palate', summary: 'Tasting, seasoning, and judging.' },
 } as const
 
 export type DisciplineId = keyof typeof DISCIPLINES
@@ -44,7 +44,7 @@ export const TECHNIQUES = {
   'mise-en-place': {
     discipline: 'prep',
     name: 'Mise en place',
-    summary: 'Everything cut, measured and within reach before the heat goes on.',
+    summary: 'Everything cut, measured, and within reach before the heat goes on.',
   },
   griddling: {
     discipline: 'pan',
@@ -53,7 +53,7 @@ export const TECHNIQUES = {
   },
   'steaming-rice': {
     discipline: 'pot',
-    name: 'Steamed rice',
+    name: 'Steaming rice',
     summary: 'Rinse, measure, cover, and leave the lid alone.',
   },
   roasting: {
@@ -75,7 +75,7 @@ export const TECHNIQUES = {
   },
   'pan-emulsion': {
     discipline: 'sauce',
-    name: 'Pasta-water sauce',
+    name: 'Saucing with pasta water',
     summary: 'Tossing pasta with fat and starchy water until they bind into a glossy sauce.',
   },
   searing: {
@@ -96,7 +96,7 @@ export const TECHNIQUES = {
   caramelizing: {
     discipline: 'pan',
     name: 'Caramelizing onions',
-    summary: 'Cooking onions low and long until they turn brown, soft and sweet.',
+    summary: 'Cooking onions low and long until they turn brown, soft, and sweet.',
   },
   'blooming-spices': {
     discipline: 'palate',
@@ -105,40 +105,40 @@ export const TECHNIQUES = {
   },
   emulsions: {
     discipline: 'sauce',
-    name: 'Cold emulsions',
-    summary: 'Whisking oil into egg or mustard drop by drop for aioli, mayo and burger sauce.',
+    name: 'Whisking an emulsion',
+    summary: 'Adding oil to an egg yolk a few drops at a time, whisking, for aioli, mayo, and burger sauce.',
   },
 
   // Third course
   'pan-sauce': {
     discipline: 'sauce',
-    name: 'Pan sauce',
+    name: 'Making a pan sauce',
     summary: 'Deglazing the browned bits left after searing and reducing them into a sauce.',
   },
   'smash-crust': {
     discipline: 'pan',
-    name: 'Smash-burger crust',
+    name: 'Smashing burgers',
     summary: 'Loosely formed beef pressed hard onto a very hot pan for a thin, crisp crust.',
   },
   'browning-meat': {
     discipline: 'pan',
     name: 'Browning ground meat',
-    summary: 'Cooking off the water so crumbled meat browns instead of turning grey.',
+    summary: 'Cooking off the water so crumbled meat browns instead of turning gray.',
   },
   'stir-fry-sauce': {
     discipline: 'sauce',
-    name: 'Stir-fry sauce',
+    name: 'Thickening a stir-fry sauce',
     summary: 'Mixing a sauce ahead and thickening it in the pan with a cornstarch slurry.',
   },
   'masala-base': {
     discipline: 'sauce',
-    name: 'Masala base',
-    summary: 'Cooking onion, ginger, garlic, tomato and spices down until the oil separates.',
+    name: 'Cooking a masala base',
+    summary: 'Onion, ginger, garlic, tomato, and spices cooked down until the oil separates.',
   },
   'yeasted-dough': {
     discipline: 'oven',
-    name: 'Yeasted dough',
-    summary: 'Mixing, kneading and proofing dough, and knowing by feel when it is ready.',
+    name: 'Making yeasted dough',
+    summary: 'Mixing and kneading dough, letting it rise, and knowing by feel when it is ready.',
   },
   'breading-frying': {
     discipline: 'pan',
@@ -160,7 +160,7 @@ export const TECHNIQUES = {
   'curry-balance': {
     discipline: 'palate',
     name: 'Balancing a curry',
-    summary: 'Frying curry paste, then tuning salty, sweet, sour and hot at the end.',
+    summary: 'Frying curry paste, then tuning salty, sweet, sour, and hot at the end.',
   },
   velveting: {
     discipline: 'prep',

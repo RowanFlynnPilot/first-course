@@ -6,6 +6,7 @@ import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import { supabase } from '../supabase'
+import { plainMessage } from './errors'
 import type { Prices } from './cost'
 import { groceryList } from './grocery'
 
@@ -49,7 +50,7 @@ function toEquipmentId(value: string): EquipmentId {
 async function load<Row>(table: string, columns: string, what: string, orderBy?: string): Promise<Row[]> {
   const query = supabase.from(table).select(columns)
   const { data, error } = await (orderBy === undefined ? query : query.order(orderBy))
-  if (error) throw new Error(`Could not load ${what}: ${error.message}`)
+  if (error) throw new Error(`Could not load ${what}: ${plainMessage(error)}`)
   return data as Row[]
 }
 
@@ -87,12 +88,12 @@ export async function fetchShop(): Promise<Shop> {
 // Adding ignores a row that is already there, so a double tap is harmless.
 async function add(table: string, row: Record<string, string>, what: string) {
   const { error } = await supabase.from(table).upsert(row, { ignoreDuplicates: true })
-  if (error) throw new Error(`Could not ${what}: ${error.message}`)
+  if (error) throw new Error(`Could not ${what}: ${plainMessage(error)}`)
 }
 
 async function remove(table: string, column: string, value: string, what: string) {
   const { error } = await supabase.from(table).delete().eq(column, value)
-  if (error) throw new Error(`Could not ${what}: ${error.message}`)
+  if (error) throw new Error(`Could not ${what}: ${plainMessage(error)}`)
 }
 
 function toggled<T>(set: ReadonlySet<T>, item: T, on: boolean): Set<T> {
@@ -102,12 +103,23 @@ function toggled<T>(set: ReadonlySet<T>, item: T, on: boolean): Set<T> {
   return next
 }
 
-/** Adds a recipe to this week, and says whether it was already there and shopped for (on another device). */
+/**
+ * Adds a recipe to this week, and says whether it was already there and
+ * shopped for (on another device). One trip when the recipe is new to the
+ * plan, the usual case: the insert answers with the row. A second read only
+ * when the row was already there, which the insert leaves alone.
+ */
 async function addToPlan(recipeId: string): Promise<{ shopped: boolean }> {
-  await add('plan_items', { recipe_id: recipeId }, 'add it to this week')
-  const { data, error } = await supabase.from('plan_items').select('shopped').eq('recipe_id', recipeId).single()
-  if (error) throw new Error(`Could not add it to this week: ${error.message}`)
-  return { shopped: (data as { shopped: boolean }).shopped }
+  const { data, error } = await supabase
+    .from('plan_items')
+    .upsert({ recipe_id: recipeId }, { ignoreDuplicates: true })
+    .select('shopped')
+  if (error) throw new Error(`Could not add it to this week: ${plainMessage(error)}`)
+  const added = (data as { shopped: boolean }[])[0]
+  if (added !== undefined) return { shopped: added.shopped }
+  const { data: there, error: readError } = await supabase.from('plan_items').select('shopped').eq('recipe_id', recipeId).single()
+  if (readError) throw new Error(`Could not add it to this week: ${plainMessage(readError)}`)
+  return { shopped: (there as { shopped: boolean }).shopped }
 }
 
 /** "Take off": the recipe leaves this week's plan, bought or not. */
@@ -144,7 +156,7 @@ export async function setInKit(id: EquipmentId, own: boolean, onShopChange: Shop
 export async function addAllToKit(ids: readonly EquipmentId[], onShopChange: ShopChange) {
   const rows = ids.map((id) => ({ equipment_id: id }))
   const { error } = await supabase.from('kit_items').upsert(rows, { ignoreDuplicates: true })
-  if (error) throw new Error(`Could not add them to your kit: ${error.message}`)
+  if (error) throw new Error(`Could not add them to your kit: ${plainMessage(error)}`)
   onShopChange((previous) => ({ ...previous, kit: new Set([...previous.kit, ...ids]) }))
 }
 
@@ -159,7 +171,7 @@ async function clearStaleChecks(shop: Shop): Promise<IngredientId[]> {
   const stale = [...shop.checks].filter((id) => !listed.has(id))
   if (stale.length === 0) return stale
   const { error } = await supabase.from('grocery_checks').delete().in('ingredient_id', stale)
-  if (error) throw new Error(`Could not clear old ticks from the list: ${error.message}`)
+  if (error) throw new Error(`Could not clear old checks from the list: ${plainMessage(error)}`)
   return stale
 }
 
@@ -174,14 +186,20 @@ function withoutChecks(shop: Shop, ids: readonly IngredientId[]): Shop {
  * did that).
  */
 export async function planRecipe(shop: Shop, recipeId: string, onShopChange: ShopChange) {
-  const stale = await clearStaleChecks(shop)
-  onShopChange((previous) => withoutChecks(previous, stale))
-  const { shopped } = await addToPlan(recipeId)
-  onShopChange((previous) => ({
-    ...previous,
-    plan: previous.plan.includes(recipeId) ? previous.plan : [...previous.plan, recipeId],
-    shopped: shopped ? new Set([...previous.shopped, recipeId]) : previous.shopped,
-  }))
+  // The two are independent (the stale ticks are those the list shows before the recipe joins it), so
+  // they go together, and whichever lands shows on screen even if the other fails.
+  const [cleared, added] = await Promise.allSettled([clearStaleChecks(shop), addToPlan(recipeId)])
+  if (cleared.status === 'fulfilled') onShopChange((previous) => withoutChecks(previous, cleared.value))
+  if (added.status === 'fulfilled') {
+    const { shopped } = added.value
+    onShopChange((previous) => ({
+      ...previous,
+      plan: previous.plan.includes(recipeId) ? previous.plan : [...previous.plan, recipeId],
+      shopped: shopped ? new Set([...previous.shopped, recipeId]) : previous.shopped,
+    }))
+  }
+  if (cleared.status === 'rejected') throw cleared.reason
+  if (added.status === 'rejected') throw added.reason
 }
 
 /**
@@ -192,7 +210,7 @@ export async function shopForAgain(shop: Shop, recipeId: string, onShopChange: S
   const stale = await clearStaleChecks(shop)
   onShopChange((previous) => withoutChecks(previous, stale))
   const { data, error } = await supabase.from('plan_items').update({ shopped: false }).eq('recipe_id', recipeId).select('recipe_id')
-  if (error) throw new Error(`Could not put it back on the list: ${error.message}`)
+  if (error) throw new Error(`Could not put it back on the list: ${plainMessage(error)}`)
   if (data.length !== 1) throw new Error('It is not on this week’s plan any more: it was cooked or taken off on another device.')
   onShopChange((previous) => ({ ...previous, shopped: toggled(previous.shopped, recipeId, false) }))
 }
@@ -201,7 +219,7 @@ export async function shopForAgain(shop: Shop, recipeId: string, onShopChange: S
 export async function setPrice(id: IngredientId, priceCents: number, onShopChange: ShopChange) {
   if (!Number.isInteger(priceCents) || priceCents <= 0) throw new Error(`A price must be above zero, not ${priceCents}`)
   const { error } = await supabase.from('price_overrides').upsert({ ingredient_id: id, price_cents: priceCents })
-  if (error) throw new Error(`Could not save the price: ${error.message}`)
+  if (error) throw new Error(`Could not save the price: ${plainMessage(error)}`)
   onShopChange((previous) => ({ ...previous, prices: new Map(previous.prices).set(id, priceCents) }))
 }
 
@@ -233,7 +251,7 @@ export async function doneShopping(shop: Shop, onShopChange: ShopChange): Promis
     shopped_recipes: shoppedRecipes,
     seen_checks: seenChecks,
   })
-  if (error) throw new Error(`Could not finish shopping: ${error.message}`)
+  if (error) throw new Error(`Could not finish shopping: ${plainMessage(error)}`)
   onShopChange((previous) => ({
     ...previous,
     shopped: new Set([...previous.shopped, ...shoppedRecipes]),

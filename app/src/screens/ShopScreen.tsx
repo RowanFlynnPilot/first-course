@@ -3,6 +3,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
+import { BACK_TO_MENU } from '../components/menuScroll'
 import { CheckRow } from '../components/CheckRow'
 import { focusAfter, focusNext, useFocusTarget } from '../components/useFocusTarget'
 import { usePageTitle } from '../components/usePageTitle'
@@ -91,7 +92,7 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
         setFinished(
           staples.length === 0
             ? 'Done shopping. The list is cleared.'
-            : `Done shopping. ${listOf(staples.map((id) => INGREDIENTS[id].name))} went into your pantry.`,
+            : `Done shopping. Into your pantry: ${listOf(staples.map((id) => inSentence(INGREDIENTS[id].name)))}.`,
         )
       }),
     )
@@ -127,14 +128,32 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
           </ul>
         </div>
       ))}
+      {list.inPantry.length > 0 && (
+        <>
+          <p className="section-note">
+            Left off because your <Link to="/pantry">pantry</Link> has them. Out of one? Put it on the list.
+          </p>
+          <ul className="rows">
+            {list.inPantry.map((line) => (
+              <InPantryRow key={line.ingredientId} id={line.ingredientId} qty={line.qty} onShopChange={onShopChange} />
+            ))}
+          </ul>
+        </>
+      )}
       <dl className="tab">
         <div className="tab-kept">
-          <dt>Checkout total</dt>
+          <dt>
+            Checkout total
+            <span className="row-note">
+              What you pay at the register, in whole packages. Tap a price to correct it. A first shop costs far more
+              than the per-serving prices: the oil, spices, and sauces you buy now last for many cooks.
+            </span>
+          </dt>
           <dd>{formatCents(list.totalCents)}</dd>
         </div>
       </dl>
       {toBuy === 0 && (
-        <p className="notice">
+        <p className="notice notice-info">
           Everything is in the cart. Tap “Done shopping” to put the staples in your pantry and mark the plan bought.
         </p>
       )}
@@ -152,25 +171,14 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
         >
           Done shopping
         </button>
+        {finish.busy && (
+          <span className="busy" role="status">
+            Saving…
+          </span>
+        )}
       </div>
       <p className="section-note">
         Clears the list and puts the staples you checked off into your pantry. The plan stays until you cook.
-      </p>
-      {list.inPantry.length > 0 && (
-        <>
-          <p className="section-note">
-            Left off because your <Link to="/pantry">pantry</Link> has them. Out of one? Put it on the list.
-          </p>
-          <ul className="rows">
-            {list.inPantry.map((line) => (
-              <InPantryRow key={line.ingredientId} id={line.ingredientId} qty={line.qty} onShopChange={onShopChange} />
-            ))}
-          </ul>
-        </>
-      )}
-      <p className="section-note">
-        What you pay at the register, in whole packages. Tap a price to correct it. A first shop costs far more than
-        the per-serving prices on each recipe: the oil, spices and sauces you buy now last for many cooks.
       </p>
     </section>
   )
@@ -196,7 +204,7 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
         <p className="section-note">Everything on the plan is bought. Add a recipe and its groceries go on a new list.</p>
       )}
       {needKit.length > 0 && (
-        <p className="notice">
+        <p className="notice notice-info">
           To cook these you also need: {listOf(needKit.map((id) => inSentence(EQUIPMENT[id].name)))}.{' '}
           <Link to="/kit">Your kit</Link>
         </p>
@@ -207,7 +215,9 @@ export function ShopScreen({ shop, logs, onShopChange }: { shop: Shop; logs: rea
   return (
     <main className="page">
       <nav className="back">
-        <Link to="/">Menu</Link>
+        <Link to="/" state={BACK_TO_MENU}>
+          Menu
+        </Link>
       </nav>
       <h1 className="title">This week</h1>
       {finished !== null && (

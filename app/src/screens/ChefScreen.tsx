@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { BACK_TO_MENU } from '../components/menuScroll'
 import { BadgeArt } from '../components/BadgeArt'
 import { ChefSprite } from '../components/ChefSprite'
 import { usePageTitle } from '../components/usePageTitle'
@@ -43,7 +44,9 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
   return (
     <main className="page">
       <nav className="back">
-        <Link to="/">Menu</Link>
+        <Link to="/" state={BACK_TO_MENU}>
+          Menu
+        </Link>
       </nav>
 
       <header className="sheet-head">
@@ -55,7 +58,7 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
           </p>
           <XpBar xp={xp} fromXp={null} />
           <p className="sheet-edit">
-            <Link to="/chef/edit">Change name, look or extras</Link>
+            <Link to="/chef/edit">Change name, look, or extras</Link>
           </p>
         </div>
       </header>
@@ -127,7 +130,11 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
                   {worn.includes(extra.id) && ', wearing it'}
                 </span>
                 <span className="row-note">
-                  {extrasEarned.includes(extra.id) ? 'Earned.' : `${extra.how} ${cooks} of ${extra.cooks} so far.`}
+                  {extrasEarned.includes(extra.id) ? (
+                    <span className="extra-earned">Earned.</span>
+                  ) : (
+                    `${extra.how} ${cooks} of ${extra.cooks} so far.`
+                  )}
                 </span>
               </li>
             )
@@ -192,7 +199,10 @@ export function ChefScreen({ chef, logs, prices }: { chef: Chef; logs: readonly 
       <section className="section">
         <h2 className="section-title">How XP works</h2>
         <ul className="plain-list">
-          <li>Every cook earns XP: 10 times the course number, times 1 for Rough, 2 for Decent, 3 for Nailed it.</li>
+          <li>
+            Every cook earns XP: 10 times the course number (5 for the usual), times 1 for Rough, 2 for Decent, 3 for
+            Nailed it.
+          </li>
           <li>Each skill you learn is worth {XP_PER_SKILL}. Each recipe you master is worth {XP_PER_MASTERY}.</li>
           <li>
             A recipe pays out for its best {XP_COOKS_PER_RECIPE} cooks, so a better cook replaces a weaker one. After

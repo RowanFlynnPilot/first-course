@@ -6,7 +6,7 @@ import { usePageTitle } from '../components/usePageTitle'
 import type { Chef } from '../lib/chefs'
 import { insertCookLog, newCookId, NOTES_MAX } from '../lib/cookLogs'
 import type { Prices } from '../lib/cost'
-import { checkCookedOn, localDateString } from '../lib/format'
+import { checkCookedOn, EARLIEST_COOK, localDateString } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
 import { cookable, whatTheRatingDecides, type CookLog, type Rating } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
@@ -87,6 +87,7 @@ function LogForm({ recipe, chef, logs, prices, onLogged }: LogProps & { recipe: 
           <input
             type="date"
             required
+            min={EARLIEST_COOK}
             max={today}
             value={cookedOn}
             onChange={(event) => setCookedOn(event.target.value)}

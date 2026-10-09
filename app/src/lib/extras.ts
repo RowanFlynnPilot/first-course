@@ -56,7 +56,7 @@ export interface Extra extends ExtraRule {
 
 export const EXTRAS: readonly Extra[] = (Object.keys(DEFINITIONS) as ExtraId[]).map((id) => {
   const rule: ExtraRule = DEFINITIONS[id]
-  return { id, ...rule, how: `Cook ${TRACK_NAMES[rule.track]} ${rule.cooks} times at “Decent” or better.` }
+  return { id, ...rule, how: `Cook ${TRACK_NAMES[rule.track]} ${rule.cooks} times at Decent or better.` }
 })
 
 export function isExtraId(value: string): value is ExtraId {

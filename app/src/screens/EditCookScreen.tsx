@@ -1,14 +1,15 @@
 // Change or delete one cook. Progress is derived from the log, so the screen
 // says what a change would take away before it is saved.
 
-import { startTransition, useState, type FormEvent } from 'react'
+import { startTransition, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { BACK_TO_MENU } from '../components/menuScroll'
 import { RatingPicker } from '../components/RatingPicker'
 import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { recipeById } from '../curriculum/recipes'
 import { deleteCookLog, NOTES_MAX, updateCookLog } from '../lib/cookLogs'
-import { checkCookedOn, listOf, localDateString, skillList } from '../lib/format'
+import { checkCookedOn, EARLIEST_COOK, listOf, localDateString, skillList } from '../lib/format'
 import { progressLost, type CookLog, type Rating } from '../lib/progress'
 
 
@@ -46,10 +47,12 @@ function CookGone() {
   return (
     <main className="page">
       <nav className="back">
-        <Link to="/">Menu</Link>
+        <Link to="/" state={BACK_TO_MENU}>
+          Menu
+        </Link>
       </nav>
       <h1 className="title">That cook is not in your log</h1>
-      <p className="notice">It may have been deleted on another device. Nothing else changed.</p>
+      <p className="notice notice-info">It may have been deleted on another device. Nothing else changed.</p>
     </main>
   )
 }
@@ -66,12 +69,24 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
   const save = useWrite()
   const remove = useWrite()
 
-  const edited = logs.map((candidate) => (candidate.id === log.id ? { ...candidate, rating, cookedOn, notes } : candidate))
-  const saveWarning = lostSentence(logs, edited, plan)
-  const deleteWarning = lostSentence(
-    logs,
-    logs.filter((candidate) => candidate.id !== log.id),
-    plan,
+  // What a save or a delete would take away. Notes change nothing, so typing them recomputes nothing.
+  const saveWarning = useMemo(
+    () =>
+      lostSentence(
+        logs,
+        logs.map((candidate) => (candidate.id === log.id ? { ...candidate, rating, cookedOn } : candidate)),
+        plan,
+      ),
+    [logs, log.id, rating, cookedOn, plan],
+  )
+  const deleteWarning = useMemo(
+    () =>
+      lostSentence(
+        logs,
+        logs.filter((candidate) => candidate.id !== log.id),
+        plan,
+      ),
+    [logs, log.id, plan],
   )
 
   function submit(event: FormEvent) {
@@ -117,13 +132,14 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
           <input
             type="date"
             required
+            min={EARLIEST_COOK}
             max={log.cookedOn > today ? log.cookedOn : today}
             value={cookedOn}
             onChange={(event) => setCookedOn(event.target.value)}
           />
         </label>
         {saveWarning !== null && (
-          <p className="notice" id="save-warning">
+          <p className="notice notice-info" id="save-warning">
             {saveWarning}
           </p>
         )}

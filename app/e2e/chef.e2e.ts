@@ -22,7 +22,7 @@ test.describe('the chef', () => {
 
   test('changing the name and look saves and shows everywhere', async ({ page, kitchen }) => {
     await kitchen.open('#/chef', SALAD_DONE)
-    await page.getByRole('link', { name: 'Change name, look or extras' }).click()
+    await page.getByRole('link', { name: 'Change name, look, or extras' }).click()
     await expect(page.getByRole('heading', { name: 'Change your chef' })).toBeVisible()
     await expect(page.getByLabel('Chef’s name')).toHaveValue('Remy')
 
@@ -67,7 +67,7 @@ test.describe('the chef', () => {
     await kitchen.open('#/chef/edit', { logs: burgers })
 
     await expect(page.getByRole('radio', { name: 'Smash spatula (locked)' })).toBeDisabled()
-    await expect(page.getByText('Smash spatula: Cook burgers and sandwiches 15 times at “Decent” or better.')).toBeVisible()
+    await expect(page.getByText('Smash spatula: Cook burgers and sandwiches 15 times at Decent or better.')).toBeVisible()
     await page.getByRole('radio', { name: 'Red clogs', exact: true }).check()
     await page.getByRole('button', { name: 'Save chef' }).click()
 

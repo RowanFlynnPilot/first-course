@@ -35,7 +35,7 @@ test.describe('the kit', () => {
     const equipment = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Equipment' }) })
     // With nothing ticked yet, one pointer to the kit instead of a marker on every tool.
     await expect(equipment.getByText('Not in your kit yet')).toHaveCount(0)
-    await expect(equipment.getByText(/^Tick what you own in your kit/)).toBeVisible()
+    await expect(equipment.getByText(/^Check off what you own in your kit/)).toBeVisible()
 
     await equipment.getByRole('link', { name: 'your kit' }).click()
     await expect(page.getByRole('heading', { name: 'Your kit' })).toBeVisible()
@@ -78,7 +78,7 @@ test.describe('the kit', () => {
 
   test('a stainless or cast-iron skillet counts as a 12-inch skillet', async ({ page, kitchen }) => {
     await kitchen.open('#/kit', { kit: ['steel-skillet'] })
-    const large = page.getByRole('listitem').filter({ hasText: /^Large skillet, 12 inch(?!,)/ })
+    const large = page.getByRole('listitem').filter({ hasText: /^12-inch skillet/ })
     await expect(large).toContainText('Something else in your kit does this job.')
     await expect(large.getByRole('checkbox')).not.toBeChecked()
   })

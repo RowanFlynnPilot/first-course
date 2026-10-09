@@ -10,7 +10,7 @@ test.describe('the next move', () => {
     await kitchen.open('#/recipe/chicken-pan-sauce', FRESH)
     const locked = page.locator('.notice').filter({ hasText: /^Locked\./ })
     await expect(locked).toContainText('Learn searing and judging doneness from Seared chicken thighs with roasted broccoli.')
-    await expect(locked).toContainText('The way there, each cooked at “Decent” or better:')
+    await expect(locked).toContainText('The way there, each cooked at Decent or better:')
     await expect(locked.getByRole('link', { name: 'Chopped salad with lemon vinaigrette' })).toBeVisible()
     await expect(locked).toContainText(', then this.')
   })
@@ -53,17 +53,43 @@ test.describe('the next move', () => {
 
   test('the recipe page says what “you keep” counts, and what the dish counts toward', async ({ page, kitchen }) => {
     await kitchen.open('#/recipe/chopped-salad', FRESH)
-    await expect(page.getByText('First course. Counts toward the basics.')).toBeVisible()
+    await expect(page.getByText('First course. Good cooks count toward the extras for the basics.')).toBeVisible()
     await expect(page.locator('.tab-kept')).toContainText('For 2 servings')
     await page.goto('#/recipe/soft-scrambled-eggs')
     await expect(page.locator('.tab-kept')).toContainText('For 1 serving')
   })
 
-  test('the menu rests a dish cooked in the last week, and suggests something else', async ({ page, kitchen }) => {
+  test('the recipe page carries the whys, so reading ahead teaches as cook mode does', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/chopped-salad', FRESH)
+    const method = page.locator('ol.method')
+    await expect(method.getByText('Why.')).toHaveCount(7)
+    await expect(method).toContainText('Why. Salt dissolves in lemon juice but not in oil, so it goes in first.')
+  })
+
+  test('adding to the week says it is saving until the write lands', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/chopped-salad', FRESH)
+    const release = kitchen.backend.holdNext('plan_items', 'POST')
+    await page.getByRole('button', { name: 'Add to this week' }).click()
+    await expect(page.getByRole('status')).toHaveText('Saving…')
+    release()
+    await expect(page.getByRole('button', { name: 'Take off this week' })).toBeVisible()
+    await expect(page.getByText('Saving…')).toHaveCount(0)
+  })
+
+  test('the menu rests a dish cooked well in the last week, and suggests something else', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-03T18:00:00-05:00') })
+    // Everything cooked once, a month ago; the salad again yesterday. The salad leads the menu, so without the rest it
+    // would be tonight's suggestion too.
+    const once = RECIPES.map((recipe) => ({ recipe: recipe.id, rating: 2 as const, cookedOn: '2026-09-01' }))
+    await kitchen.open('./', { logs: [...once, { recipe: 'chopped-salad', rating: 2, cookedOn: '2026-10-02' }] })
+    await expect(page.getByRole('heading', { name: 'Cook this again: Soft scrambled eggs on toast' })).toBeVisible()
+  })
+
+  test('a Rough cook skips the rest: it comes back the next day', async ({ page, kitchen }) => {
     await page.clock.install({ time: new Date('2026-10-03T18:00:00-05:00') })
     await kitchen.open('./', { logs: [{ recipe: 'chopped-salad', rating: 1, cookedOn: '2026-10-02' }] })
-    // A Rough salad yesterday: not the salad again tonight.
-    await expect(page.getByRole('heading', { name: 'Cook this next: Soft scrambled eggs on toast' })).toBeVisible()
+    // The skill is not learned yet, so the salad is still the way on.
+    await expect(page.getByRole('heading', { name: 'Cook this again: Chopped salad with lemon vinaigrette' })).toBeVisible()
   })
 
   test('once a dish of the usual is in reach, the menu suggests it first', async ({ page, kitchen }) => {

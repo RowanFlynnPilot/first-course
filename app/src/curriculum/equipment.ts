@@ -19,26 +19,30 @@ export const EQUIPMENT = {
   'butter-knife': { name: 'Butter knife', note: null, coveredBy: [] },
   grater: {
     name: 'Grater',
-    note: 'A box grater: the fine side for zest, parmesan and ginger, the big holes for cheese that melts.',
+    note: 'A box grater: the fine side for zest, parmesan, and ginger, the big holes for cheese that melts.',
     coveredBy: [],
   },
   'can-opener': { name: 'Can opener', note: null, coveredBy: [] },
 
   // Pans and pots
-  'small-nonstick-skillet': { name: 'Nonstick skillet, 8 to 10 inch', note: 'For eggs and single sandwiches.', coveredBy: [] },
+  'small-nonstick-skillet': {
+    name: '8- to 10-inch nonstick skillet',
+    note: 'For eggs and single sandwiches. Medium-high heat at most, and never a metal tool: both wear out the coating.',
+    coveredBy: [],
+  },
   'large-skillet': {
-    name: 'Large skillet, 12 inch',
-    note: 'Any kind. Buying one? Buy cast iron: it is also the skillet the third course and the usual ask for.',
+    name: '12-inch skillet',
+    note: 'Any kind. Buying one? Buy cast iron: it is also the skillet the third course and the usual ask for. Once it cools, wash it with hot water and a sponge, dry it right away, and never leave it to soak.',
     coveredBy: ['steel-skillet', 'cast-iron-skillet'],
   },
   'steel-skillet': {
-    name: 'Large skillet, 12 inch, stainless steel or cast iron',
+    name: '12-inch stainless or cast-iron skillet',
     note: 'Not nonstick: pan sauces and smash burgers need a pan that browns and takes high heat. Cast iron counts.',
     coveredBy: ['cast-iron-skillet'],
   },
   'cast-iron-skillet': {
-    name: 'Cast-iron skillet, 12 inch',
-    note: 'Pre-seasoned is fine. It goes from the stove into a 500°F oven and holds heat for a crisp crust.',
+    name: '12-inch cast-iron skillet',
+    note: 'Pre-seasoned is fine. It goes from the stove into a 500°F oven and holds heat for a crisp crust. Once it cools, wash it with hot water and a sponge, dry it right away, and never leave it to soak.',
     coveredBy: [],
   },
   'skillet-lid': {
@@ -62,7 +66,7 @@ export const EQUIPMENT = {
 
   // Tools
   tongs: { name: 'Tongs', note: 'About 12 inches long.', coveredBy: [] },
-  spatula: { name: 'Spatula', note: 'A flat turner for flipping.', coveredBy: ['metal-spatula'] },
+  spatula: { name: 'Spatula', note: 'A flat turner for flipping. Nylon or silicone, so it is safe on nonstick.', coveredBy: [] },
   'metal-spatula': { name: 'Stiff metal spatula', note: 'Wide and sturdy, with a sharp front edge for scraping.', coveredBy: [] },
   'silicone-spatula': { name: 'Silicone spatula', note: 'Heatproof, for scraping a pan clean.', coveredBy: [] },
   'wooden-spoon': { name: 'Wooden spoon', note: null, coveredBy: [] },
@@ -76,7 +80,7 @@ export const EQUIPMENT = {
     coveredBy: [],
   },
   'measuring-spoons': { name: 'Measuring spoons', note: null, coveredBy: [] },
-  'measuring-cups': { name: 'Measuring cups', note: 'For rice, lentils and water.', coveredBy: [] },
+  'measuring-cups': { name: 'Measuring cups', note: 'For rice, lentils, and water.', coveredBy: [] },
   'liquid-measuring-cup': { name: 'Liquid measuring cup', note: 'Glass, with a spout. 2 cups is plenty.', coveredBy: [] },
   'oven-mitts': { name: 'Oven mitts', note: null, coveredBy: [] },
   toaster: { name: 'Toaster', note: null, coveredBy: [] },

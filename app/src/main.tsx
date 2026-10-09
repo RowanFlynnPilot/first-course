@@ -23,6 +23,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
         <p className="notice notice-error" role="alert">
           {this.state.error.message}
         </p>
+        <p className="section-note">Your saved cooks and lists are safe.</p>
         <div className="actions">
           <a className="button" href={import.meta.env.BASE_URL}>
             Back to the menu

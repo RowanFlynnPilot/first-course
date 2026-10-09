@@ -22,31 +22,14 @@ if ((accessToken !== null && refreshToken !== null) || failed) {
   window.history.replaceState(null, '', window.location.pathname + window.location.search)
 }
 
-/** Who an access token signs in: its user id and email, read from the token's payload, or null if it is not one. */
-function tokenOwner(token: string): { id: string; email: string | null } | null {
-  const payload = token.split('.')[1]
-  if (payload === undefined) return null
-  try {
-    // A link is anyone's to write, so a payload that is not a token is a broken link, not a bug.
-    const claims: unknown = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
-    if (typeof claims !== 'object' || claims === null) return null
-    const { sub, email } = claims as { sub?: unknown; email?: unknown }
-    return typeof sub === 'string' ? { id: sub, email: typeof email === 'string' ? email : null } : null
-  } catch {
-    return null
-  }
-}
-
 /**
  * An email link that brought the cook here carrying a session, or null. The
- * app checks whose it is before signing in with it: anyone can send a link
- * carrying their own account's tokens, so a cook already signed in as
- * someone else is asked first.
+ * app asks Supabase whose it is (`linkOwner`) before signing in with it:
+ * anyone can send a link carrying their own account's tokens, so a cook
+ * already signed in as someone else is asked first.
  */
 export const emailLink =
-  accessToken !== null && refreshToken !== null
-    ? { accessToken, refreshToken, owner: tokenOwner(accessToken), recovery: landing.get('type') === 'recovery' }
-    : null
+  accessToken !== null && refreshToken !== null ? { accessToken, refreshToken, recovery: landing.get('type') === 'recovery' } : null
 
 /** The cook arrived from a password reset link, so the app asks for a new password first. */
 export const fromPasswordReset = emailLink?.recovery === true
@@ -61,11 +44,28 @@ export const linkError = failed
     : 'That email link did not work.'
   : null
 
-export const supabase = createClient(url, key, { auth: { detectSessionInUrl: false } })
+/** How long any request may take before it fails and says so. On weak signal a request can otherwise wait for minutes. */
+const REQUEST_TIMEOUT_MS = 15_000
 
-/** Signs in with an email link's tokens. Rejects with why it failed. */
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+}
+
+export const supabase = createClient(url, key, { auth: { detectSessionInUrl: false }, global: { fetch: fetchWithTimeout } })
+
+/**
+ * Who an email link's token really signs in, as Supabase says: the token is
+ * checked on the server, so a link carrying a forged one (anyone can write a
+ * token that names any email) fails here. Never read the token's own claims.
+ */
+export async function linkOwner(link: NonNullable<typeof emailLink>): Promise<{ id: string; email: string | null }> {
+  const { data, error } = await supabase.auth.getUser(link.accessToken)
+  if (error) throw new Error('That email link did not work.')
+  return { id: data.user.id, email: data.user.email ?? null }
+}
+
+/** Signs in with an email link's tokens, checked by `linkOwner` first. Rejects with why it failed. */
 export async function signInFromLink(link: NonNullable<typeof emailLink>): Promise<void> {
-  if (link.owner === null) throw new Error('That email link did not work.')
   const { error } = await supabase.auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
-  if (error) throw new Error(`That email link did not sign you in: ${error.message}`)
+  if (error) throw new Error('That email link did not sign you in.')
 }

@@ -94,7 +94,7 @@ test.describe('timers in cook mode', () => {
       void dialog.dismiss()
     })
     await page.getByRole('link', { name: 'Leave cook mode' }).click()
-    expect(messages).toEqual(['A timer is still running. Leaving cook mode stops it.'])
+    expect(messages).toEqual(['A timer is still running. Leave cook mode and stop it?'])
     await expect(page.getByText('Step 7 of 8')).toBeVisible()
 
     page.once('dialog', (dialog) => void dialog.accept())
@@ -113,7 +113,7 @@ test.describe('timers in cook mode', () => {
     await page.reload()
     await expect(page.getByText('Step 3 of 8')).toBeVisible()
     await expect(page.getByRole('timer')).toContainText(/^(10:00|9:[45]\d)Stop timer$/)
-    await expect(page.getByText('The page reloaded. Tap anywhere so your timers can chime.')).toBeVisible()
+    await expect(page.getByText('The page reloaded. Tap anywhere so your timers can ring.')).toBeVisible()
 
     await page.getByText('Step 3 of 8').click()
     await expect(page.getByText('The page reloaded.')).toHaveCount(0)
@@ -128,6 +128,8 @@ test.describe('timers in cook mode', () => {
     await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
     await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
     await page.reload()
+    // Loaded first: a jump of the clock while the opening reads are out would trip their time limit.
+    await expect(page.getByText('Step 3 of 8')).toBeVisible()
     await page.clock.fastForward('16:00')
     await expect(page.getByRole('timer')).toContainText('Time is up')
     await expect.poll(() => page.evaluate(() => (window as unknown as { beeps: number }).beeps)).toBe(0)
@@ -164,7 +166,7 @@ test.describe('timers in cook mode', () => {
       void dialog.accept()
     })
     await page.getByRole('link', { name: 'Finish and log it' }).click()
-    expect(asked).toEqual(['A timer is still running. Logging the cook now stops it.'])
+    expect(asked).toEqual(['A timer is still running. Stop it and log the cook?'])
     await page.getByRole('radio', { name: /^Decent/ }).check()
     await page.getByRole('button', { name: 'Save this cook' }).click()
     await expect(page.getByRole('status')).toBeVisible()

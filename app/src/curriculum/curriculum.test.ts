@@ -4,10 +4,11 @@
 import { describe, expect, it } from 'vitest'
 import { cookCostPerServingCents, ESTIMATES, orderCostPerServingCents } from '../lib/cost'
 import { formatAmount, formatDuration } from '../lib/format'
-import type { EquipmentId } from './equipment'
+import { EQUIPMENT, type EquipmentId } from './equipment'
 import { INGREDIENTS, type Ingredient, type IngredientId, type MeatSafety } from './ingredients'
 import { RECIPES } from './recipes'
-import { TECHNIQUES, type TechniqueId } from './techniques'
+import { SPICE_HABITS, SPICES, SPICES_LATER } from './spices'
+import { DISCIPLINES, TECHNIQUES, type TechniqueId } from './techniques'
 import type { RecipeContent } from './types'
 
 const techniqueIds = Object.keys(TECHNIQUES) as TechniqueId[]
@@ -273,10 +274,8 @@ describe('written recipes', () => {
     for (const { id, content } of written) {
       const text = content.steps.map((step) => step.text).join(' ')
       for (const line of content.ingredients) {
-        // The last word of the name before any comma or parentheses: "Neutral oil (canola or vegetable)" is "oil".
-        const words = (INGREDIENTS[line.ingredientId].name.replace(/\s*\(.*?\)/g, '').split(',')[0] ?? '')
-          .toLowerCase()
-          .split(' ')
+        // The last word of the name, leaving out any parentheses: "Neutral oil (canola or vegetable)" is "oil".
+        const words = INGREDIENTS[line.ingredientId].name.replace(/\s*\(.*?\)/g, '').toLowerCase().split(' ')
         const noun = words.at(-1)
         if (noun === undefined) throw new Error(`${line.ingredientId} has no name`)
         // A word before the noun has to be part of this ingredient's name: "half the sesame oil" is not the olive oil.
@@ -362,5 +361,49 @@ describe('written recipes', () => {
     for (const { id, content } of written) {
       expect(cookCostPerServingCents(content, ESTIMATES), id).toBeLessThan(orderCostPerServingCents(content))
     }
+  })
+})
+
+describe('the copy', () => {
+  /** A hand-written sentence and where it lives. */
+  type Copy = readonly [where: string, text: string]
+  // Prep notes are left out: "1 for the beef, ½ for the sauce" is a terse form of its own.
+  const copy: readonly Copy[] = [
+    ...RECIPES.flatMap((recipe): Copy[] => [
+      [recipe.id, recipe.title],
+      [recipe.id, recipe.blurb],
+      [recipe.id, recipe.content.pairing.principle],
+      [recipe.id, recipe.content.pairing.why],
+      ...recipe.content.steps.flatMap((step, index): Copy[] => [
+        [`${recipe.id} step ${index + 1}`, step.text],
+        [`${recipe.id} step ${index + 1} why`, step.why ?? ''],
+      ]),
+    ]),
+    ...Object.entries(TECHNIQUES).map(([id, technique]): Copy => [id, technique.summary]),
+    ...Object.entries(DISCIPLINES).map(([id, discipline]): Copy => [id, discipline.summary]),
+    ...Object.entries(EQUIPMENT).map(([id, item]): Copy => [id, item.note ?? '']),
+    ...Object.entries(SPICES).flatMap(([id, spice]) => [spice.tastes, spice.buy, spice.use, ...spice.tryOn].map((text): Copy => [id, text])),
+    ...SPICE_HABITS.flatMap(({ habit, why }) => [habit, why].map((text): Copy => [habit, text])),
+    ...SPICES_LATER.map(({ name, why }): Copy => [name, why]),
+  ]
+
+  it('put the serial comma in every list: "salt, oil, and lemons"', () => {
+    // One word on each side, "X, Y and Z", tells a list from a clause such as "Cook, stirring now and then".
+    const unserial = /\b\w+, \w+ (?:and|or) \w+/g
+    // These read like that and are not lists.
+    const notLists = ['stirring and scraping', 'wash and dry', 'low and close', 'seeds and all']
+    for (const [where, text] of copy) {
+      const lists = [...text.matchAll(unserial)].map((match) => match[0]).filter((list) => !notLists.some((phrase) => list.includes(phrase)))
+      expect(lists, where).toEqual([])
+    }
+  })
+
+  it('name every ingredient and tool without a comma, since lists of them are joined with commas', () => {
+    // "You cooked with a grater, a 12-inch skillet, and tongs" cannot tell which comma ends a name.
+    const names = [
+      ...Object.values(INGREDIENTS).flatMap((ingredient: Ingredient) => [ingredient.name, ingredient.plural ?? '']),
+      ...Object.values(EQUIPMENT).map((item) => item.name),
+    ]
+    expect(names.filter((name) => name.includes(','))).toEqual([])
   })
 })

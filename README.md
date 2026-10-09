@@ -117,15 +117,16 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 136 unit tests. The curriculum's graph rules, raw-meat
-      safety, burners turned off, step length, XP and levels, costs and
-      corrected prices, the grocery list, the kit, timers, the streak and
-      the badges.
+- [x] `npm test`: 143 unit tests. The curriculum's graph rules, raw-meat
+      safety, burners turned off, step length, the serial comma and names
+      without commas, XP and levels, costs and corrected prices, the
+      grocery list, the kit, timers, the streak, the badges, and errors in
+      plain words.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 173 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 180 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
-  - signing in and up, a password reset, an expired email link, creating
+  - signing in and up, a password reset, an expired or forged email link, creating
     and changing the chef, the character
     creator, and earning and wearing extras
   - cooking and logging, the after-cook notice and what unlocks, and Back
@@ -136,8 +137,8 @@ The deploy workflow runs these, and nothing deploys unless all pass:
     pantry, the kit and the spice guide
   - a save retried after its answer was lost, catching up after time away,
     and no screen running off the side at 200% zoom
-  - each screen's title and where focus lands, and that nothing loads from
-    another site
+  - each screen's title, where focus lands, where the menu was scrolled,
+    and that nothing loads from another site
   - changing and deleting a cook
   - promotions, the usual's moments, badges, the streak and reduced motion
   - the manifest and icons, and the error screens

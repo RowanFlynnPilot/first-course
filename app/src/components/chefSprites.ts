@@ -227,7 +227,7 @@ export const HAIR_COLORS = [
   { name: 'Brown', color: '#5c3b25' },
   { name: 'Blond', color: '#d2a03c' },
   { name: 'Red', color: '#a44a2b' },
-  { name: 'Grey', color: '#9aa1ad' },
+  { name: 'Gray', color: '#9aa1ad' },
   { name: 'Blue', color: '#3f8fd6' },
   { name: 'Pink', color: '#e38ab2' },
   { name: 'Green', color: '#3f9a6c' },

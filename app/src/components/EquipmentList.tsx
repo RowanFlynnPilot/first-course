@@ -20,7 +20,7 @@ export function EquipmentList({ items, kit }: { items: readonly EquipmentId[]; k
       </ul>
       {!started ? (
         <p className="section-note">
-          Tick what you own in <Link to="/kit">your kit</Link>, and lists like this one will mark what you still need.
+          Check off what you own in <Link to="/kit">your kit</Link>, and lists like this one will mark what you still need.
         </p>
       ) : (
         missing.length > 0 && (

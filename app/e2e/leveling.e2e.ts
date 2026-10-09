@@ -8,7 +8,7 @@ const ALMOST_PREP_COOK: readonly SeedLog[] = [
   { recipe: 'grilled-cheese', rating: 2 },
 ]
 
-// Everything the double smash burger needs except cold emulsions, which the oven fries teach.
+// Everything the double smash burger needs except whisking an emulsion, which the oven fries teach.
 const ALMOST_DOUBLE_SMASH: readonly SeedLog[] = [
   { recipe: 'chopped-salad', rating: 2 },
   { recipe: 'sheet-pan-sausage', rating: 2 },
@@ -21,9 +21,9 @@ test.describe('leveling up', () => {
     await kitchen.open('#/cook/sheet-pan-sausage/log', { logs: ALMOST_PREP_COOK })
     await rateAndSave(page, 'Decent')
 
-    const beat = page.getByRole('dialog', { name: 'Remy is now a prep cook' })
+    const beat = page.getByRole('dialog', { name: 'Remy is promoted to prep cook' })
     await expect(beat).toBeVisible()
-    await expect(beat.getByRole('img', { name: 'Your chef, a prep cook' })).toBeVisible()
+    await expect(beat.getByRole('img', { name: 'Your chef: prep cook' })).toBeVisible()
     await expect(beat).toContainText('A skull cap and a cobalt apron.')
     await expect(beat).toContainText('Next: line cook at level 6.')
     await expect(beat.getByRole('button', { name: 'Back to the menu' })).toBeFocused()
@@ -55,12 +55,12 @@ test.describe('leveling up', () => {
 
     const beat = page.getByRole('dialog', { name: 'Double smash burger with oven fries is in reach' })
     await expect(beat).toBeVisible()
-    await expect(beat).toContainText('Cook it any time.')
+    await expect(beat).toContainText('Next time you would order it, cook it instead.')
     await beat.getByRole('button', { name: 'Back to the menu' }).click()
     // Behind the moment the menu is hidden from assistive tech, so the notice is read only now.
     await expect(noticeLines(page).first()).toHaveText(/^Oven fries with garlic aioli: Decent\./)
     await expect(page.getByRole('status')).not.toContainText('Double smash burger with oven fries')
-    await expect(page.getByRole('link', { name: /Double smash burger/ })).toContainText('In reach. Cook it any time.')
+    await expect(page.getByRole('link', { name: /Double smash burger/ })).toContainText('In reach. Cook it any time')
   })
 })
 

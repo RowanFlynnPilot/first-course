@@ -47,7 +47,7 @@ export function cookNotice(
   // The first line says what was cooked, so the notice reads on its own.
   const rated = `${recipe.title}: ${ratingLabel(log.rating)}.`
   if (xpAfter === xpBefore) {
-    lines.push(`${rated} No XP this time: a recipe's best ${XP_COOKS_PER_RECIPE} cooks count, and this one did not beat them.`)
+    lines.push(`${rated} No XP this time: a recipe’s best ${XP_COOKS_PER_RECIPE} cooks count, and this one did not beat them.`)
   } else {
     lines.push(`${rated} +${xpAfter - xpBefore} XP.${levelAfter > levelBefore ? ` Level ${levelAfter}.` : ''}`)
   }
@@ -64,7 +64,7 @@ export function cookNotice(
 
   const stillUnlearned = recipe.teaches.filter((technique) => !hasLearned.has(technique))
   if (stillUnlearned.length > 0) {
-    lines.push(`Cook it again at “Decent” or better to learn ${skillList(stillUnlearned)}.`)
+    lines.push(`Cook it again at Decent or better to learn ${skillList(stillUnlearned)}.`)
   }
 
   if (recipeState(recipe, before) !== 'mastered' && recipeState(recipe, after) === 'mastered') {

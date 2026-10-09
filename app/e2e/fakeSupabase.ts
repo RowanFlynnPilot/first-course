@@ -33,6 +33,9 @@ interface TableSpec {
   readonly check: (row: Row) => string | null
 }
 
+/** PostgREST answers at most this many rows to a read, whatever was asked (Supabase's default max-rows). */
+const MAX_ROWS = 1000
+
 // 00008: ids are the curriculum's typed ids, lowercase words joined by hyphens.
 const ID = /^[a-z0-9-]{1,64}$/
 const idCheck = (column: string) => (row: Row) => (typeof row[column] === 'string' && ID.test(String(row[column])) ? null : `${column} is not an id`)
@@ -49,7 +52,9 @@ const TABLES: Record<string, TableSpec> = {
     check: (row) => {
       if (row.rating !== 1 && row.rating !== 2 && row.rating !== 3) return 'rating must be 1 to 3'
       if (typeof row.notes !== 'string' || row.notes.length > 2000) return 'notes must be at most 2000 characters'
-      if (typeof row.cooked_on !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.cooked_on)) return 'cooked_on must have a four-digit year'
+      if (typeof row.cooked_on !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.cooked_on) || row.cooked_on < '1900-01-01') {
+        return 'cooked_on must be from 1900 to 2999'
+      }
       return idCheck('recipe_id')(row)
     },
   },
@@ -525,10 +530,10 @@ export class FakeSupabase {
           return 0
         })
       }
-      // range(): offset and limit.
+      // range(): offset and limit, and never more than PostgREST's max-rows (1,000 on Supabase).
       const offset = Number(url.searchParams.get('offset') ?? '0')
-      const limit = url.searchParams.get('limit')
-      const page = rows.slice(offset, limit === null ? undefined : offset + Number(limit))
+      const limit = Math.min(Number(url.searchParams.get('limit') ?? MAX_ROWS), MAX_ROWS)
+      const page = rows.slice(offset, offset + limit)
       return respond(page, 200)
     }
 

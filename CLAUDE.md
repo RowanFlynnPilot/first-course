@@ -121,7 +121,8 @@ app/
   src/
     main.tsx                   root + error boundary
     App.tsx                    auth gate, loads logs + chef + shop, routes, scroll, notice
-    supabase.ts                client; throws if env is missing; reads an email link's result first
+    supabase.ts                client; throws if env is missing; reads an email link's result first;
+                                 a 15-second limit on every request; linkOwner() asks Supabase whose link it is
     styles.css                 the whole design system
     curriculum/
       techniques.ts            28 skills, 6 disciplines -> TechniqueId
@@ -146,6 +147,7 @@ app/
       cookLogs.ts, chefs.ts,   the only Supabase reads/writes; rows -> app data
         shop.ts                  (shop.ts: plan, pantry, checks, prices, kit, finish_shopping)
       format.ts                money, quantities, dates, lists
+      errors.ts                plainMessage(): a Supabase or network error in the app's own words
     components/
       Plate.tsx                the plate (see Design)
       PixelArt.tsx             draws any pixel art (rows of palette keys) as crisp SVG, with frames
@@ -164,6 +166,7 @@ app/
                                  the log form show for a locked recipe
       usePageTitle.ts          each screen's title: "This week · First Course"
       useCookTimers.ts         cook mode's timers: persisted, chimed from one check
+      menuScroll.ts            where the menu was scrolled, for the "Menu" back links
       XpBar.tsx, IngredientList.tsx, EquipmentList.tsx, RatingPicker.tsx
     screens/                   Auth, SetPassword, NameChef, Menu, Chef, EditChef, Recipe, Cook, Log,
                                EditCook, Shop, Pantry, Kit, Spices
@@ -201,7 +204,11 @@ a dish comes into reach when its skills are learned.
 **Every recipe is written, the usual included (31 recipes).** `content` is
 required on `Recipe`, so the type system rules out an unwritten recipe, and
 nothing in the app handles one. Once a dish of the usual is in reach, the
-menu says "In reach. Cook it any time."
+menu says "In reach. Cook it any time" (row notes take no full stop).
+
+The usual sits below the Fourth course until one of its dishes is in reach,
+then moves above the First course (Rowan's call, October 9, 2026), so a
+beginner meets what they can cook before seven locked plates.
 
 The Second, Third and Fourth courses and the usual were all written on
 October 4, 2026, ahead of the "one course ahead of the cook" pace, at
@@ -216,7 +223,8 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   looks, smells or sounds like. Never write "cook until done".
 - Each step is one screen in cook mode. One action or one tight group.
 - `why` is where the teaching happens. Give the reason, briefly. Not every
-  step needs one.
+  step needs one. Cook mode shows it under the step, and the recipe page
+  under each step of the method, for a cook reading ahead.
 - `timer` only where a clock is the right judge (oven, rice, resting):
   `{ seconds, label }`, where the label is a word or two ("Potatoes",
   "First rise", at most 16 characters) that names it on the chips cook mode
@@ -291,7 +299,9 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   rise while the oven heats) says to go straight on to the next step. A
   timer rings only at zero, so never write "when the timer shows 30 minutes
   left": split the wait into two timers (the ragù simmers 2 hours on one
-  step, then 30 minutes on the next, while the pasta water heats).
+  step, then 30 minutes on the next, while the pasta water heats; the
+  carbonara's pasta gets 8 minutes, then a "Last minute" timer while the
+  eggs are tempered).
 - A utensil that touched raw meat (tongs, a spatula that spread it in the
   pan) is washed before it moves or stirs cooked meat. Sliced raw meat that
   marinates or velvets waits covered in the fridge.
@@ -382,11 +392,38 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   boil. Say "a lidded container", always.
 - "Wrap the rest" lists `plastic-wrap`, and a step that cuts lists the
   cutting board as well as the knife (`curriculum.test.ts` checks both).
+- A knife is washed by hand and set in the dish rack, never left in a sink
+  of soapy water, where a hand reaching in finds the edge.
+- Nonstick stays at medium-high at most and never meets a metal tool. The
+  `spatula` is nylon or silicone; the stiff metal one does not stand in for
+  it.
+- A recipe that makes 3 or more servings says how to keep the leftovers: a
+  lidded container, in the fridge within 2 hours, 4 days.
+- Ingredient and equipment names carry no commas ("80% lean ground beef",
+  "12-inch skillet"), since lists of them are joined with commas; prep goes
+  in the prep note ("Fresh ginger", "peeled and grated"). A counted
+  (`each`) ingredient has a `plural`, which the type requires and the list
+  shows above one: "3 Large eggs", "½ Lemon".
+- Skill names are actions: "Steaming rice", "Making a pan sauce",
+  "Whisking an emulsion". They read in sentences: "Learned steaming rice."
+- Lists take the serial comma ("salt, oil, and lemon"), in recipes and in
+  the app. `curriculum.test.ts` flags "X, Y and Z" in every step, why,
+  blurb, pairing, summary, note and spice entry, except four phrases that
+  only look like lists ("stirring and scraping", "wash and dry", "low and
+  close", "seeds and all"). The app joins lists with `listOf`, which does
+  it already.
 
 ## The rules, precisely
 
 `lib/progress.ts`:
 
+- `progressOf(logs)` reads the log once (good cooks, "Nailed it"s, the
+  last cook and the ratings of each recipe, and the skills learned) and
+  keeps the result per log array in a `WeakMap`. The functions below read
+  from it, so the menu's 31 rows cost one pass, not 31. That is only right
+  while a log array never changes, so the app freezes every one it makes
+  (`fetchCookLogs`, `changeLogs` in `App.tsx`): a change in place throws
+  instead of showing stale progress. Tests build new arrays with spreads.
 - `learnedTechniques(logs)`: skills of every recipe with at least one good cook.
 - `recipeState(recipe, logs)`: `locked` if any required skill is unlearned;
   else `ready` with no cooks; else `mastered` at 3 good cooks including a
@@ -399,8 +436,10 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   everything builds toward), then, in menu order, recipes without a good
   cook (so a Rough cook comes back before anything new), then those not yet
   mastered, then mastered ones, the longest uncooked first, the usual's
-  before the courses'. A recipe cooked in the last `REST_DAYS` (7) goes to
-  the back, so the suggestion is never what was cooked yesterday. There is
+  before the courses'. A recipe cooked well (Decent or better) in the last
+  `REST_DAYS` (7) goes to the back, so the suggestion is never what was
+  cooked well yesterday; a recipe with only Rough cooks skips the rest,
+  since its skill is still the way on (Rowan's call, October 9, 2026). There is
   always a suggestion: once everything is mastered, the card says "Mastered,
   and not cooked since …". (Rowan's call, October 6, 2026: a year-long
   simulation found the menu running dry for the keen cook, re-suggesting the
@@ -577,10 +616,13 @@ Other rules:
 
 - Each section opens with a 3px rim line. Rows are separated by hairlines.
   No shadows, no gradient decoration, no card grid.
-- In the interface, yolk always means something earned or worth noticing:
-  the plate, the XP bar, skill pips, the left edge of a notice or a "Why",
-  and the marker under the kept amount. Never decoration. The sprite uses
-  yolk as a costume color (gloves, neckerchief, gold trim), which is the one
+- In the interface, yolk always means something earned: the plate, the XP
+  bar, skill pips, the left edge of the after-cook notice or a "Why", and
+  the marker under the kept amount. Never decoration. A plain notice (the
+  last note, "Check your email", what the plan still needs) is
+  `.notice-info`, with a cobalt edge (Rowan's call, October 9, 2026: yolk
+  on every notice had stopped meaning anything). The sprite uses yolk as a
+  costume color (gloves, neckerchief, gold trim), which is the one
   exception.
 - Pixel art is the chef sprite and the badges (October 4, 2026: Rowan
   relaxed this rule to include badges), in the same format and palette:
@@ -589,7 +631,8 @@ Other rules:
   shade. Do not pixelate the rest of the interface or swap in a pixel font.
 - Motion (relaxed the same day from two pieces to these, all answering a
   saved cook or a standing chef, all off under reduced motion): the yolk
-  lands on the plate just cooked (`.plate-celebrate`), the XP bar fills from
+  lands on the plate just cooked, at the top of the after-cook notice where
+  the cook is looking (`.plate-celebrate`), the XP bar fills from
   where it was (`.xp-fill`), a level-up hops the chef and pops the level
   (`.chef-card-levelup`), new badges pop into the notice (`.badge-pop`), the
   full-screen moments fade and rise in (`.beat`), and the chef idles in two
@@ -600,7 +643,13 @@ Other rules:
   links included: the "Menu" back links and "Leave cook mode" are the only
   exits once the app is installed, so they get the full 3rem too.
 - Copy is plain and direct. A button says what it does and keeps that name:
-  "Save this cook" produces "Saved."
+  "Save this cook" produces "Saved." A box is checked off, never ticked.
+  A write that takes a moment says "Saving…" beside its button.
+- Errors are in the app's words. `plainMessage` in `lib/errors.ts` turns a
+  failed request into "No connection. Check your signal and try again." and
+  the auth errors a cook can cause into what to do ("That email and
+  password do not match an account."); anything else keeps the server's
+  text. Every Supabase read and write goes through it.
 
 ## Commands (PowerShell 5.1)
 
@@ -625,7 +674,9 @@ and own-rows RLS. An unknown column, a write the grants forbid, or a request
 the fake does not understand fails the test, as do uncaught page errors and
 console errors. When a migration changes a table, change `TABLES` in the fake
 to match. Reads are checked too: a column in `select` or `order` that the
-table does not have answers 400, as PostgREST does. Besides `failNext`
+table does not have answers 400, as PostgREST does, and every read stops at
+1,000 rows (`MAX_ROWS`), as the Data API does, so a read that needs more
+has to page. Besides `failNext`
 (tables, `rpc/<function>`, or `auth/<path>` such as `auth/logout`), the fake
 can carry out a request and lose its answer (`loseNextAnswer`), carry it out
 and answer only when the test says (`holdNext`, weak signal: a read answers
@@ -633,8 +684,12 @@ with what the database held when it arrived), and write or delete rows as
 another device would (`writeElsewhere`, `deleteElsewhere`). `recoveryHash()`
 and `signupHash()` make an email link's landing. A request to any other site
 fails the test too. `kitchen.ts` is the fixture
-(`kitchen.open(route, seed)`), the seeds and the shared steps. The deploy workflow runs the suite before the
-build; a failed run keeps its traces as an artifact.
+(`kitchen.open(route, seed)`), the seeds and the shared steps; open a
+seed once per test. A test that jumps the clock (`fastForward`) waits for
+the page to load first: the 15-second request limit runs on the page's
+clock, so a jump while the opening reads are out fails them. The deploy
+workflow runs the suite before the build; a failed run keeps its traces as
+an artifact.
 
 ## Things to know before changing them
 
@@ -703,13 +758,20 @@ build; a failed run keeps its traces as an artifact.
 - **New pages open at the top, with focus on the heading.** `App.tsx`
   scrolls to top on every push or replace navigation and focuses the page's
   `h1`, so a screen reader starts there; Back and Forward keep the browser's
-  position. Focus stays put when the screen already placed it: the tapped
+  position, and so does a "Menu" back link (`menuScroll.ts`: the installed
+  app has no Back button, and a cook browsing the Fourth course should not
+  land at the top each time). A save lands at the top, where its notice is.
+  Focus stays put when the screen already placed it: the tapped
   link is still there (Next step in cook mode keeps focus for the next tap),
   or a full-screen moment took it. Every screen names itself with
   `usePageTitle` ("This week · First Course"; cook mode says the step).
 - **A failed load offers "Try again".** If any of the opening reads fails,
   the message stays on screen with a button that loads everything again,
-  for a phone with weak signal.
+  for a phone with weak signal. While it loads, the screen shows the
+  wordmark and a plate, not a line of text. Every request gives up after
+  15 seconds (`fetchWithTimeout` in `supabase.ts`), so a store with one bar
+  of signal gets "No connection" and Try again, not a page that never
+  finishes.
 - **The app catches up after a while away.** Back from 10 minutes or more
   hidden (`REFRESH_AFTER_MS` in `App.tsx`), it loads the log, the chef and
   the shop again, so a cook logged or a recipe planned on another device
@@ -731,13 +793,14 @@ build; a failed run keeps its traces as an artifact.
   try landed: the cook is gone either way. Creating the chef twice returns
   the chef that exists. The e2e fake can lose an answer on purpose
   (`loseNextAnswer`).
-- **A cook is never dated after today**: `checkCookedOn` in `format.ts`
-  throws, on both cook forms, as well as the date field's `max`.
+- **A cook is never dated after today**, nor before 1900 (the database
+  takes four-digit years): `checkCookedOn` in `format.ts` throws, on both
+  cook forms, as well as the date field's `max` and `min`.
 - **Email links come back in the hash**, where the hash router would take
   them for a page. The client is created with `detectSessionInUrl: false`,
   and `supabase.ts` reads the hash itself, removes it with `replaceState`
   (so neither the tokens nor an error stay one Back away in the history),
-  and signs in from the tokens with `setSession` (`landingSignIn`).
+  and signs in from the tokens with `setSession` (`signInFromLink`).
   `App.tsx` shows nothing until that finishes, then "Set a new password"
   for a reset link (`type=recovery`) before anything else. A failed link is
   shown in the app's own words ("That email link has expired.", from
@@ -754,9 +817,9 @@ build; a failed run keeps its traces as an artifact.
   Creating an account has its own form ("New here? Create an account"),
   with `autocomplete="new-password"` and the 8-character hint. Each mode has
   its own heading, which takes focus when the mode changes.
-- **Before the first cook**, the menu shows "Where to start": tick the kit,
-  tick the pantry, plan, shop, cook, each ticked off from the data. Until
-  any kit is ticked, equipment lists show one pointer to the kit instead of
+- **Before the first cook**, the menu shows "Where to start": check off the kit,
+  check off the pantry, plan, shop, cook, each checked off from the data. Until
+  any kit is checked off, equipment lists show one pointer to the kit instead of
   "Not in your kit yet" on every tool.
 - **The menu folds a course** whose every recipe is mastered, behind "All N
   recipes mastered". Its suggestion card leads with the move the week
@@ -896,7 +959,11 @@ build; a failed run keeps its traces as an artifact.
     "secure email change" on.
   - A link carrying a different account's tokens (anyone can send one)
     does not sign in on its own: the app asks "Switch accounts?" with the
-    current account as the default. Errors never repeat text from the
+    current account as the default. Whose link it is comes from Supabase
+    (`linkOwner`, `auth.getUser` with the link's token), never from
+    reading the token: until October 9, 2026 the app decoded it, so a
+    forged token could name any email in the prompt. A link Supabase
+    refuses says "That email link did not work." and asks nothing. Errors never repeat text from the
     address bar (`recipeFromRoute`). The built page carries a content
     security policy as a meta tag (`vite.config.ts`): scripts, styles,
     fonts and images from the app itself, requests only to its Supabase
@@ -1046,7 +1113,7 @@ precisely" and "Design").
 
 As of October 5, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all eight migrations
-are on the live project, and every push runs 136 unit tests and 173 e2e tests before it deploys.
+are on the live project, and every push runs 143 unit tests and 180 e2e tests before it deploys.
 
 Decisions that changed on October 4, 2026, all at Rowan's request:
 

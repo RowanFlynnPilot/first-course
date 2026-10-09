@@ -93,7 +93,8 @@ export function useCookTimers(recipeId: string) {
     }
     function check() {
       const at = Date.now()
-      setNow(at)
+      // Only a clock on screen needs the time: with no timer shown, cook mode is not drawn again four times a second.
+      if (Object.keys(shownTimers(latest.current, at)).length > 0) setNow(at)
       const audio = sharedAudio
       // With no sound yet, a timer that ran out waits for the tap.
       const due = audio === null ? [] : dueTimers(shownTimers(latest.current, at), at)
@@ -176,6 +177,8 @@ export function useCookTimers(recipeId: string) {
       // Created on this tap, which is what lets the phone play the ring later.
       sharedAudio ??= new AudioContext()
       setSoundOn(true)
+      // The clock may have been resting with no timer on screen: start it from now.
+      setNow(Date.now())
       ringingSince.current.delete(label)
       setTimers((previous) => ({ ...previous, [label]: { endsAt: Date.now() + seconds * 1000, rang: false, stopped: false } }))
     },

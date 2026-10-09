@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router'
+import { BACK_TO_MENU } from '../components/menuScroll'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
 import { LockedNotice } from '../components/LockedNotice'
@@ -55,7 +56,9 @@ export function RecipeScreen({
   return (
     <main className="page">
       <nav className="back">
-        <Link to="/">Menu</Link>
+        <Link to="/" state={BACK_TO_MENU}>
+          Menu
+        </Link>
       </nav>
 
       <header className="recipe-head">
@@ -63,7 +66,7 @@ export function RecipeScreen({
         <div>
           {/* The track is what the extras count: "Cook the basics 5 times." */}
           <p className="row-note">
-            {COURSE_NAMES[recipe.tier]}. Counts toward {TRACK_NAMES[recipe.track]}.
+            {COURSE_NAMES[recipe.tier]}. Good cooks count toward the extras for {TRACK_NAMES[recipe.track]}.
           </p>
           <h1 className="title">{recipe.title}</h1>
         </div>
@@ -87,6 +90,16 @@ export function RecipeScreen({
         </p>
       )}
 
+      <p className="facts">
+        Serves {recipe.content.servings}. {formatMinutes(recipe.content.activeMinutes)} of work,{' '}
+        {formatMinutes(recipe.content.totalMinutes)} start to finish.
+      </p>
+      {state === 'locked' ? (
+        <LockedNotice recipe={recipe} logs={logs} />
+      ) : (
+        <RecipeActions recipe={recipe} note={lastNote(recipe.id, logs)} shop={shop} onShopChange={onShopChange} />
+      )}
+
       {recipe.teaches.length > 0 && (
         <section className="section">
           <h2 className="section-title">What it teaches</h2>
@@ -101,16 +114,7 @@ export function RecipeScreen({
         </section>
       )}
 
-      {state === 'locked' && <LockedNotice recipe={recipe} logs={logs} />}
-
-      <Written
-        recipe={recipe}
-        content={recipe.content}
-        locked={state === 'locked'}
-        note={lastNote(recipe.id, logs)}
-        shop={shop}
-        onShopChange={onShopChange}
-      />
+      <Written content={recipe.content} shop={shop} />
 
       {history.length > 0 && (
         <section className="section">
@@ -143,43 +147,41 @@ export function RecipeScreen({
   )
 }
 
-function Written({
+/**
+ * Cooking it, planning it, and logging a cook made away from the app (the
+ * rare path, so a link), with the last note left on its cooks.
+ */
+function RecipeActions({
   recipe,
-  content,
-  locked,
   note,
   shop,
   onShopChange,
 }: {
   recipe: Recipe
-  content: RecipeContent
-  locked: boolean
-  /** The last note left on this recipe's cooks. */
   note: string | null
   shop: Shop
   onShopChange: ShopChange
 }) {
+  return (
+    <>
+      <div className="recipe-actions">
+        <Link className="button" to={`/cook/${recipe.id}/0`}>
+          Start cooking
+        </Link>
+        <PlanButton recipe={recipe} shop={shop} onShopChange={onShopChange} />
+        <Link className="link-button" to={`/cook/${recipe.id}/log`}>
+          Log a cook
+        </Link>
+      </div>
+      {note !== null && <p className="notice notice-info">Last time you wrote: “{note}”</p>}
+    </>
+  )
+}
+
+function Written({ content, shop }: { content: RecipeContent; shop: Shop }) {
   const feesPercent = Math.round((SERVICE_FEE_RATE + TIP_RATE) * 100)
   return (
     <>
-      <p className="facts">
-        Serves {content.servings}. {formatMinutes(content.activeMinutes)} of work, {formatMinutes(content.totalMinutes)}{' '}
-        start to finish.
-      </p>
-
-      {!locked && (
-        <div className="actions">
-          <Link className="button" to={`/cook/${recipe.id}/0`}>
-            Start cooking
-          </Link>
-          <PlanButton recipe={recipe} shop={shop} onShopChange={onShopChange} />
-          <Link className="button button-quiet" to={`/cook/${recipe.id}/log`}>
-            Log a cook
-          </Link>
-        </div>
-      )}
-      {!locked && note !== null && <p className="notice">Last time you wrote: “{note}”</p>}
-
       <section className="section">
         <h2 className="section-title">Cook it or order it</h2>
         <dl className="tab">
@@ -212,7 +214,7 @@ function Written({
             ? 'with no delivery fee: a side rides on an order you would place anyway.'
             : `and one ${formatCents(DELIVERY_FEE_CENTS)} delivery fee.`}
           {content.servings > COUNTED_SERVINGS &&
-            ` It makes ${content.servings} servings, but “you keep” counts ${COUNTED_SERVINGS}: dinner, not the leftovers.`}{' '}
+            ` It makes ${content.servings} servings, but “You keep” counts ${COUNTED_SERVINGS}: dinner, not the leftovers.`}{' '}
           Grocery prices are estimates until you correct them on the grocery list.
         </p>
       </section>
@@ -243,6 +245,12 @@ function Written({
             <li key={step.text}>
               {step.text}
               {step.timer !== null && <span className="row-note">Timer: {formatDuration(step.timer.seconds)}</span>}
+              {/* The whys are where the teaching is: a cook reading ahead, or logging without cook mode, gets them too. */}
+              {step.why !== null && (
+                <p className="why">
+                  <strong>Why.</strong> {step.why}
+                </p>
+              )}
             </li>
           ))}
         </ol>
@@ -265,6 +273,11 @@ function PlanButton({ recipe, shop, onShopChange }: { recipe: Recipe; shop: Shop
       <button className="button button-quiet" type="button" aria-disabled={busy} onClick={toggle}>
         {planned ? 'Take off this week' : 'Add to this week'}
       </button>
+      {busy && (
+        <span className="busy" role="status">
+          Saving…
+        </span>
+      )}
       {planned && (
         <p className="plan-note">
           {shop.shopped.has(recipe.id) ? (

@@ -1,6 +1,8 @@
 // Moving between screens: each one names itself in the title, and a new
 // screen starts a screen reader at its heading.
 
+import { recipeById } from '../src/curriculum/recipes'
+import { pathTo } from '../src/lib/progress'
 import { expect, FRESH, SALAD_DONE, test } from './kitchen'
 
 test.describe('moving between screens', () => {
@@ -50,6 +52,8 @@ test.describe('moving between screens', () => {
     await page.getByRole('radio', { name: /^Decent/ }).check()
     await expect(page.getByText('Pick how it went first.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Save this cook' })).toBeEnabled()
+    // No later than today, and no earlier than the database takes.
+    await expect(page.getByLabel('Cooked on')).toHaveAttribute('min', '1900-01-01')
   })
 
   test('a new cook sees where to start, ticked off as it is done', async ({ page, kitchen }) => {
@@ -80,10 +84,40 @@ test.describe('moving between screens', () => {
     await expect(course.getByRole('link', { name: /Grilled cheese/ })).toContainText('3 good cooks. A “Nailed it” masters it')
   })
 
+  test('the usual sits below the courses while none of it is in reach', async ({ page, kitchen }) => {
+    await kitchen.open('./', FRESH)
+    await expect(page.getByText('Everything above builds toward cooking these.')).toBeVisible()
+    expect((await page.locator('h2.section-title').allTextContents()).at(-1)).toBe('The usual')
+  })
+
+  test('once a dish of the usual is in reach, the usual leads the menu', async ({ page, kitchen }) => {
+    const burger = recipeById('double-smash-burger')
+    await kitchen.open('./', { logs: pathTo(burger, []).map((recipe) => ({ recipe: recipe.id, rating: 2 as const })) })
+    await expect(page.getByText('Everything below builds toward cooking these.')).toBeVisible()
+    const headings = await page.locator('h2.section-title').allTextContents()
+    expect(headings.indexOf('The usual')).toBeGreaterThan(-1)
+    expect(headings.indexOf('The usual')).toBeLessThan(headings.indexOf('First course'))
+  })
+
+  test('the Menu link goes back to where the menu was scrolled', async ({ page, kitchen }) => {
+    await kitchen.open('./', FRESH)
+    const curry = page.getByRole('link', { name: /Thai green curry/ })
+    await curry.scrollIntoViewIfNeeded()
+    const scrolled = await page.evaluate(() => window.scrollY)
+    expect(scrolled).toBeGreaterThan(1000)
+    await curry.click()
+    await expect(page.getByRole('heading', { name: 'Thai green curry' })).toBeVisible()
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+    await page.getByRole('link', { name: 'Menu', exact: true }).click()
+    await expect(curry).toBeInViewport()
+    expect(Math.abs((await page.evaluate(() => window.scrollY)) - scrolled)).toBeLessThan(2)
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
+  })
+
   test('a course still shut says what opens it', async ({ page, kitchen }) => {
     await kitchen.open('./', FRESH)
     const course = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Second course' }) })
-    await expect(course.getByText('Opens as you learn first course skills. Each dish below says which it needs.')).toBeVisible()
+    await expect(course.getByText('Opens as you learn first course skills. Each recipe below says which it needs.')).toBeVisible()
     const first = page.locator('section').filter({ has: page.getByRole('heading', { name: 'First course' }) })
     await expect(first.getByText(/^Opens as you learn/)).toHaveCount(0)
   })

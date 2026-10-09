@@ -12,8 +12,8 @@ export type Unit = 'each' | 'clove' | 'slice' | 'bunch' | 'cup' | 'tbsp' | 'tsp'
 export type Section = 'produce' | 'meat' | 'dairy' | 'bakery' | 'pantry' | 'frozen'
 
 interface IngredientBase {
+  /** The product, as the grocery list and the pantry name it, and as a recipe lists one of it or less. */
   readonly name: string
-  readonly unit: Unit
   /**
    * Used a little at a time and keeps for weeks once bought, so it belongs in
    * the pantry. Something a recipe uses up whole (a can, a pack of meat) is not.
@@ -50,12 +50,27 @@ interface NotMeat extends IngredientBase {
   readonly safeTempF?: never
 }
 
-export type Ingredient = Meat | NotMeat
+/**
+ * Counted ingredients read after their count in a recipe's list, so each one
+ * has a plural for more than one: "3 Large eggs", but "½ Lemon".
+ */
+interface Counted {
+  readonly unit: 'each'
+  readonly plural: string
+}
+
+interface Measured {
+  readonly unit: Exclude<Unit, 'each'>
+  readonly plural?: never
+}
+
+export type Ingredient = (Meat | NotMeat) & (Counted | Measured)
 
 export const INGREDIENTS = {
   // Produce
   tomato: {
     name: 'Tomato',
+    plural: 'Tomatoes',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -63,6 +78,7 @@ export const INGREDIENTS = {
   },
   cucumber: {
     name: 'Cucumber',
+    plural: 'Cucumbers',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -70,6 +86,7 @@ export const INGREDIENTS = {
   },
   'red-onion': {
     name: 'Red onion',
+    plural: 'Red onions',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -77,6 +94,7 @@ export const INGREDIENTS = {
   },
   lemon: {
     name: 'Lemon',
+    plural: 'Lemons',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -98,6 +116,7 @@ export const INGREDIENTS = {
   },
   scallion: {
     name: 'Scallion',
+    plural: 'Scallions',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -112,6 +131,7 @@ export const INGREDIENTS = {
   },
   broccoli: {
     name: 'Broccoli crown',
+    plural: 'Broccoli crowns',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -119,6 +139,7 @@ export const INGREDIENTS = {
   },
   'bell-pepper': {
     name: 'Bell pepper',
+    plural: 'Bell peppers',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -126,13 +147,14 @@ export const INGREDIENTS = {
   },
   'yellow-onion': {
     name: 'Yellow onion',
+    plural: 'Yellow onions',
     section: 'produce',
     unit: 'each',
     staple: false,
     package: { label: '1 yellow onion', priceCents: 99, units: 1 },
   },
   ginger: {
-    name: 'Fresh ginger, grated',
+    name: 'Fresh ginger',
     section: 'produce',
     unit: 'tbsp',
     staple: true,
@@ -148,6 +170,7 @@ export const INGREDIENTS = {
   },
   lime: {
     name: 'Lime',
+    plural: 'Limes',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -162,6 +185,7 @@ export const INGREDIENTS = {
   },
   carrot: {
     name: 'Carrot',
+    plural: 'Carrots',
     section: 'produce',
     unit: 'each',
     staple: false,
@@ -178,6 +202,7 @@ export const INGREDIENTS = {
   // Meat
   kielbasa: {
     name: 'Fully cooked smoked sausage (kielbasa)',
+    plural: 'Fully cooked smoked sausages (kielbasa)',
     section: 'meat',
     unit: 'each',
     staple: false,
@@ -185,7 +210,7 @@ export const INGREDIENTS = {
     safeTempF: 'fully-cooked',
   },
   'chicken-thighs': {
-    name: 'Boneless, skinless chicken thighs',
+    name: 'Boneless skinless chicken thighs',
     section: 'meat',
     unit: 'lb',
     staple: false,
@@ -193,7 +218,7 @@ export const INGREDIENTS = {
     safeTempF: 165,
   },
   'ground-beef': {
-    name: 'Ground beef, 80% lean',
+    name: '80% lean ground beef',
     section: 'meat',
     unit: 'lb',
     staple: false,
@@ -201,7 +226,7 @@ export const INGREDIENTS = {
     safeTempF: 160,
   },
   'chicken-breasts': {
-    name: 'Boneless, skinless chicken breasts',
+    name: 'Boneless skinless chicken breasts',
     section: 'meat',
     unit: 'lb',
     staple: false,
@@ -230,6 +255,7 @@ export const INGREDIENTS = {
   // Dairy
   eggs: {
     name: 'Large egg',
+    plural: 'Large eggs',
     section: 'dairy',
     unit: 'each',
     staple: true,
@@ -274,6 +300,7 @@ export const INGREDIENTS = {
   'pasteurized-eggs': {
     // For sauces where the yolk stays raw. Pasteurized in the shell, sold next to the other eggs.
     name: 'Pasteurized large egg',
+    plural: 'Pasteurized large eggs',
     section: 'dairy',
     unit: 'each',
     staple: false,
@@ -319,6 +346,7 @@ export const INGREDIENTS = {
   },
   'burger-buns': {
     name: 'Burger buns',
+    plural: 'Burger buns',
     section: 'bakery',
     unit: 'each',
     staple: false,
@@ -418,7 +446,8 @@ export const INGREDIENTS = {
     package: { label: '1 lb bag (about 2¼ cups)', priceCents: 279, units: 2.25 },
   },
   chickpeas: {
-    name: 'Chickpeas, 15.5 oz can',
+    name: 'Canned chickpeas (15.5 oz)',
+    plural: 'Cans of chickpeas (15.5 oz)',
     section: 'pantry',
     unit: 'each',
     staple: false,
@@ -475,6 +504,7 @@ export const INGREDIENTS = {
   },
   'dill-pickles': {
     name: 'Dill pickle chips',
+    plural: 'Dill pickle chips',
     section: 'pantry',
     unit: 'each',
     staple: true,
@@ -502,11 +532,12 @@ export const INGREDIENTS = {
     package: { label: '5 lb bag (about 18 cups)', priceCents: 349, units: 18 },
   },
   'instant-yeast': {
-    name: 'Instant yeast, ¼ oz packet',
+    name: 'Instant yeast (¼ oz packet)',
+    plural: 'Packets of instant yeast (¼ oz)',
     section: 'pantry',
     unit: 'each',
     staple: true,
-    package: { label: 'Strip of 3 packets', priceCents: 199, units: 3 },
+    package: { label: '1 strip of 3 packets', priceCents: 199, units: 3 },
   },
   panko: {
     name: 'Panko breadcrumbs',
@@ -523,7 +554,8 @@ export const INGREDIENTS = {
     package: { label: '2.1 oz jar', priceCents: 299, units: 26 },
   },
   'coconut-milk': {
-    name: 'Coconut milk, full-fat, 13.5 oz can',
+    name: 'Full-fat coconut milk (13.5 oz can)',
+    plural: 'Cans of full-fat coconut milk (13.5 oz)',
     section: 'pantry',
     unit: 'each',
     staple: false,
@@ -544,7 +576,7 @@ export const INGREDIENTS = {
     package: { label: '6.76 fl oz bottle', priceCents: 349, units: 13 },
   },
   'rice-vinegar': {
-    name: 'Rice vinegar, unseasoned',
+    name: 'Unseasoned rice vinegar',
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
@@ -559,14 +591,14 @@ export const INGREDIENTS = {
   },
   tamarind: {
     // The pourable Thai kind. The thick black Indian paste is several times stronger.
-    name: 'Thai tamarind concentrate, pourable (at an Asian grocery)',
+    name: 'Pourable Thai tamarind concentrate',
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
-    package: { label: '8 oz jar (about 14 tbsp)', priceCents: 349, units: 14 },
+    package: { label: '8 oz jar (about 14 tbsp), at an Asian grocery', priceCents: 349, units: 14 },
   },
   'rice-noodles': {
-    name: 'Flat rice noodles, about ¼ inch wide',
+    name: 'Flat rice noodles (¼ inch wide)',
     section: 'pantry',
     unit: 'oz',
     staple: true,
@@ -580,7 +612,7 @@ export const INGREDIENTS = {
     package: { label: '8.8 oz bag of nests', priceCents: 349, units: 8.8 },
   },
   'roasted-peanuts': {
-    name: 'Roasted peanuts, unsalted',
+    name: 'Unsalted roasted peanuts',
     section: 'pantry',
     unit: 'cup',
     staple: true,

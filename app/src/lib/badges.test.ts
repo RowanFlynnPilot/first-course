@@ -41,7 +41,7 @@ describe('badges', () => {
   it('make a specialist of each kind separately', () => {
     // Prep is knife basics (salad), mise en place (aglio e olio) and velveting (Fourth course).
     expect(earnedBadges(FIRST_COURSE, ESTIMATES)).not.toContain('prep-specialist')
-    // Pot is boiling pasta, steamed rice and simmering (marinara).
+    // Pot is boiling pasta, steaming rice, and simmering (marinara).
     const withMarinara = earnedBadges([...FIRST_COURSE, log('marinara-pasta', 2)], ESTIMATES)
     expect(withMarinara).toContain('pot-specialist')
     expect(withMarinara).not.toContain('pan-specialist')
