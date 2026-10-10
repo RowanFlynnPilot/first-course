@@ -21,9 +21,9 @@ import {
 } from './progress'
 
 let counter = 0
-function log(recipeId: string, rating: Rating): CookLog {
+function log(recipeId: string, rating: Rating, cookedOn = '2026-10-03'): CookLog {
   counter += 1
-  return { id: String(counter), recipeId, cookedOn: '2026-10-03', rating, notes: '' }
+  return { id: String(counter), recipeId, cookedOn, rating, notes: '' }
 }
 
 const eggs = recipeById('soft-scrambled-eggs')
@@ -59,6 +59,16 @@ describe('progress', () => {
     expect(nextRecipe(logs, [], new Set(), new Map(), TODAY)?.id).toBe(eggs.id)
   })
 
+  it('keeps a rough cook in its menu place, not ahead of an earlier recipe never cooked', () => {
+    const logs = [log('chopped-salad', 2), log('sheet-pan-sausage', 1, '2026-10-31')]
+    expect(nextRecipe(logs, [], new Set(), new Map(), TODAY)?.id).toBe(eggs.id)
+  })
+
+  it('rests a recipe whose skill is learned after any recent cook of it, a rough one included', () => {
+    const logs = [log('chopped-salad', 2), log(eggs.id, 2, '2026-08-01'), log(eggs.id, 1, '2026-10-31')]
+    expect(nextRecipe(logs, [], new Set(), new Map(), TODAY)?.id).not.toBe(eggs.id)
+  })
+
   it('suggests what is on this week’s plan first, unless it is locked', () => {
     const logs = [log('chopped-salad', 2)]
     const plan = ['grilled-cheese', 'sheet-pan-sausage', eggs.id]
@@ -78,6 +88,22 @@ describe('progress', () => {
     expect(
       nextRecipe(logs, plan, bought, new Map([['grilled-cheese', '2026-11-05'], ['sheet-pan-sausage', '2026-11-03']]), TODAY).id,
     ).toBe('sheet-pan-sausage')
+  })
+
+  it('puts meat past its day after fresh meat and after groceries with no day', () => {
+    const logs = [log('chopped-salad', 2), log(eggs.id, 2)]
+    const plan = ['sheet-pan-sausage', 'grilled-cheese']
+    const bought = new Set(plan)
+    // The cheese's (made-up) meat was due yesterday: the sheet pan, with no day, comes first.
+    expect(nextRecipe(logs, plan, bought, new Map([['grilled-cheese', '2026-10-31']]), TODAY).id).toBe('sheet-pan-sausage')
+    // Fresh meat due later still comes before meat already past its day.
+    expect(
+      nextRecipe(logs, plan, bought, new Map([['grilled-cheese', '2026-10-31'], ['sheet-pan-sausage', '2026-11-03']]), TODAY).id,
+    ).toBe('sheet-pan-sausage')
+    // Past its day, it still comes before what is not bought yet: the card says what to do about it.
+    expect(nextRecipe(logs, [...plan, eggs.id], new Set(['grilled-cheese']), new Map([['grilled-cheese', '2026-10-31']]), TODAY).id).toBe(
+      'grilled-cheese',
+    )
   })
 
   it('refuses to cook or log a locked recipe, and says what it is missing', () => {

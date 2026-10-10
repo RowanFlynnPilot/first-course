@@ -34,9 +34,12 @@ describe('leftovers', () => {
 
   it('keep what was eaten on the phone, only while it matters', () => {
     const storage = memoryStorage()
+    // Both cooks are still within their days: eating the second keeps the first eaten too.
     markEaten(storage, 'rowan', 'a', ['a', 'b'])
-    expect([...markEaten(storage, 'rowan', 'b', ['b'])]).toEqual(['b'])
-    expect([...loadEaten(storage, 'rowan')]).toEqual(['b'])
+    expect([...markEaten(storage, 'rowan', 'b', ['a', 'b'])].toSorted()).toEqual(['a', 'b'])
+    // Once a cook is past its days, its mark goes.
+    expect([...markEaten(storage, 'rowan', 'c', ['b', 'c'])].toSorted()).toEqual(['b', 'c'])
+    expect([...loadEaten(storage, 'rowan')].toSorted()).toEqual(['b', 'c'])
     expect(loadEaten(storage, 'someone-else').size).toBe(0)
   })
 })

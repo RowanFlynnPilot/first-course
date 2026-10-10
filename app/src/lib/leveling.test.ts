@@ -34,15 +34,21 @@ describe('xp', () => {
   })
 
   it('pays for the cook and for each skill learned', () => {
-    // Tier 1 at Decent is 20; the salad teaches two skills at 50 each.
-    expect(totalXp([log('chopped-salad', 2)])).toBe(120)
+    // Tier 1 at Decent is 20; the salad teaches two skills at 80 each.
+    expect(totalXp([log('chopped-salad', 2)])).toBe(180)
     // A Rough cook earns its 10 and teaches nothing.
     expect(totalXp([log('soft-scrambled-eggs', 1)])).toBe(10)
   })
 
+  it('reaches level 2 on any first good cook, one skill or two: night one levels up', () => {
+    for (const recipe of RECIPES.filter((each) => each.requires.length === 0)) {
+      expect(levelForXp(totalXp([log(recipe.id, 2)])), recipe.id).toBe(2)
+    }
+  })
+
   it('adds the mastery bonus once', () => {
     const logs = [log('soft-scrambled-eggs', 2), log('soft-scrambled-eggs', 2), log('soft-scrambled-eggs', 3)]
-    expect(totalXp(logs)).toBe(20 + 20 + 30 + 50 + 100)
+    expect(totalXp(logs)).toBe(20 + 20 + 30 + 80 + 100)
   })
 
   it('stops paying after a recipe has been cooked enough', () => {

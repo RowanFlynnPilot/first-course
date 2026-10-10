@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
@@ -22,7 +23,9 @@ import { TRACK_NAMES } from '../lib/extras'
 import { FRIED_RICE, LEFTOVER_DAYS, makesRice } from '../lib/leftovers'
 import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, formatMinutes, plural } from '../lib/format'
 import { goodCooks, lastNote, MASTERED_COOKS, masteryLeft, plannable, ratingLabel, recipeFromRoute, recipeState } from '../lib/progress'
+import { boughtNote } from '../lib/freshness'
 import { planRecipe, takeOffPlan, type Shop, type ShopChange } from '../lib/shop'
+import { useToday } from '../components/useNow'
 import { useKitchen } from '../kitchen'
 import { MenuLink } from '../components/MenuLink'
 
@@ -283,9 +286,21 @@ function PlanButton({
 }) {
   const { busy, error, run } = useWrite()
   const planned = shop.plan.includes(recipe.id)
+  const today = useToday()
+  // The button only changes its name, so the status says the change landed.
+  const [done, setDone] = useState('')
 
   function toggle() {
-    void run(() => (planned ? takeOffPlan(recipe.id, onShopChange) : planRecipe(recipe.id, onShopChange)))
+    void run(async () => {
+      setDone('')
+      if (planned) {
+        await takeOffPlan(recipe.id, onShopChange)
+        setDone('Taken off this week.')
+      } else {
+        await planRecipe(recipe.id, onShopChange)
+        setDone('Added to this week.')
+      }
+    })
   }
 
   return (
@@ -293,21 +308,14 @@ function PlanButton({
       <button className="button button-quiet" type="button" aria-disabled={busy} onClick={toggle}>
         {planned ? 'Take off this week' : 'Add to this week'}
       </button>
-      <Saving busy={busy} />
+      <Saving busy={busy} done={done} />
       {ahead && !planned && (
         <p className="plan-note">Everything that opens it is on this week’s plan, so it can go on the same shop.</p>
       )}
       {planned && (
         <p className="plan-note">
-          {shop.shopped.has(recipe.id) ? (
-            <>
-              On <Link to="/shop">this week’s plan</Link>, groceries bought.
-            </>
-          ) : (
-            <>
-              On <Link to="/shop">this week’s plan</Link>.
-            </>
-          )}
+          On <Link to="/shop">this week’s plan</Link>.
+          {shop.shopped.has(recipe.id) && ` ${boughtNote(recipe, shop.shoppedOn.get(recipe.id), today)}.`}
         </p>
       )}
       <ErrorNotice error={error} />

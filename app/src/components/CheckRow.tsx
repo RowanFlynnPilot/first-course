@@ -1,11 +1,13 @@
-// A row with a checkbox that saves itself: the grocery list, the pantry and
-// the kit. The box changes only once the write has succeeded, and says
-// "Saving…" until then, so a slow tap in a store is not tapped again; a
-// failed write says why under the row and leaves the box as it was.
+// A row with a checkbox: the grocery list (its checks kept on the phone, so
+// the change is at once), the pantry and the kit (saved to Supabase). A box
+// that saves changes only once the write has succeeded, with "Saving…" in its
+// status until then, so a slow tap is not tapped again; a failed write says
+// why under the row and leaves the box as it was.
 
 import type { ReactNode } from 'react'
 import { useFocusTarget } from './useFocusTarget'
 import { useWrite } from './useWrite'
+import { Saving } from './WriteStatus'
 
 export function CheckRow({
   checked,
@@ -20,15 +22,15 @@ export function CheckRow({
   onChange: (checked: boolean) => Promise<void>
   label: string
   note?: ReactNode
-  /** Sits beside the label, outside it, so a button there does not tick the box. */
+  /** Sits beside the label, outside it, so a button there does not check the box. */
   aside?: ReactNode
   /** Why a write from the aside failed, shown under the row like the box's own. */
   error?: string | null
   /** The name a write uses to put focus on this box (see useFocusTarget). */
-  focusTarget?: string
+  focusTarget: string
 }) {
   const { busy, error, run } = useWrite()
-  const box = useFocusTarget<HTMLInputElement>(focusTarget ?? '')
+  const box = useFocusTarget<HTMLInputElement>(focusTarget)
   return (
     <li className={checked ? 'check check-on' : 'check'}>
       <div className="check-line">
@@ -43,9 +45,10 @@ export function CheckRow({
           />
           <span>
             <span className="row-title">{label}</span>
-            {busy ? <span className="row-note">Saving…</span> : note !== undefined && <span className="row-note">{note}</span>}
+            {note !== undefined && <span className="row-note">{note}</span>}
           </span>
         </label>
+        <Saving busy={busy} />
         {aside}
       </div>
       {[error, asideError ?? null].map(

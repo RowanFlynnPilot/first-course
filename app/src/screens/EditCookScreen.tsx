@@ -8,25 +8,41 @@ import { usePageTitle } from '../components/usePageTitle'
 import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { recipeById } from '../curriculum/recipes'
+import type { Recipe } from '../curriculum/types'
 import { deleteCookLog, NOTES_MAX, updateCookLog } from '../lib/cookLogs'
-import { checkCookedOn, EARLIEST_COOK, listOf, skillList } from '../lib/format'
+import { checkCookedOn, EARLIEST_COOK, skillList } from '../lib/format'
 import { progressLost, type CookLog, type Rating } from '../lib/progress'
 import { useToday } from '../components/useNow'
 import { useKitchen } from '../kitchen'
 import { MenuLink } from '../components/MenuLink'
 
+/**
+ * Recipes named in a sentence. Never joined with "and": a title can hold one
+ * ("Sheet-pan sausage and vegetables"), and two dishes would read as three.
+ */
+function recipesNamed(recipes: readonly Recipe[]): string {
+  const [only] = recipes
+  if (recipes.length === 1 && only !== undefined) return only.title
+  return `${recipes.length} recipes (${recipes.map((recipe) => recipe.title).join('; ')})`
+}
 
+/** What a change or a delete would take away, a sentence for each kind. */
 function lostSentence(before: readonly CookLog[], after: readonly CookLog[], plan: readonly string[]): string | null {
   const lost = progressLost(before, after)
   const parts = [
     ...(lost.skills.length > 0 ? [`unlearn ${skillList(lost.skills)}`] : []),
-    ...(lost.locked.length > 0 ? [`lock ${listOf(lost.locked.map((recipe) => recipe.title))} again`] : []),
-    ...(lost.unmastered.length > 0 ? [`undo mastering ${listOf(lost.unmastered.map((recipe) => recipe.title))}`] : []),
+    ...(lost.locked.length > 0 ? [`lock ${recipesNamed(lost.locked)} again`] : []),
+    ...(lost.unmastered.length > 0 ? [`undo mastering ${recipesNamed(lost.unmastered)}`] : []),
   ]
-  if (parts.length === 0) return null
-  const planned = lost.locked.filter((recipe) => plan.includes(recipe.id)).map((recipe) => recipe.title)
-  const onPlan = planned.length === 0 ? '' : ` ${listOf(planned)} ${planned.length === 1 ? 'is' : 'are'} on this week’s plan.`
-  return `This would ${listOf(parts)}.${onPlan}`
+  const [first, ...rest] = parts
+  if (first === undefined) return null
+  const planned = lost.locked.filter((recipe) => plan.includes(recipe.id))
+  const [onlyPlanned] = planned
+  const onPlan =
+    onlyPlanned === undefined
+      ? []
+      : [planned.length === 1 ? `${onlyPlanned.title} is on this week’s plan.` : `${planned.length} of them are on this week’s plan.`]
+  return [`This would ${first}.`, ...rest.map((part) => `It would also ${part}.`), ...onPlan].join(' ')
 }
 
 type EditProps = {
@@ -64,7 +80,7 @@ function EditCook({ log, logs, plan, onUpdated, onDeleted }: EditProps & { log: 
   const [rating, setRating] = useState<Rating>(log.rating)
   const [notes, setNotes] = useState(log.notes)
   const [cookedOn, setCookedOn] = useState(log.cookedOn)
-  // A cook cannot be dated in the future. Read the clock once, not on every render.
+  // A cook cannot be dated in the future: today where the cook is, kept current.
   const today = useToday()
   const save = useWrite()
   const remove = useWrite()

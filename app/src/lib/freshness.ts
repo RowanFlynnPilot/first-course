@@ -20,7 +20,7 @@ export const WEEK_DAYS = 7
 /**
  * The day a recipe bought on `boughtOn` should be cooked by, while its meat
  * is fresh, or null when it has no meat that keeps a week or less (a smoked
- * sausage keeps two).
+ * sausage keeps two weeks).
  */
 export function cookBy(recipe: Recipe, boughtOn: string): string | null {
   const days = recipe.content.ingredients.flatMap(({ ingredientId }) => {
@@ -44,7 +44,8 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 
 /**
  * A day near today, as a cook says it: "today", "tomorrow", "yesterday", a
- * weekday within the week either side ("Tuesday"), or "Oct 14, 2026" further off.
+ * weekday within the week either side ("Tuesday"), "Oct 14" further off this
+ * year, or "Oct 14, 2025" in another.
  */
 export function dayName(date: string, today: string): string {
   const days = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
@@ -52,5 +53,18 @@ export function dayName(date: string, today: string): string {
   if (days === 1) return 'tomorrow'
   if (days === -1) return 'yesterday'
   if (Math.abs(days) < 7) return WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()] ?? date
-  return formatCookedOn(date)
+  const full = formatCookedOn(date)
+  return date.slice(0, 4) === today.slice(0, 4) ? full.replace(/,? \d{4}$/, '') : full
+}
+
+/**
+ * What a bought recipe's plan line says: "Groceries bought", with the day to
+ * cook its meat by, or, past that day, that the meat is past its days unless
+ * the cook froze it.
+ */
+export function boughtNote(recipe: Recipe, boughtOn: string | undefined, today: string): string {
+  const by = boughtOn === undefined ? null : cookBy(recipe, boughtOn)
+  if (boughtOn === undefined || by === null) return 'Groceries bought'
+  if (by < today) return `Bought ${dayName(boughtOn, today)}. Unless you froze it, the meat is past its days`
+  return by === today ? 'Groceries bought. Cook it today' : `Groceries bought. Cook it by ${dayName(by, today)}`
 }

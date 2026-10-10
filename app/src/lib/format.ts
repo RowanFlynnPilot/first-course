@@ -60,14 +60,18 @@ export function formatDuration(totalSeconds: number): string {
   return parts.filter((part) => part !== '').join(' ')
 }
 
-/** A recipe's time in words: "35 minutes", "2 hours 45 minutes". */
-/** "6:55 PM": when food started at `now` and taking `minutes` is ready, to the nearest 5 minutes. */
-export function readyAt(now: number, minutes: number): string {
-  const step = 5 * 60_000
-  const at = Math.round((now + minutes * 60_000) / step) * step
+/** "6:42 PM": a moment as a clock on the wall says it. */
+export function timeOfDay(at: number): string {
   return new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
+/** "6:55 PM": when food started at `now` and taking `minutes` is ready, to the nearest 5 minutes. */
+export function readyAt(now: number, minutes: number): string {
+  const step = 5 * 60_000
+  return timeOfDay(Math.round((now + minutes * 60_000) / step) * step)
+}
+
+/** A recipe's time in words: "35 minutes", "2 hours 45 minutes". */
 export function formatMinutes(minutes: number): string {
   return formatDuration(minutes * 60)
 }

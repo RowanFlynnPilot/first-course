@@ -7,7 +7,9 @@ test.describe('error paths', () => {
   test('a locked recipe cannot be cooked: cook mode says why instead', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/grilled-cheese/0', FRESH)
     await expect(page.getByRole('heading', { name: 'Grilled cheese is locked' })).toBeVisible()
-    await expect(page.getByText('Locked. Learn heat control from Soft scrambled eggs on toast.')).toBeVisible()
+    // The heading says it is locked; the notice says only the way there.
+    await expect(page.getByText('Learn heat control from Soft scrambled eggs on toast.')).toBeVisible()
+    await expect(page.getByText(/^Locked\./)).toHaveCount(0)
     await expect(page.getByRole('button', { name: /timer/ })).toHaveCount(0)
   })
 

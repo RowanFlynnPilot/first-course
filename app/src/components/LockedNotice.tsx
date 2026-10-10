@@ -28,7 +28,16 @@ export function RecipeLinks({ recipes }: { recipes: readonly Recipe[] }) {
  * sentence per recipe that teaches what is missing, then, when one of those
  * is locked too, "The way there:" every recipe to cook first, in order.
  */
-export function LockedNotice({ recipe, logs }: { recipe: Recipe; logs: readonly CookLog[] }) {
+export function LockedNotice({
+  recipe,
+  logs,
+  lead = true,
+}: {
+  recipe: Recipe
+  logs: readonly CookLog[]
+  /** Opens with "Locked.": not under a heading that says so already. */
+  lead?: boolean
+}) {
   const teachers = new Map<Recipe, TechniqueId[]>()
   for (const technique of missingTechniques(recipe, logs)) {
     const teacher = teacherOf(technique)
@@ -37,7 +46,7 @@ export function LockedNotice({ recipe, logs }: { recipe: Recipe; logs: readonly 
   const path = pathTo(recipe, logs)
   return (
     <p className="notice notice-info">
-      Locked.
+      {lead && 'Locked.'}
       {[...teachers].map(([teacher, skills]) => (
         <span key={teacher.id}>
           {' '}
@@ -67,7 +76,7 @@ export function LockedPage({ recipe, logs }: { recipe: Recipe; logs: readonly Co
         <Link to={`/recipe/${recipe.id}`}>{recipe.title}</Link>
       </nav>
       <h1 className="title">{recipe.title} is locked</h1>
-      <LockedNotice recipe={recipe} logs={logs} />
+      <LockedNotice recipe={recipe} logs={logs} lead={false} />
     </main>
   )
 }

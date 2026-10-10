@@ -7,7 +7,7 @@ import { useWrite } from '../components/useWrite'
 import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { clearCooking, loadCooking } from '../lib/cooking'
 import { insertCookLog, newCookId, NOTES_MAX } from '../lib/cookLogs'
-import { checkCookedOn, EARLIEST_COOK } from '../lib/format'
+import { checkCookedOn, EARLIEST_COOK, localDateString } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
 import { cookable, whatTheRatingDecides, type Rating } from '../lib/progress'
 import { clearTimers } from '../lib/timers'
@@ -34,9 +34,16 @@ function LogForm({ recipe, onNotice }: LogProps & { recipe: Recipe }) {
   usePageTitle(`Log a cook: ${recipe.title}`)
   const [rating, setRating] = useState<Rating | null>(null)
   const [notes, setNotes] = useState('')
-  // Today where the cook is, unless they are logging one from another day. Read the clock once.
+  // Today where the cook is, kept current: the latest date the form takes.
   const today = useToday()
-  const [cookedOn, setCookedOn] = useState(today)
+  // The day the cook finished it, when cook mode says so: dinner logged from the menu the next
+  // morning is still last night's (decision 10). Otherwise today, unless the cook picks another day.
+  const [cookedOn, setCookedOn] = useState(() => {
+    const finished = loadCooking(localStorage, userId, Date.now())
+    return finished !== null && finished.recipeId === recipe.id && finished.step === 'log'
+      ? localDateString(new Date(finished.at))
+      : today
+  })
   // One id for this cook, however many times Save is tapped.
   const [cookId] = useState(newCookId)
   const { busy, error, run } = useWrite()
@@ -61,7 +68,7 @@ function LogForm({ recipe, onNotice }: LogProps & { recipe: Recipe }) {
     void run(async () => {
       const log = await insertCookLog({ id: cookId, recipeId: recipe.id, cookedOn, rating, notes: notes.trim() })
       // The cook is over: its timers are done, and the menu stops asking how it went.
-      clearTimers(localStorage, recipe.id)
+      clearTimers(localStorage, userId, recipe.id)
       if (loadCooking(localStorage, userId, Date.now())?.recipeId === recipe.id) clearCooking(localStorage, userId)
       // A save retried after a lost answer can find this cook already in the log, brought in by a catch-up.
       const before = logs.filter((other) => other.id !== log.id)

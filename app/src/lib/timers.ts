@@ -1,8 +1,10 @@
 // Cook-mode timers, kept in localStorage so a reload, a phone that discards
 // a backgrounded tab, or an installed app the phone closed does not lose
-// them (session storage goes with the closed app). Stored per recipe as the
-// moment each timer ends, so nothing has to keep counting while the page is
-// away: the time left is always the end time minus now.
+// them (session storage goes with the closed app). Stored per account and
+// recipe as the moment each timer ends, so nothing has to keep counting while
+// the page is away: the time left is always the end time minus now. Per
+// account, like the rest of what the phone keeps: on a shared phone, one
+// cook's timers never ring for another.
 //
 // Timers are keyed by their label ("Potatoes"), not by step number, so a
 // deploy that splits a step mid-cook still finds them.
@@ -30,9 +32,11 @@ export type Timers = Readonly<Record<string, Timer>>
 /** A finished timer stays on screen this long, then it is dropped as stale. */
 export const STALE_AFTER_MS = 30 * 60 * 1000
 
-// The key names the format: timers were once keyed by step number.
-const PREFIX = 'first-course:timers-by-label:'
-const key = (recipeId: string) => `${PREFIX}${recipeId}`
+// The key names the format: timers were once keyed by step number, then by
+// recipe alone (OLD_PREFIX), before they were kept per account.
+const PREFIX = 'first-course:timers:'
+const OLD_PREFIX = 'first-course:timers-by-label:'
+const key = (owner: string, recipeId: string) => `${PREFIX}${owner}:${recipeId}`
 
 /** The timers cook mode shows: not stopped, and not finished for longer than STALE_AFTER_MS. */
 export function shownTimers(timers: Timers, now: number): Timers {
@@ -53,8 +57,8 @@ export function dueTimers(timers: Timers, now: number): string[] {
     .map(([label]) => label)
 }
 
-export function loadTimers(storage: Storage, recipeId: string): Timers {
-  const stored = storage.getItem(key(recipeId))
+export function loadTimers(storage: Storage, owner: string, recipeId: string): Timers {
+  const stored = storage.getItem(key(owner, recipeId))
   if (stored === null) return {}
   const parsed: unknown = JSON.parse(stored)
   if (typeof parsed !== 'object' || parsed === null) throw new Error(`Saved timers for ${recipeId} are not an object`)
@@ -67,35 +71,43 @@ export function loadTimers(storage: Storage, recipeId: string): Timers {
         fields !== null &&
         typeof fields.endsAt === 'number' &&
         typeof fields.rang === 'boolean' &&
-        // Timers saved before October 6, 2026 have no stopped mark: a stopped one was deleted then.
-        (fields.stopped === undefined || typeof fields.stopped === 'boolean')
+        typeof fields.stopped === 'boolean'
       if (!valid) throw new Error(`Saved timer “${label}” for ${recipeId} is malformed`)
-      return [label, { endsAt: fields.endsAt as number, rang: fields.rang as boolean, stopped: fields.stopped === true }]
+      return [label, { endsAt: fields.endsAt as number, rang: fields.rang as boolean, stopped: fields.stopped as boolean }]
     }),
   )
 }
 
-export function saveTimers(storage: Storage, recipeId: string, timers: Timers) {
-  if (Object.keys(timers).length === 0) storage.removeItem(key(recipeId))
-  else storage.setItem(key(recipeId), JSON.stringify(timers))
+export function saveTimers(storage: Storage, owner: string, recipeId: string, timers: Timers) {
+  if (Object.keys(timers).length === 0) storage.removeItem(key(owner, recipeId))
+  else storage.setItem(key(owner, recipeId), JSON.stringify(timers))
 }
 
 /** Leaving cook mode or logging the cook stops every timer for that recipe. */
-export function clearTimers(storage: Storage, recipeId: string) {
-  storage.removeItem(key(recipeId))
+export function clearTimers(storage: Storage, owner: string, recipeId: string) {
+  storage.removeItem(key(owner, recipeId))
 }
 
 /**
  * Forgets the timers of cooks left without leaving cook mode or logging: a
  * recipe whose every timer ended longer ago than a cook in progress is kept
- * (RESUME_FOR_MS). Run when the app opens, so storage does not fill with them.
+ * (RESUME_FOR_MS). Run when the app opens and when it catches up, so storage
+ * does not fill with them, and an old cook's timers do not count as started
+ * in the next cook of the recipe. Timers kept before they were per account
+ * go too.
  */
 export function forgetOldTimers(storage: Storage, now: number) {
   const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
-    (stored): stored is string => stored !== null && stored.startsWith(PREFIX),
+    (stored): stored is string => stored !== null && (stored.startsWith(PREFIX) || stored.startsWith(OLD_PREFIX)),
   )
   for (const stored of keys) {
-    const timers = loadTimers(storage, stored.slice(PREFIX.length))
+    if (stored.startsWith(OLD_PREFIX)) {
+      storage.removeItem(stored)
+      continue
+    }
+    const [owner, recipeId] = stored.slice(PREFIX.length).split(':')
+    if (owner === undefined || recipeId === undefined) throw new Error(`Saved timers under ${stored} name no recipe`)
+    const timers = loadTimers(storage, owner, recipeId)
     if (Object.values(timers).every((timer) => now - timer.endsAt > RESUME_FOR_MS)) storage.removeItem(stored)
   }
 }

@@ -106,6 +106,8 @@ export async function updateCookLog(
     .eq('id', id)
     .select(COLUMNS)
     .single()
+  // No row came back to update: the cook was deleted on another device since this screen loaded.
+  if (error?.code === 'PGRST116') throw new Error('Could not save your changes: that cook is no longer in your log.')
   if (error) throw new Error(`Could not save your changes: ${plainMessage(error)}`)
   return toCookLog(data)
 }

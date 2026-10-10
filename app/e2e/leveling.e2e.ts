@@ -1,11 +1,10 @@
 import type { SeedLog } from './fakeSupabase'
 import { cookNotice, expect, noticeLines, rateAndSave, test } from './kitchen'
 
-// 260 XP: one more good cook of the sheet pan (+70) crosses 300, level 3, prep cook.
+// 280 XP: one more good cook of the sheet pan (+100) crosses 300, level 3, prep cook.
 const ALMOST_PREP_COOK: readonly SeedLog[] = [
   { recipe: 'chopped-salad', rating: 2 },
   { recipe: 'soft-scrambled-eggs', rating: 2 },
-  { recipe: 'grilled-cheese', rating: 2 },
 ]
 
 // Everything the double smash burger needs except whisking an emulsion, which the oven fries teach.

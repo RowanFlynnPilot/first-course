@@ -41,14 +41,17 @@ function Beat({
   }, [onDone])
 
   return (
-    <div className="beat" role="dialog" aria-modal="true" aria-labelledby="beat-title">
+    // The note is the dialog's description, so a screen reader reads it with the title: focus goes straight to the button.
+    <div className="beat" role="dialog" aria-modal="true" aria-labelledby="beat-title" aria-describedby="beat-note">
       <div className="beat-body">
         <p className="beat-kicker">{kicker}</p>
         <div className="beat-art">{art}</div>
         <h2 className="beat-title" id="beat-title">
           {title}
         </h2>
-        <div className="beat-note">{children}</div>
+        <div className="beat-note" id="beat-note">
+          {children}
+        </div>
         <div className="beat-actions">
           {extra}
           <button ref={done} className="button" type="button" onClick={onDone}>

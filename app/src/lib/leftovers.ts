@@ -16,6 +16,8 @@ export const LEFTOVER_DAYS = 4
 export interface Leftover {
   readonly cook: CookLog
   readonly recipe: Recipe
+  /** How to reheat them (the recipe's `leftovers`). */
+  readonly reheat: string
   /** The last day to eat them, YYYY-MM-DD. */
   readonly eatBy: string
 }
@@ -35,9 +37,10 @@ export function leftoversOf(logs: readonly CookLog[], today: string, eaten: Read
   return [...latest.values()]
     .flatMap((cook) => {
       const recipe = recipeById(cook.recipeId)
+      const { leftovers } = recipe.content
       const eatBy = addDays(cook.cookedOn, LEFTOVER_DAYS)
-      const fresh = recipe.content.leftovers !== null && cook.cookedOn < today && today <= eatBy && !eaten.has(cook.id)
-      return fresh ? [{ cook, recipe, eatBy }] : []
+      const fresh = leftovers !== null && cook.cookedOn < today && today <= eatBy && !eaten.has(cook.id)
+      return fresh ? [{ cook, recipe, reheat: leftovers.reheat, eatBy }] : []
     })
     .toSorted((a, b) => b.cook.cookedOn.localeCompare(a.cook.cookedOn))
 }

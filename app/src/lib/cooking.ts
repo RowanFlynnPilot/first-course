@@ -10,9 +10,17 @@ export interface Cooking {
   readonly recipeId: string
   /** The step on screen (0 is "get everything out"), or 'log' once the cook tapped "Finish and log it". */
   readonly step: number | 'log'
+  /**
+   * The step the cook began at: 0 from Start cooking, later from a link
+   * partway in (leftover rice into egg fried rice, at step 3). Cook mode
+   * offers a timer the cook passed by only on a step after this one.
+   */
+  readonly from: number
   /** When it was last on screen, in milliseconds. */
   readonly at: number
 }
+
+const isStep = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0
 
 /** A cook left this long is forgotten: long enough for dinner and the next morning. */
 export const RESUME_FOR_MS = 12 * 60 * 60 * 1000
@@ -27,10 +35,12 @@ export function loadCooking(storage: Storage, owner: string, now: number): Cooki
   const valid =
     parsed !== null &&
     typeof parsed.recipeId === 'string' &&
-    (parsed.step === 'log' || (typeof parsed.step === 'number' && Number.isInteger(parsed.step) && parsed.step >= 0)) &&
+    (parsed.step === 'log' || isStep(parsed.step)) &&
+    // A cook saved before the first step was kept (October 9, 2026) began at the start.
+    (parsed.from === undefined || isStep(parsed.from)) &&
     typeof parsed.at === 'number'
   if (!valid) throw new Error('The cook in progress saved on this phone is malformed')
-  const cooking = parsed as Cooking
+  const cooking = { ...parsed, from: parsed.from ?? 0 } as Cooking
   return now - cooking.at > RESUME_FOR_MS ? null : cooking
 }
 

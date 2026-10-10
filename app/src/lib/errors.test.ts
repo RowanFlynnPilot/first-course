@@ -3,7 +3,15 @@ import { NO_CONNECTION_MESSAGE, plainMessage } from './errors'
 
 describe('error messages in the cook’s words', () => {
   it('says "no connection" for a request that never got an answer, in every browser’s words', () => {
-    for (const message of ['TypeError: Failed to fetch', 'TypeError: Load failed', 'NetworkError when attempting to fetch resource.', 'TimeoutError: signal timed out', 'AbortError: The operation was aborted.']) {
+    for (const message of [
+      'TypeError: Failed to fetch',
+      'TypeError: Load failed',
+      'NetworkError when attempting to fetch resource.',
+      'TimeoutError: signal timed out',
+      'AbortError: The operation was aborted.',
+      // A session that could not be renewed for want of signal, as the Data API client names it.
+      'AuthRetryableFetchError: {}',
+    ]) {
       expect(plainMessage({ message }), message).toBe(NO_CONNECTION_MESSAGE)
     }
   })
@@ -16,5 +24,9 @@ describe('error messages in the cook’s words', () => {
 
   it('keeps any other message, which still says what failed', () => {
     expect(plainMessage({ message: 'new row violates check constraint', code: '23514' })).toBe('new row violates check constraint')
+  })
+
+  it('drops the "Error:" the Data API client puts before the app’s own words', () => {
+    expect(plainMessage({ message: 'Error: You are signed out on this phone.', code: '' })).toBe('You are signed out on this phone.')
   })
 })

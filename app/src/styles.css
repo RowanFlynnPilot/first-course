@@ -1169,6 +1169,13 @@ p {
   white-space: nowrap;
 }
 
+/* What a bought recipe on This week can do: put it back on the list, or say the meat is frozen. */
+.plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5rem;
+}
+
 /* A recipe's name on This week is a link: a full-size tap target like the rest. */
 .plan-row a.row-title {
   display: inline-flex;
@@ -1713,12 +1720,17 @@ mark {
   color: var(--ketchup);
 }
 
-/* A simmer asking to be stirred: tap once it is done. */
+/* A simmer asking to be stirred: solid, so it does not read as one more timer, with "Stirred" beside it. */
+.timer-stir {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
 .timer-chip-stir {
-  color: var(--rim);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
+  background: var(--rim);
+  color: var(--plate);
 }
 
 /* Under a long timer's clock: the page rings only while it is on screen. */

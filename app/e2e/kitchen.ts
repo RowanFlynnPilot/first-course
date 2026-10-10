@@ -114,12 +114,17 @@ export const COUNT_BEEPS = () => {
   }
 }
 
-/** The cart's checks, as the phone keeps them (lib/checks.ts), sorted. */
+/** The cart's grocery checks, as the phone keeps them (lib/checks.ts), sorted. */
 export async function phoneChecks(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const key = Object.keys(localStorage).find((name) => name.startsWith('first-course:grocery-checks:'))
-    return key === undefined ? [] : (JSON.parse(localStorage.getItem(key) ?? '[]') as string[]).toSorted()
+    const key = Object.keys(localStorage).find((name) => name.startsWith('first-course:cart:'))
+    return key === undefined ? [] : (JSON.parse(localStorage.getItem(key) ?? '{}') as { checks: string[] }).checks.toSorted()
   })
+}
+
+/** The storage key of a recipe's timers on the phone, for the seeded cook (lib/timers.ts). */
+export function timersKey(backend: { readonly userId: string }, recipeId: string): string {
+  return `first-course:timers:${backend.userId}:${recipeId}`
 }
 
 /** The after-cook notice on the menu: what the cook just logged earned. */

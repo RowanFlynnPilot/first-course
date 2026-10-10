@@ -31,7 +31,6 @@ test.describe('this week: the plan and the grocery list', () => {
     expect(await phoneChecks(page)).toEqual(['kielbasa'])
     await page.reload()
     await expect(page.getByRole('checkbox', { name: /smoked sausage/ })).toBeChecked()
-    expect(kitchen.backend.table('grocery_checks')).toEqual([])
 
     // Correct a price, then go back to the estimate.
     await page.getByRole('button', { name: 'Correct the price of Extra-virgin olive oil' }).click()
@@ -57,7 +56,8 @@ test.describe('this week: the plan and the grocery list', () => {
     })
     await page.getByRole('button', { name: 'Done shopping' }).click()
     await expect(page.getByText(/^Done shopping\./)).toHaveText(
-      'Done shopping. Into your pantry: extra-virgin olive oil and kosher salt. Sheet-pan sausage and vegetables stays on the list for what you did not check off. Go to the menu to cook',
+      // Nothing was bought to cook, so no way to the menu to cook it.
+      'Done shopping. Into your pantry: extra-virgin olive oil and kosher salt. Sheet-pan sausage and vegetables stays on the list for what you did not check off.',
     )
     // The confirm names what was not bought, and that its recipe stays on the list.
     expect(asked).toHaveLength(1)
@@ -208,15 +208,27 @@ test.describe('this week: the plan and the grocery list', () => {
     await expect(page.getByRole('checkbox', { name: /Salted butter/ })).toBeVisible()
   })
 
-  test('puts the kit the plan still needs on the list, and a check puts it in the kit', async ({ page, kitchen }) => {
+  test('puts the kit the plan still needs on the list, checked off on the phone, and Done shopping puts it in the kit', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'], kit: ['chefs-knife', 'cutting-board', 'large-bowl'] })
     const kit = page.locator('.aisle').filter({ has: page.getByRole('heading', { name: 'Kit' }) })
     await expect(kit.locator('.row-title')).toHaveText(['Measuring spoons', 'Small bowls', 'Fork', 'Paper towels', 'Plastic wrap'])
-    await kit.getByRole('checkbox', { name: /^Fork/ }).click()
-    await expect(kit.getByRole('checkbox', { name: /^Fork/ })).toHaveCount(0)
-    // Focus goes to the next line, not the top of the page.
-    await expect(kit.getByRole('checkbox', { name: /^Paper towels/ })).toBeFocused()
+    // With no signal: a kit check is on the phone, like a grocery check.
+    kitchen.backend.loseSignal()
+    const fork = kit.getByRole('checkbox', { name: /^Fork/ })
+    await fork.click()
+    await expect(fork).toBeChecked()
+    await expect(fork).toBeFocused()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    expect(kitchen.backend.table('kit_items').map((row) => row.equipment_id)).not.toContain('fork')
+    // Kept on the phone: still checked off after a reload (which needs signal to load the kitchen).
+    kitchen.backend.restoreSignal()
+    await page.reload()
+    await expect(fork).toBeChecked()
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByText(/^Done shopping\./)).toBeVisible()
     expect(kitchen.backend.table('kit_items').map((row) => row.equipment_id)).toContain('fork')
+    await expect(kit.getByRole('checkbox', { name: /^Fork/ })).toHaveCount(0)
   })
 
   test('with nothing checked off in the kit, the list points to it instead of listing every tool', async ({ page, kitchen }) => {
@@ -333,7 +345,7 @@ test.describe('this week: the plan and the grocery list', () => {
 
   test('in the store the list comes first, and This week offers recipes to add', async ({ page, kitchen }) => {
     await kitchen.open('#/shop', { plan: ['chopped-salad'] })
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Grocery list', 'The plan', 'Ready to cook'])
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Grocery list', 'The plan', 'More for this week'])
     await page.getByRole('button', { name: 'Add Soft scrambled eggs on toast to this week' }).click()
     await expect(page.getByRole('link', { name: 'Soft scrambled eggs on toast' }).first()).toBeVisible()
     expect(kitchen.backend.table('plan_items').map((row) => row.recipe_id)).toEqual(['chopped-salad', 'soft-scrambled-eggs'])

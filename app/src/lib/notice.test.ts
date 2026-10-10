@@ -15,7 +15,7 @@ describe('the after-cook notice', () => {
     const notice = cookNotice(recipeById('chopped-salad'), [], log('chopped-salad', 2), 'Remy', ESTIMATES)
     expect(notice.xpBefore).toBe(0)
     expect(notice.lines).toEqual([
-      'Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.',
+      'Chopped salad with lemon vinaigrette: Decent. +180 XP. Level 2.',
       'Kept $16.76 by not ordering.',
       'Learned knife basics and seasoning to taste.',
     ])
@@ -31,10 +31,10 @@ describe('the after-cook notice', () => {
   })
 
   it('names the promotion with the chef’s name', () => {
-    // 260 XP before; the next good cook crosses 300, which is level 3 and prep cook.
-    const before = [log('chopped-salad', 2), log('soft-scrambled-eggs', 2), log('grilled-cheese', 2)]
+    // 280 XP before; the next good cook crosses 300, which is level 3 and prep cook.
+    const before = [log('chopped-salad', 2), log('soft-scrambled-eggs', 2)]
     const notice = cookNotice(recipeById('sheet-pan-sausage'), before, log('sheet-pan-sausage', 2), 'Remy', ESTIMATES)
-    expect(notice.lines[0]).toBe('Sheet-pan sausage and vegetables: Decent. +70 XP. Level 3.')
+    expect(notice.lines[0]).toBe('Sheet-pan sausage and vegetables: Decent. +100 XP. Level 3.')
     expect(notice.lines[1]).toBe('Remy is promoted to prep cook.')
     expect(notice).toMatchObject({ levelUp: 3, promotion: 1 })
   })

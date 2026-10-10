@@ -43,7 +43,7 @@ test.describe('cooking and logging', () => {
     await rateAndSave(page, 'Decent', 'More lemon next time.')
 
     await expect(noticeLines(page)).toHaveText([
-      'Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.',
+      'Chopped salad with lemon vinaigrette: Decent. +180 XP. Level 2.',
       'Kept $16.76 by not ordering.',
       'Learned knife basics and seasoning to taste.',
       'Now ready to cook: Sheet-pan sausage and vegetables.',
@@ -75,7 +75,7 @@ test.describe('cooking and logging', () => {
     await page.getByRole('link', { name: 'Start cooking' }).click()
     await cookThrough(page)
     await rateAndSave(page, 'Decent')
-    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.')
+    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Decent. +180 XP. Level 2.')
     await page.goBack()
     await expect(page.getByText('Step 8 of 8')).toBeVisible()
     expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
@@ -135,7 +135,7 @@ test.describe('cooking and logging', () => {
     await expect(page.getByRole('alert')).toHaveText('Could not save this cook: the database is asleep')
     expect(kitchen.backend.table('cook_logs')).toHaveLength(0)
     await page.getByRole('button', { name: 'Save this cook' }).click()
-    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Nailed it. +130 XP. Level 2.')
+    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Nailed it. +190 XP. Level 2.')
     expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
   })
 
@@ -147,7 +147,7 @@ test.describe('cooking and logging', () => {
     // The first try landed; only its answer was lost.
     expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
     await page.getByRole('button', { name: 'Save this cook' }).click()
-    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Decent. +120 XP. Level 2.')
+    await expect(noticeLines(page).first()).toHaveText('Chopped salad with lemon vinaigrette: Decent. +180 XP. Level 2.')
     expect(kitchen.backend.table('cook_logs')).toHaveLength(1)
   })
 

@@ -124,16 +124,18 @@ function daysBetween(from: string, to: string): number {
 /**
  * Unlocked recipes in the order the menu suggests them: a dish of the usual
  * that has come into reach without a good cook yet (what everything builds
- * toward), then recipes without a good cook (a side never cooked after the
- * meals, so night one is a dinner), then those not yet mastered, then mastered ones, the
- * longest uncooked first. A recipe cooked well in the last REST_DAYS goes to
- * the back, so the suggestion is never what was cooked well yesterday; one
- * with only Rough cooks comes straight back.
+ * toward), then, in menu order, recipes without a good cook (a Rough one
+ * keeps its place; a side never cooked waits behind the meals, so night one
+ * is a dinner), then those not yet mastered, then mastered ones, the longest
+ * uncooked first. A recipe with a good cook that was cooked at all in the
+ * last REST_DAYS goes to the back, so the suggestion is never what was just
+ * cooked; one with only Rough cooks skips the rest, since its skill is still
+ * the way on.
  */
 function suggestionOrder(logs: readonly CookLog[], today: string, exclude: readonly string[]): Recipe[] {
   const open = RECIPES.filter((recipe) => !exclude.includes(recipe.id) && recipeState(recipe, logs) !== 'locked')
   const since = (recipe: Recipe) => lastCooked(recipe, logs) ?? '0000-00-00'
-  // Only a recipe cooked well rests: a Rough cook comes back next time, before anything new.
+  // A recipe rests once its skill is learned (a good cook, ever), counted from its last cook of any rating.
   const recent = (recipe: Recipe) => {
     const last = lastCooked(recipe, logs)
     return last !== null && goodCooks(recipe, logs) > 0 && daysBetween(last, today) < REST_DAYS
@@ -265,8 +267,22 @@ export function nextRecipe(
   today: string,
 ): Recipe {
   const bought = plan.filter((id) => shopped.has(id))
-  const soonest = bought.filter((id) => cookBy.has(id)).toSorted((a, b) => (cookBy.get(a) ?? '').localeCompare(cookBy.get(b) ?? ''))
-  const planned = [...soonest, ...bought.filter((id) => !cookBy.has(id)), ...plan.filter((id) => !shopped.has(id))]
+  // Meat in its days first, the soonest due leading; then what has no day; then meat past its
+  // days, which needs a new shop (or "I froze it"), and comes before what is not bought yet.
+  const by = (id: string) => cookBy.get(id) ?? null
+  const fresh = bought
+    .filter((id) => (by(id) ?? '') >= today)
+    .toSorted((a, b) => (by(a) ?? '').localeCompare(by(b) ?? ''))
+  const past = bought.filter((id) => {
+    const day = by(id)
+    return day !== null && day < today
+  })
+  const planned = [
+    ...fresh,
+    ...bought.filter((id) => by(id) === null),
+    ...past,
+    ...plan.filter((id) => !shopped.has(id)),
+  ]
     .map(recipeById)
     .find((recipe) => recipeState(recipe, logs) !== 'locked')
   if (planned !== undefined) return planned

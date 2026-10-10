@@ -3,8 +3,12 @@
 // "Invalid login credentials"); the screen shows the app's. Anything not
 // listed keeps its own message, which still says what failed.
 
-/** No answer at all: no signal, or too slow to answer (the request timeout in supabase.ts). */
-const NO_CONNECTION = /failed to fetch|load failed|networkerror|network request failed|timed? ?out|aborterror|timeouterror/i
+/**
+ * No answer at all: no signal, or too slow to answer (the request timeout in
+ * supabase.ts), or the session could not be renewed for either reason
+ * (AuthRetryableFetchError).
+ */
+const NO_CONNECTION = /failed to fetch|load failed|networkerror|network request failed|timed? ?out|aborterror|timeouterror|authretryablefetcherror/i
 
 /** Supabase Auth's error codes the sign-in, sign-up and reset forms can meet. */
 const AUTH_CODES: Readonly<Record<string, string>> = {
@@ -22,5 +26,6 @@ export const NO_CONNECTION_MESSAGE = 'No connection. Check your signal and try a
 
 export function plainMessage(error: { readonly message: string; readonly code?: string | undefined }): string {
   if (NO_CONNECTION.test(error.message)) return NO_CONNECTION_MESSAGE
-  return (error.code === undefined ? undefined : AUTH_CODES[error.code]) ?? error.message
+  // The Data API client names what its fetch threw ("Error: You are signed out on this phone."): the words are the app's.
+  return (error.code === undefined ? undefined : AUTH_CODES[error.code]) ?? error.message.replace(/^Error: /, '')
 }

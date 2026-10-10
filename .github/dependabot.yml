@@ -7,6 +7,10 @@ updates:
     directory: /app
     schedule:
       interval: weekly
+    # A release has a week to be found out (a hijacked package is usually
+    # pulled within days) before a pull request proposes it.
+    cooldown:
+      default-days: 7
     groups:
       # Minor and patch updates of the dev tools in one pull request, so a
       # week's small updates are one review. A major update comes on its own,
@@ -23,3 +27,5 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7

@@ -40,7 +40,7 @@ test.describe('tonight', () => {
     await page.clock.install({ time: SIX_PM })
     await kitchen.open('#/cook/sheet-pan-sausage/0', SALAD_DONE)
     await expect(page.getByText(/^Start now and you eat around \d+:\d\d [AP]M\.$/)).toBeVisible()
-    await page.getByText('The steps').click()
+    await page.getByText('Read every step once first').click()
     await expect(page.locator('details ol.method > li')).toHaveCount(recipeById('sheet-pan-sausage').content.steps.length)
   })
 })
@@ -57,8 +57,37 @@ test.describe('a cook the phone interrupted', () => {
     await page.reload()
     const resume = page.getByRole('region', { name: 'The cook in progress' })
     await expect(resume).toContainText('You were cooking Sheet-pan sausage and vegetables: step 3 of 8.')
+    // Food may be in the oven: the card says when its timer ends.
+    await expect(resume).toContainText('Potatoes timer: ends at 6:15 PM.')
     await resume.getByRole('link', { name: 'Back to step 3' }).click()
     await expect(page.getByRole('timer')).toContainText(/1[45]:\d\d/)
+  })
+
+  test('a cook logged on another device is not asked about again', async ({ page, kitchen }) => {
+    await page.clock.install({ time: SIX_PM })
+    await kitchen.open('#/cook/chopped-salad/8', FRESH)
+    await page.getByRole('link', { name: 'Finish and log it' }).click()
+    await expect(page.getByRole('heading', { name: 'How did it go?' })).toBeVisible()
+    kitchen.backend.writeElsewhere('cook_logs', { recipe_id: 'chopped-salad', rating: 2, cooked_on: '2026-10-09', notes: '' })
+    await page.goto('./')
+    await expect(page.getByText('Cook this next')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'The cook in progress' })).toHaveCount(0)
+  })
+
+  test('logged from the menu the next morning, a cook is dated the evening it was finished', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-09T21:00:00-05:00') })
+    await kitchen.open('#/cook/chopped-salad/8', FRESH)
+    await page.getByRole('link', { name: 'Finish and log it' }).click()
+    await expect(page.getByRole('heading', { name: 'How did it go?' })).toBeVisible()
+    await page.goto('./')
+    await expect(page.getByRole('region', { name: 'The cook in progress' })).toBeVisible()
+    await page.clock.fastForward('10:00:00')
+    await page.reload()
+    await page.getByRole('region', { name: 'The cook in progress' }).getByRole('link', { name: 'Log it' }).click()
+    await expect(page.getByLabel('Cooked on')).toHaveValue('2026-10-09')
+    await rateAndSave(page, 'Decent')
+    await expect(page.getByRole('region', { name: 'This cook' })).toBeVisible()
+    expect(kitchen.backend.table('cook_logs')).toMatchObject([{ recipe_id: 'chopped-salad', cooked_on: '2026-10-09' }])
   })
 
   test('a cook finished but not logged asks how it went, until it is logged', async ({ page, kitchen }) => {
@@ -81,6 +110,8 @@ test.describe('a cook the phone interrupted', () => {
     const resume = page.getByRole('region', { name: 'The cook in progress' })
     await resume.getByRole('button', { name: 'Not cooking it now' }).click()
     await expect(resume).toHaveCount(0)
+    // The card took its buttons with it: focus is on what the menu suggests, not the top of the page.
+    await expect(page.locator('.tray-title')).toBeFocused()
     await page.reload()
     await expect(page.getByText('Cook this next')).toBeVisible()
     await expect(resume).toHaveCount(0)
@@ -115,13 +146,15 @@ test.describe('a simmer that needs stirring', () => {
     await expect(page.locator('.cook-count')).toHaveText(/^Step 7 of/)
 
     await page.clock.fastForward('05:01')
-    const stir = page.getByRole('button', { name: 'Sauce: stir it now' })
-    await expect(stir).toBeVisible()
+    const stir = page.locator('.timer-chip-stir')
+    await expect(stir).toHaveText('Sauce: stir it now')
     await expect.poll(beeps).toBe(1)
     // Said in words too, for a screen reader: the beep carries none.
     await expect(page.getByText('Sauce: stir it now.', { exact: true })).toBeAttached()
-    await stir.click()
+    await page.getByRole('button', { name: 'Stirred: Sauce' }).click()
     await expect(stir).toHaveCount(0)
+    // The reminder went with its button: focus is on the way forward.
+    await expect(page.getByRole('link', { name: 'Next step' })).toBeFocused()
 
     await page.clock.fastForward('05:00')
     await expect(stir).toBeVisible()
@@ -141,7 +174,7 @@ test.describe('a simmer whose phone was locked right after Start', () => {
     await page.clock.pauseAt(SIX_PM.getTime() + 60_000)
     await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
     await page.clock.fastForward('05:01')
-    await expect(page.getByRole('button', { name: 'Sauce: stir it now' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Stirred: Sauce' })).toBeVisible()
   })
 })
 
@@ -177,7 +210,7 @@ test.describe('bought meat', () => {
       'Seared chicken thighs with roasted broccoli: cook it by Tuesday, or freeze the meat tonight and thaw it in the fridge the night before you cook.',
     )
     expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: true, shopped_on: '2026-10-04' }])
-    await expect(page.locator('.plan-row').filter({ hasText: 'Seared chicken thighs' })).toContainText('Groceries bought. Cook by Tuesday')
+    await expect(page.locator('.plan-row').filter({ hasText: 'Seared chicken thighs' })).toContainText('Groceries bought. Cook it by Tuesday')
   })
 
   test('the menu suggests the meat to cook soonest first, with its day', async ({ page, kitchen }) => {
@@ -194,18 +227,44 @@ test.describe('bought meat', () => {
     await expect(tray.locator('.tray-body')).toContainText('Cook it by tomorrow, while the meat is fresh.')
   })
 
-  test('past the day the meat keeps, the card says to check it, and can put it back on the list', async ({ page, kitchen }) => {
+  test('past the day the meat keeps, the card says so, and can put it back on the list', async ({ page, kitchen }) => {
     await page.clock.install({ time: new Date('2026-10-08T17:00:00-05:00') })
     await kitchen.open('./', { logs: OPEN, plan: [thighs.id], shopped: [thighs.id], shoppedOn: { [thighs.id]: '2026-10-04' } })
     const tray = page.locator('.tray')
     await expect(tray.locator('.tray-body')).toContainText(
-      'Bought Oct 4, 2026, so check the date on the meat: if it has passed, put it back on the list.',
+      'Bought Sunday. Unless you froze it, the meat is past its days: throw it out and put it back on the list.',
     )
     // Cooking does not lead: the meat may be off.
     await expect(tray.locator('.actions > :not(.busy)').first()).toHaveText('Put it back on the list')
     await tray.getByRole('button', { name: 'Put it back on the list' }).click()
     await expect(tray.getByRole('heading', { name: `On this week’s plan: ${thighs.title}` })).toBeVisible()
     expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: false, shopped_on: null }])
+  })
+
+  test('“I froze it” takes the day away, and the card says to thaw the meat', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-08T17:00:00-05:00') })
+    await kitchen.open('./', { logs: OPEN, plan: [thighs.id], shopped: [thighs.id], shoppedOn: { [thighs.id]: '2026-10-04' } })
+    const tray = page.locator('.tray')
+    await tray.getByRole('button', { name: 'I froze it' }).click()
+    await expect(tray.locator('.tray-body')).toContainText('If the meat is in the freezer, move it to the fridge the night before you cook.')
+    await expect(tray.locator('.tray-title')).toBeFocused()
+    await expect(tray.locator('.actions > :not(.busy)').first()).toHaveText('Start cooking')
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: true, shopped_on: null }])
+  })
+
+  test('meat past its day is not ready tonight, and fresh groceries come first', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-08T17:00:00-05:00') })
+    await kitchen.open('./', {
+      logs: OPEN,
+      plan: [thighs.id, 'sheet-pan-sausage'],
+      shopped: [thighs.id, 'sheet-pan-sausage'],
+      shoppedOn: { [thighs.id]: '2026-10-04', 'sheet-pan-sausage': '2026-10-04' },
+      pantry: everything('soft-scrambled-eggs'),
+    })
+    // The smoked sausage keeps two weeks: it leads, ahead of the thighs past their day, which are not offered tonight.
+    await expect(page.getByRole('heading', { name: 'Groceries bought: Sheet-pan sausage and vegetables' })).toBeVisible()
+    const tonight = page.getByRole('region', { name: 'Also ready tonight, with what you have' })
+    await expect(tonight.getByRole('link')).toHaveText(['Soft scrambled eggs on toast10 minutes: eat around 5:10 PM'])
   })
 
   test('a recipe bought before the date was kept says only that it is bought', async ({ page, kitchen }) => {
@@ -229,6 +288,27 @@ test.describe('leftovers', () => {
 
     await left.getByRole('button', { name: 'All eaten: Sheet-pan sausage and vegetables' }).click()
     await expect(left).toHaveCount(0)
+    // The section went with the last one: focus is on what the menu suggests.
+    await expect(page.locator('.tray-title')).toBeFocused()
+    await page.reload()
+    await expect(page.getByText('Cook this next')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Leftovers' })).toHaveCount(0)
+  })
+
+  test('marking a second leftover eaten keeps the first one eaten', async ({ page, kitchen }) => {
+    await page.clock.install({ time: WEDNESDAY })
+    const chana = recipeById('chana-masala')
+    const cooked = pathTo(chana, []).map((recipe) => ({ recipe: recipe.id, rating: 2 as const, cookedOn: '2026-09-01' }))
+    await kitchen.open('./', {
+      logs: [...cooked, { recipe: 'sheet-pan-sausage', rating: 2, cookedOn: '2026-10-06' }, { recipe: chana.id, rating: 2, cookedOn: '2026-10-06' }],
+    })
+    const left = page.getByRole('region', { name: 'Leftovers' })
+    await expect(left.getByRole('button', { name: /^All eaten/ })).toHaveCount(2)
+    await left.getByRole('button', { name: 'All eaten: Sheet-pan sausage and vegetables' }).click()
+    await expect(left.getByRole('button', { name: 'All eaten: Sheet-pan sausage and vegetables' })).toHaveCount(0)
+    await expect(left.getByRole('heading', { name: 'Leftovers' })).toBeFocused()
+    await left.getByRole('button', { name: `All eaten: ${chana.title}` }).click()
+    await expect(left).toHaveCount(0)
     await page.reload()
     await expect(page.getByText('Cook this next')).toBeVisible()
     await expect(page.getByRole('region', { name: 'Leftovers' })).toHaveCount(0)
@@ -245,6 +325,8 @@ test.describe('leftovers', () => {
     const left = page.getByRole('region', { name: 'Leftovers' })
     await left.getByRole('link', { name: 'make egg fried rice with it, from step 3' }).click()
     await expect(page.locator('.cook-count')).toHaveText(/^Step 3 of/)
+    // The rice is already cold: cook mode does not offer the chilling timer of a step this cook never saw.
+    await expect(page.getByRole('button', { name: /: start \d/ })).toHaveCount(0)
   })
 
   test('the recipe page says how to keep and reheat what is left, when there is some', async ({ page, kitchen }) => {

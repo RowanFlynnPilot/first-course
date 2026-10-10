@@ -151,6 +151,19 @@ test.describe('signing in and creating a chef', () => {
     await expect(page.getByRole('link', { name: /Remy/ })).toBeVisible()
   })
 
+  test('a reset link that lands with no signal is kept: Try again uses it once there is signal', async ({ page, kitchen }) => {
+    kitchen.backend.dropNext('auth/user', 'GET')
+    await kitchen.open(`./${kitchen.backend.recoveryHash()}`, { signedIn: false })
+    await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
+    await expect(page.getByRole('alert')).toHaveText(
+      'No connection, so the email link could not be checked. Check your signal and try again.',
+    )
+    // The tokens are already out of the address bar: only the app still has them.
+    expect(page.url()).not.toContain('access_token')
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+  })
+
   test('a failed link while already signed in says so above the menu', async ({ page, kitchen }) => {
     await kitchen.open('./#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired', FRESH)
     await expect(page.getByRole('alert')).toHaveText('That email link has expired. You are still signed in.')

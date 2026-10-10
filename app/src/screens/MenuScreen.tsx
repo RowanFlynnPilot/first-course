@@ -20,7 +20,7 @@ import { updateChef, type Chef } from '../lib/chefs'
 import { clearCooking, loadCooking } from '../lib/cooking'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents } from '../lib/cost'
 import { extraById, wornExtras, type ExtraId } from '../lib/extras'
-import { cookByDates, dayName } from '../lib/freshness'
+import { cookBy as cookByOf, cookByDates, dayName } from '../lib/freshness'
 import { FRIED_RICE, LEFTOVER_DAYS, leftoversOf, loadEaten, makesRice, markEaten } from '../lib/leftovers'
 import {
   COURSE_NAMES,
@@ -32,6 +32,7 @@ import {
   localDateString,
   plural,
   readyAt,
+  timeOfDay,
 } from '../lib/format'
 import { hasKit, kitByCourse, missingKit } from '../lib/kit'
 import { levelForXp, rankIndexForLevel, RANKS, totalXp, type RankIndex } from '../lib/leveling'
@@ -46,13 +47,12 @@ import {
   rowNote,
   type CookLog,
 } from '../lib/progress'
-import { addAllToKit, planRecipe, readyTonight, shopForAgain, type Shop, type ShopChange } from '../lib/shop'
+import { addAllToKit, froze, pastCookBy, planRecipe, readyTonight, shopForAgain, type Shop, type ShopChange } from '../lib/shop'
 import { currentStreak, type Streak } from '../lib/streak'
-import { clearTimers } from '../lib/timers'
+import { clearTimers, loadTimers, shownTimers } from '../lib/timers'
 import { useKitchen } from '../kitchen'
 
 const COURSES: readonly Tier[] = [1, 2, 3, 4]
-
 
 type Moment = { kind: 'promotion'; rank: RankIndex } | { kind: 'usual'; recipe: Recipe }
 
@@ -102,33 +102,33 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
   // so a beginner meets what they can cook before seven locked plates (Rowan's call, October 9, 2026).
   const usualFirst = usual.some((recipe) => recipeState(recipe, logs) !== 'locked')
   const usualSection = (
-          <section className="section">
-            <h2 className="section-title">{COURSE_NAMES[5]}</h2>
-            <p className="section-note">
-              {usual.every((recipe) => recipeState(recipe, logs) === 'mastered')
-                ? 'What you used to order. You have mastered every one of them.'
-                : `What you order now. Everything ${usualFirst ? 'below' : 'above'} builds toward cooking these.`}
-            </p>
-            <ul className="usual">
-              {usual.map((recipe) => {
-                const state = recipeState(recipe, logs)
-                const have = recipe.requires.length - missingTechniques(recipe, logs).length
-                return (
-                  <li key={recipe.id}>
-                    <Link className="usual-item" to={`/recipe/${recipe.id}`}>
-                      <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={56} />
-                      <span className="usual-title">{recipe.title}</span>
-                      <span className="row-note">
-                        {state === 'locked'
-                          ? `${have} of ${plural(recipe.requires.length, 'skill', 'skills')} learned`
-                          : rowNote(recipe, logs)}
-                      </span>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
+    <section className="section">
+      <h2 className="section-title">{COURSE_NAMES[5]}</h2>
+      <p className="section-note">
+        {usual.every((recipe) => recipeState(recipe, logs) === 'mastered')
+          ? 'What you used to order. You have mastered every one of them.'
+          : `What you order now. Everything ${usualFirst ? 'below' : 'above'} builds toward cooking these.`}
+      </p>
+      <ul className="usual">
+        {usual.map((recipe) => {
+          const state = recipeState(recipe, logs)
+          const have = recipe.requires.length - missingTechniques(recipe, logs).length
+          return (
+            <li key={recipe.id}>
+              <Link className="usual-item" to={`/recipe/${recipe.id}`}>
+                <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={56} />
+                <span className="usual-title">{recipe.title}</span>
+                <span className="row-note">
+                  {state === 'locked'
+                    ? `${have} of ${plural(recipe.requires.length, 'skill', 'skills')} learned`
+                    : rowNote(recipe, logs)}
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 
   return (
@@ -209,7 +209,7 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
           cookBy={cookBy.get(next.id) ?? null}
           onShopChange={onShopChange}
         />
-        <Tonight except={next} logs={logs} shop={shop} now={now} />
+        <Tonight except={next} logs={logs} shop={shop} now={now} today={today} />
         <Leftovers userId={userId} logs={logs} today={today} />
 
         <nav className="quick-links" aria-label="Shopping, kit, and spices">
@@ -288,6 +288,7 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
           >
             Sign out
           </button>
+          <Saving busy={signOut.busy} />
           <ErrorNotice error={signOut.error} />
         </footer>
       </main>
@@ -439,8 +440,8 @@ function CookedWithKit({ recipe, shop, onShopChange }: { recipe: Recipe; shop: S
 
 /**
  * The cook in progress on this phone, when the app closed in the middle of
- * it (lib/cooking.ts): the way back to the step, or, once the last step was
- * done, to logging it.
+ * it (lib/cooking.ts): the way back to the step, with any timer still on, or,
+ * once the last step was done, to logging it.
  */
 function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[]; now: number }) {
   const [forgotten, setForgotten] = useState(false)
@@ -449,8 +450,13 @@ function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[
   const recipe = recipeById(cooking.recipeId)
   // A catch-up can lock it again (a cook deleted elsewhere): its screen would only say so.
   if (recipeState(recipe, logs) === 'locked') return null
+  // Logged on another device since: asking here would log it twice.
+  const began = localDateString(new Date(cooking.at))
+  if (logs.some((cook) => cook.recipeId === recipe.id && cook.cookedOn >= began)) return null
   // A recipe revised mid-cook can have fewer steps now.
   const step = cooking.step === 'log' ? 'log' : Math.min(cooking.step, recipe.content.steps.length)
+  // Food may be in the oven: a timer still on says when it ends. Only cook mode can ring it.
+  const timers = Object.entries(shownTimers(loadTimers(localStorage, userId, recipe.id), now))
   return (
     <section className="notice notice-info resume" aria-label="The cook in progress">
       <p>
@@ -460,6 +466,12 @@ function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[
             ? `You were getting ready to cook ${recipe.title}.`
             : `You were cooking ${recipe.title}: step ${step} of ${recipe.content.steps.length}.`}
       </p>
+      {step !== 'log' &&
+        timers.map(([label, timer]) => (
+          <p key={label}>
+            {timer.endsAt <= now ? `${label}: time is up.` : `${label} timer: ends at ${timeOfDay(timer.endsAt)}.`}
+          </p>
+        ))}
       <div className="actions">
         <Link className="button" to={step === 'log' ? `/cook/${recipe.id}/log` : `/cook/${recipe.id}/${step}`}>
           {step === 'log' ? 'Log it' : step === 0 ? 'Back to it' : `Back to step ${step}`}
@@ -468,8 +480,10 @@ function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[
           className="link-button"
           type="button"
           onClick={() => {
+            // The card goes with its buttons: focus moves to what the menu suggests.
+            focusNext('tray-title')
             clearCooking(localStorage, userId)
-            clearTimers(localStorage, recipe.id)
+            clearTimers(localStorage, userId, recipe.id)
             setForgotten(true)
           }}
         >
@@ -484,12 +498,25 @@ function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[
 const TONIGHT = 3
 
 /**
- * Other recipes that need no shop tonight: groceries bought, or everything
- * in the pantry. Quickest first, with when each would be ready.
+ * Other recipes that need no shop tonight: groceries bought (and the meat
+ * not past its days), or everything in the pantry. Quickest first, with
+ * when each would be ready.
  */
-function Tonight({ except, logs, shop, now }: { except: Recipe; logs: readonly CookLog[]; shop: Shop; now: number }) {
+function Tonight({
+  except,
+  logs,
+  shop,
+  now,
+  today,
+}: {
+  except: Recipe
+  logs: readonly CookLog[]
+  shop: Shop
+  now: number
+  today: string
+}) {
   const ready = RECIPES.filter(
-    (recipe) => recipe.id !== except.id && recipeState(recipe, logs) !== 'locked' && readyTonight(recipe, shop),
+    (recipe) => recipe.id !== except.id && recipeState(recipe, logs) !== 'locked' && readyTonight(recipe, shop, today),
   )
     .toSorted((a, b) => a.content.totalMinutes - b.content.totalMinutes)
     .slice(0, TONIGHT)
@@ -525,6 +552,8 @@ function Leftovers({ userId, logs, today }: { userId: string; logs: readonly Coo
   const [eaten, setEaten] = useState(() => loadEaten(localStorage, userId))
   const title = useFocusTarget<HTMLHeadingElement>('leftovers-title')
   const left = leftoversOf(logs, today, eaten)
+  // Every cook still within its days, eaten or not: the marks the phone keeps.
+  const recent = leftoversOf(logs, today, new Set()).map((each) => each.cook.id)
   if (left.length === 0) return null
   const friedRiceOpen = recipeState(FRIED_RICE, logs) !== 'locked'
   return (
@@ -533,7 +562,7 @@ function Leftovers({ userId, logs, today }: { userId: string; logs: readonly Coo
         Leftovers
       </h2>
       <ul className="rows">
-        {left.map(({ cook, recipe, eatBy }) => (
+        {left.map(({ cook, recipe, reheat, eatBy }) => (
           <li key={cook.id} className="leftover">
             <div className="plan-row">
               <span>
@@ -549,21 +578,15 @@ function Leftovers({ userId, logs, today }: { userId: string; logs: readonly Coo
                 type="button"
                 aria-label={`All eaten: ${recipe.title}`}
                 onClick={() => {
-                  focusNext('leftovers-title')
-                  setEaten(
-                    markEaten(
-                      localStorage,
-                      userId,
-                      cook.id,
-                      left.map((each) => each.cook.id),
-                    ),
-                  )
+                  // The last one takes the section with it: focus moves to what the menu suggests.
+                  focusNext(left.length === 1 ? 'tray-title' : 'leftovers-title')
+                  setEaten(markEaten(localStorage, userId, cook.id, recent))
                 }}
               >
                 All eaten
               </button>
             </div>
-            <p className="row-note">{recipe.content.leftovers?.reheat}</p>
+            <p className="row-note">{reheat}</p>
             {makesRice(recipe) && (
               <p className="row-note">
                 Leftover rice: reheat it only once, until it is steaming hot
@@ -604,15 +627,19 @@ function UpNext({
 }) {
   const add = useWrite()
   const again = useWrite()
+  const frozen = useWrite()
+  const heading = useFocusTarget<HTMLHeadingElement>('tray-title')
   const { content } = recipe
   const today = localDateString(new Date(now))
-  // Past the day its meat keeps: the cook checks the package, and may need to shop again.
-  const stale = cookBy !== null && cookBy < today
+  // Past the day its meat keeps: unless it went in the freezer, it goes, and the recipe needs a new shop.
+  const stale = pastCookBy(recipe, shop, today)
   const boughtOn = shop.shoppedOn.get(recipe.id)
+  // Bought with no day to cook it by, and meat that keeps only days: frozen ("I froze it").
+  const thaw = plan === 'bought' && boughtOn === undefined && cookByOf(recipe, today) !== null
   const state = recipeState(recipe, logs)
   const last = lastCooked(recipe, logs)
-  // Bought, or all in the pantry: nothing to plan or buy, so cooking leads.
-  const cookNow = readyTonight(recipe, shop) && !stale
+  // Bought (the meat in its days), or all in the pantry: nothing to plan or buy, so cooking leads.
+  const cookNow = readyTonight(recipe, shop, today)
   const label =
     plan === 'bought'
       ? 'Groceries bought'
@@ -634,7 +661,7 @@ function UpNext({
           {label}
         </p>
         {/* The heading's name carries the label, so a list of headings still says what this dish is for. */}
-        <h2 className="tray-title" aria-label={`${label}: ${recipe.title}`}>
+        <h2 className="tray-title" aria-label={`${label}: ${recipe.title}`} ref={heading} tabIndex={-1}>
           {recipe.title}
         </h2>
       </div>
@@ -649,7 +676,8 @@ function UpNext({
             ` ${cookBy === today ? 'Cook it today' : `Cook it by ${dayName(cookBy, today)}`}, while the meat is fresh.`}
           {stale &&
             boughtOn !== undefined &&
-            ` Bought ${formatCookedOn(boughtOn)}, so check the date on the meat: if it has passed, put it back on the list.`}
+            ` Bought ${dayName(boughtOn, today)}. Unless you froze it, the meat is past its days: throw it out and put it back on the list.`}
+          {thaw && ' If the meat is in the freezer, move it to the fridge the night before you cook.'}
           {/* Once it is all mastered, the suggestion is whatever has waited longest. */}
           {state === 'mastered' && last !== null && ` Mastered, and not cooked since ${formatCookedOn(last)}.`}
         </p>
@@ -677,6 +705,17 @@ function UpNext({
             </button>
           )}
           <Saving busy={again.busy} />
+          {stale && (
+            <button
+              className="button button-quiet"
+              type="button"
+              aria-disabled={frozen.busy}
+              onClick={() => void frozen.run(() => focusAfter('tray-title', () => froze(recipe.id, onShopChange)))}
+            >
+              I froze it
+            </button>
+          )}
+          <Saving busy={frozen.busy} />
           {plan === 'planned' && !cookNow && <ShopForIt />}
           {!cookNow && start}
           <Link className="button button-quiet" to={`/recipe/${recipe.id}`}>
@@ -685,6 +724,7 @@ function UpNext({
         </div>
         <ErrorNotice error={add.error} />
         <ErrorNotice error={again.error} />
+        <ErrorNotice error={frozen.error} />
       </div>
     </section>
   )

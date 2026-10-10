@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { CheckRow } from '../components/CheckRow'
 import { focusAfter, useFocusTarget } from '../components/useFocusTarget'
 import { useWrite } from '../components/useWrite'
+import { ErrorNotice, Saving } from '../components/WriteStatus'
 import { usePageTitle } from '../components/usePageTitle'
 import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import type { Tier } from '../curriculum/types'
@@ -46,6 +47,7 @@ export function KitScreen() {
                     label={item.name}
                     note={covered ? 'Something else in your kit does this job.' : (item.note ?? undefined)}
                     onChange={(own) => setInKit(id, own, onShopChange)}
+                    focusTarget={`kit-item:${id}`}
                   />
                 )
               })}
@@ -83,22 +85,19 @@ function HaveAll({
   onShopChange: ShopChange
 }) {
   const { busy, error, run } = useWrite()
-  const unticked = items.filter((id) => !shop.kit.has(id))
+  const unchecked = items.filter((id) => !shop.kit.has(id))
   return (
     <div className="actions">
       <button
         className="button button-quiet"
         type="button"
         aria-disabled={busy}
-        onClick={() => void run(() => focusAfter(`kit-course:${tier}`, () => addAllToKit(unticked, onShopChange)))}
+        onClick={() => void run(() => focusAfter(`kit-course:${tier}`, () => addAllToKit(unchecked, onShopChange)))}
       >
         I have all of these
       </button>
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
+      <Saving busy={busy} />
+      <ErrorNotice error={error} />
     </div>
   )
 }

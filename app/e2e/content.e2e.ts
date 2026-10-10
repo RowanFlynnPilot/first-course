@@ -1,7 +1,9 @@
-// Every recipe opens, and cook mode shows every one of its steps.
+// Every recipe opens, and cook mode shows every one of its steps: its words,
+// and its timer where it has one.
 
 import { INGREDIENTS } from '../src/curriculum/ingredients'
 import { RECIPES } from '../src/curriculum/recipes'
+import { formatClock } from '../src/lib/format'
 import type { SeedLog } from './fakeSupabase'
 import { expect, test } from './kitchen'
 
@@ -20,9 +22,13 @@ for (const recipe of RECIPES) {
     await expect(page.getByText('Before you start')).toBeVisible()
     // Step 0 says to get everything out, so it says when the meat is the exception.
     await expect(page.getByText('Leave the meat in the fridge until the step that uses it.')).toHaveCount(usesMeat ? 1 : 0)
-    for (let step = 1; step <= steps; step += 1) {
+    for (const [index, { text, timer, why }] of recipe.content.steps.entries()) {
+      const step = index + 1
       await page.goto(`#/cook/${recipe.id}/${step}`)
-      await expect(page.getByText(`Step ${step} of ${steps}`)).toBeVisible()
+      await expect(page.locator('.cook-count')).toHaveText(new RegExp(`^Step ${step} of ${steps}`))
+      await expect(page.locator('h1.cook-text')).toHaveText(text)
+      await expect(page.locator('.why')).toHaveCount(why === null ? 0 : 1)
+      await expect(page.getByRole('button', { name: /^Start .* timer$/ })).toHaveText(timer === null ? [] : [`Start ${formatClock(timer.seconds)} timer`])
     }
     await expect(page.getByRole('link', { name: 'Finish and log it' })).toBeVisible()
   })

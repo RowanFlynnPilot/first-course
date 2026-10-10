@@ -13,19 +13,21 @@ import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
 import { cookCostPerServingCents } from '../lib/cost'
-import { cookBy, dayName } from '../lib/freshness'
-import { formatAmount, formatCents, formatCookedOn, formatMinutes, inSentence, listOf, packagesOf, parseCents, plural } from '../lib/format'
+import { boughtNote, cookBy, dayName } from '../lib/freshness'
+import { formatAmount, formatCents, formatMinutes, inSentence, listOf, packagesOf, parseCents, plural } from '../lib/format'
 import { groceryList, groceryText, type GroceryLine } from '../lib/grocery'
 import { missingKit } from '../lib/kit'
 import { pathTo, readyToPlan, recipeState, type CookLog } from '../lib/progress'
 import {
   coveredRecipes,
   doneShopping,
+  froze,
+  pastCookBy,
   planRecipe,
   resetPrice,
   setChecked,
-  setInKit,
   setInPantry,
+  setKitChecked,
   setPrice,
   shopForAgain,
   takeOffPlan,
@@ -51,11 +53,14 @@ export function ShopScreen() {
   // Until anything is checked off in the kit, it would list the chef's knife and every pan: one pointer instead.
   const kitKnown = shop.kit.size > 0
   const kitToGet = kitKnown ? needKit : []
-  const inCart = list.lines.filter((line) => shop.checks.has(line.ingredientId))
+  const kitNotInCart = kitToGet.filter((id) => !shop.kitChecks.has(id))
   const notInCart = list.lines.filter((line) => !shop.checks.has(line.ingredientId))
-  const toBuy = notInCart.length
+  // The kit aisle is part of the cart: checked off here, it goes into the kit at Done shopping.
+  const things = list.lines.length + kitToGet.length
+  const toBuy = notInCart.length + kitNotInCart.length
   const finish = useWrite()
-  const [finished, setFinished] = useState<string | null>(null)
+  // What Done shopping did, and whether it bought anything to cook.
+  const [finished, setFinished] = useState<{ text: string; bought: boolean } | null>(null)
 
   const finishedRef = useFocusTarget<HTMLParagraphElement>('shop-done')
   // Where focus goes when a line leaves the list ("Have it"): the next line, or the one before, so the cook keeps their place.
@@ -73,17 +78,17 @@ export function ShopScreen() {
     // A recipe with a line left unchecked stays on the list: the store was out, or it is still to buy.
     const covered = coveredRecipes(shop)
     const staying = toShop.filter((id) => !covered.includes(id))
-    const left = listOf(notInCart.map((line) => inSentence(INGREDIENTS[line.ingredientId].name)))
-    const question = `Not checked off: ${left}. ${titlesOf(staying)} ${staying.length === 1 ? 'stays' : 'stay'} on the list for ${toBuy === 1 ? 'it' : 'them'}. Finish shopping?`
-    if (toBuy > 0 && !window.confirm(question)) return
+    const left = listOf([
+      ...notInCart.map((line) => inSentence(INGREDIENTS[line.ingredientId].name)),
+      ...kitNotInCart.map((id) => inSentence(EQUIPMENT[id].name)),
+    ])
+    const stays = staying.length === 0 ? '' : ` ${staysOnTheList(staying, toShop, toBuy === 1 ? 'it' : 'them')}`
+    if (toBuy > 0 && !window.confirm(`Not checked off: ${left}.${stays} Finish shopping?`)) return
     await finish.run(() =>
       focusAfter('shop-done', async () => {
         const { staples, bought, stillToShop } = await doneShopping(shop, today, onShopChange)
         const pantry = staples.length === 0 ? '' : ` Into your pantry: ${listOf(staples.map((id) => inSentence(INGREDIENTS[id].name)))}.`
-        const still =
-          stillToShop.length === 0
-            ? ''
-            : ` ${titlesOf(stillToShop)} ${stillToShop.length === 1 ? 'stays' : 'stay'} on the list for what you did not check off.`
+        const still = stillToShop.length === 0 ? '' : ` ${staysOnTheList(stillToShop, toShop, 'what you did not check off')}`
         // Raw meat keeps a couple of days: when to cook each, or the way to buy time.
         const meat = bought.flatMap((id) => {
           const by = cookBy(recipeById(id), today)
@@ -91,7 +96,10 @@ export function ShopScreen() {
             ? []
             : [` ${recipeById(id).title}: cook it by ${dayName(by, today)}, or freeze the meat tonight and thaw it in the fridge the night before you cook.`]
         })
-        setFinished(`Done shopping.${pantry}${still}${meat.join('')}${pantry === '' && still === '' && meat.length === 0 ? ' The list is cleared.' : ''}`)
+        setFinished({
+          text: `Done shopping.${pantry}${still}${meat.join('')}${pantry === '' && still === '' && meat.length === 0 ? ' The list is cleared.' : ''}`,
+          bought: bought.length > 0,
+        })
       }),
     )
   }
@@ -106,9 +114,9 @@ export function ShopScreen() {
         Grocery list
       </h2>
       <p className="section-note">
-        {inCart.length} of {plural(list.lines.length, 'thing', 'things')} in the cart.
+        {things - toBuy} of {plural(things, 'thing', 'things')} in the cart.
       </p>
-      {toBuy + kitToGet.length > 0 && <ShareButton text={groceryText(toShop, list, shop.checks, kitToGet)} />}
+      {toBuy > 0 && <ShareButton text={groceryText(toShop, list, shop.checks, kitNotInCart)} />}
       {list.sections.map((section) => (
         <div className="aisle" key={section.id}>
           <h3 className="aisle-title">{section.name}</h3>
@@ -132,11 +140,11 @@ export function ShopScreen() {
             <>
               <p className="section-note">
                 This week’s recipes use these, and <Link to="/kit">your kit</Link> does not have them yet. Check one off
-                once you have it.
+                when it is in the cart: Done shopping puts it in your kit.
               </p>
               <ul className="checks checks-cart">
-                {kitToGet.map((id, index) => (
-                  <KitRow key={id} id={id} neighbor={kitNeighbor(kitToGet, index)} onShopChange={onShopChange} />
+                {kitToGet.map((id) => (
+                  <KitRow key={id} id={id} checked={shop.kitChecks.has(id)} onShopChange={onShopChange} />
                 ))}
               </ul>
             </>
@@ -227,16 +235,22 @@ export function ShopScreen() {
       {/* Not role=status: focus moves here, which reads it, and a status would read it twice. */}
       {finished !== null && (
         <p className="notice notice-info" ref={finishedRef} tabIndex={-1}>
-          {finished} <Link to="/">Go to the menu to cook</Link>
+          {finished.text}
+          {finished.bought && (
+            <>
+              {' '}
+              <Link to="/">Go to the menu to cook</Link>
+            </>
+          )}
         </p>
       )}
       {shopping ? listSection : planSection}
       {shopping && planSection}
       {ready.length > 0 && (
         <section className="section">
-          <h2 className="section-title">Ready to cook</h2>
+          <h2 className="section-title">More for this week</h2>
           <p className="section-note">
-            Recipes you can cook now, in the order the menu suggests them, then ones this week’s cooks will open.
+            Recipes open to you now, in the order the menu suggests them, then ones this week’s cooks will open.
           </p>
           <ul className="rows">
             {ready.map((recipe) => (
@@ -252,14 +266,25 @@ export function ShopScreen() {
 /** How many unplanned recipes This week offers to add. */
 const SUGGESTIONS = 4
 
-/** Recipe titles as a list: "Soft scrambled eggs on toast and Spaghetti aglio e olio". */
-function titlesOf(ids: readonly string[]): string {
-  return listOf(ids.map((id) => recipeById(id).title))
+/**
+ * Which recipes stay on the list, and for what. Titles are not joined with
+ * "and": a title can hold one ("Sheet-pan sausage and vegetables"), and two
+ * dishes would read as three.
+ */
+function staysOnTheList(staying: readonly string[], listed: readonly string[], forWhat: string): string {
+  const [only] = staying
+  if (staying.length === 1 && only !== undefined) return `${recipeById(only).title} stays on the list for ${forWhat}.`
+  if (staying.length === listed.length) return `Every recipe stays on the list for ${forWhat}.`
+  return `${staying.length} recipes stay on the list for ${forWhat}: ${staying.map((id) => recipeById(id).title).join('; ')}.`
 }
 
 /** A locked recipe on, or going on, the plan: the cooks that open it, in the order to cook them. */
 function OpensAfter({ recipe, logs }: { recipe: Recipe; logs: readonly CookLog[] }) {
-  return <span className="row-note">Opens after you cook {titlesOf(pathTo(recipe, logs).map((step) => step.id))}</span>
+  return (
+    <span className="row-note">
+      Opens after you cook {pathTo(recipe, logs).map((step) => step.title).join(', then ')}
+    </span>
+  )
 }
 
 /** A recipe that could go on the plan, with what it takes, and one tap to add it. */
@@ -348,6 +373,7 @@ function PlanRow({
   const { busy, error, run } = useWrite()
   const title = useFocusTarget<HTMLAnchorElement>(`plan-row:${recipe.id}`)
   const shopped = shop.shopped.has(recipe.id)
+  const stale = pastCookBy(recipe, shop, today)
   // Planned ahead of the cooks that open it, or locked again by a deleted cook.
   const locked = recipeState(recipe, logs) === 'locked'
   return (
@@ -372,43 +398,46 @@ function PlanRow({
         <Saving busy={busy} />
       </div>
       {shopped && (
-        <button
-          className="link-button"
-          type="button"
-          aria-disabled={busy}
-          onClick={() => void run(() => focusAfter(`plan-row:${recipe.id}`, () => shopForAgain(recipe.id, onShopChange)))}
-        >
-          Put it back on the list
-        </button>
+        <div className="plan-actions">
+          <button
+            className="link-button"
+            type="button"
+            aria-disabled={busy}
+            onClick={() => void run(() => focusAfter(`plan-row:${recipe.id}`, () => shopForAgain(recipe.id, onShopChange)))}
+          >
+            Put it back on the list
+          </button>
+          {stale && (
+            <button
+              className="link-button"
+              type="button"
+              aria-disabled={busy}
+              aria-label={`I froze it: ${recipe.title}`}
+              onClick={() => void run(() => focusAfter(`plan-row:${recipe.id}`, () => froze(recipe.id, onShopChange)))}
+            >
+              I froze it
+            </button>
+          )}
+        </div>
       )}
       <ErrorNotice error={error} />
     </li>
   )
 }
 
-/** "Groceries bought", with when to cook its meat by, or that the meat may be past its date. */
-function boughtNote(recipe: Recipe, boughtOn: string | undefined, today: string): string {
-  const by = boughtOn === undefined ? null : cookBy(recipe, boughtOn)
-  if (boughtOn === undefined || by === null) return 'Groceries bought'
-  if (by < today) return `Bought ${formatCookedOn(boughtOn)}: check the date on the meat`
-  return `Groceries bought. Cook by ${dayName(by, today)}`
-}
-
-/** Where focus goes when a kit line leaves the list: the next one, or the one before, or the list's heading. */
-function kitNeighbor(kit: readonly EquipmentId[], index: number): string {
-  const near = kit[index + 1] ?? kit[index - 1]
-  return near === undefined ? 'grocery-title' : `kit:${near}`
-}
-
-/** A tool the plan needs and the kit does not have. Checked off, it goes into the kit, and off the list. */
-function KitRow({ id, neighbor, onShopChange }: { id: EquipmentId; neighbor: string; onShopChange: ShopChange }) {
+/**
+ * A tool the plan needs and the kit does not have. Checked off, it is in the
+ * cart, kept on this phone like the groceries; Done shopping puts it in the kit.
+ */
+function KitRow({ id, checked, onShopChange }: { id: EquipmentId; checked: boolean; onShopChange: ShopChange }) {
   const { name, note } = EQUIPMENT[id]
   return (
     <CheckRow
-      checked={false}
+      checked={checked}
       label={name}
       note={note ?? undefined}
-      onChange={(own) => focusAfter(neighbor, () => setInKit(id, own, onShopChange))}
+      // On the phone (lib/checks.ts): it never waits on signal.
+      onChange={async (next) => setKitChecked(id, next, onShopChange)}
       focusTarget={`kit:${id}`}
     />
   )
@@ -521,6 +550,11 @@ function GroceryRow({
   )
 }
 
+/** "1 red onion" as it is, and "one 4 oz tub" for a package that does not start with its count. */
+function paidFor(label: string): string {
+  return label.startsWith('1 ') ? label : `one ${label}`
+}
+
 function PriceForm({
   id,
   current,
@@ -551,7 +585,7 @@ function PriceForm({
       <form className="price-form" onSubmit={save}>
         <label className="field">
           {ingredient.name}
-          <span className="row-note">What you paid for {ingredient.package.label}</span>
+          <span className="row-note">What you paid for {paidFor(ingredient.package.label)}</span>
           <input
             type="text"
             inputMode="decimal"

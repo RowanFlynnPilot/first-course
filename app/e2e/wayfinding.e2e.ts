@@ -27,7 +27,7 @@ test.describe('the next move', () => {
     await expect(tray.getByRole('link', { name: 'Shop for it' })).toBeFocused()
     await expect(page.getByRole('heading', { name: 'On this week’s plan: Soft scrambled eggs on toast' })).toBeVisible()
     await tray.getByRole('link', { name: 'Shop for it' }).click()
-    await expect(page.getByRole('heading', { name: 'This week' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible()
   })
 
   test('after Done shopping, the way back to cook', async ({ page, kitchen }) => {
@@ -42,7 +42,7 @@ test.describe('the next move', () => {
     await page.getByRole('link', { name: 'Next: your pantry' }).click()
     await expect(page.getByRole('heading', { name: 'Your pantry' })).toBeVisible()
     await page.getByRole('link', { name: 'Next: plan this week' }).click()
-    await expect(page.getByRole('heading', { name: 'This week' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible()
   })
 
   test('the pantry asks about week one’s staples first, filed like the kit', async ({ page, kitchen }) => {

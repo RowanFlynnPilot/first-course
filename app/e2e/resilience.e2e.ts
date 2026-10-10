@@ -8,6 +8,46 @@ const EVENING = new Date('2026-10-03T18:00:00-05:00')
 const isRead = (table: string) => (request: { url: () => string; method: () => string }) =>
   request.url().includes(`/rest/v1/${table}`) && request.method() === 'GET'
 
+test.describe('no signal at all', () => {
+  test('a read that gets no answer gives up after 15 seconds, once, and offers Try again', async ({ page, kitchen }) => {
+    await page.clock.install({ time: EVENING })
+    // The log's read never answers; nothing tries it again behind the cook's back.
+    kitchen.backend.holdNext('cook_logs', 'GET')
+    let reads = 0
+    page.on('request', (request) => {
+      if (isRead('cook_logs')(request)) reads += 1
+    })
+    await kitchen.open('./', SALAD_DONE)
+    await expect(page.getByText('Loading your kitchen…')).toBeVisible()
+    await page.clock.fastForward('00:16')
+    await expect(page.getByRole('heading', { name: 'Could not load your kitchen' })).toBeVisible()
+    await expect(page.getByRole('alert')).toHaveText(/No connection\. Check your signal and try again\./)
+    // A retry would have gone out within seven seconds.
+    await page.clock.fastForward('00:10')
+    expect(reads).toBe(1)
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await expect(page.getByText('Cook this next')).toBeVisible()
+  })
+
+  test('opened with a sign-in to renew and no signal, it says so, never "Sign in", and opens once there is signal', async ({ page, kitchen }) => {
+    await page.clock.install({ time: EVENING })
+    kitchen.backend.loseSignal()
+    await kitchen.open('./', { ...SALAD_DONE, sessionExpired: true })
+    // The auth client tries the renewal for about half a minute before it gives up.
+    await page.clock.runFor('00:45')
+    await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
+    await expect(page.getByRole('alert')).toContainText('You are still signed in')
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveCount(0)
+    kitchen.backend.restoreSignal()
+    // The auth client renews in the background once it can, and the kitchen opens by itself. The clock
+    // moves in steps, so each renewal's request can come back before the next tick.
+    await expect(async () => {
+      await page.clock.runFor('00:10')
+      await expect(page.getByText('Cook this next')).toBeVisible({ timeout: 500 })
+    }).toPass({ timeout: 20_000 })
+  })
+})
+
 test.describe('weak signal and other devices', () => {
   test('a catch-up that read the log before a save does not take the cook off the screen', async ({ page, kitchen }) => {
     await page.clock.install({ time: EVENING })
@@ -100,7 +140,9 @@ test.describe('weak signal and other devices', () => {
     kitchen.backend.deleteElsewhere('cook_logs', { recipe_id: 'soft-scrambled-eggs' })
     await awayFor(page, 11)
     await expect(page.getByRole('heading', { name: 'Grilled cheese is locked' })).toBeVisible()
-    await expect(page.getByText('Locked. Learn heat control from Soft scrambled eggs on toast.')).toBeVisible()
+    // The heading says it is locked; the notice says only the way there.
+    await expect(page.getByText('Learn heat control from Soft scrambled eggs on toast.')).toBeVisible()
+    await expect(page.getByText(/^Locked\./)).toHaveCount(0)
   })
 
   test('under ten minutes away there is no catch-up; a failed one says so and can try again', async ({ page, kitchen }) => {
@@ -139,7 +181,7 @@ test.describe('weak signal and other devices', () => {
     page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('button', { name: 'Done shopping' }).click()
     await expect(page.getByText(/^Done shopping\./)).toHaveText(
-      'Done shopping. Into your pantry: kosher salt. Chopped salad with lemon vinaigrette stays on the list for what you did not check off. Go to the menu to cook',
+      'Done shopping. Into your pantry: kosher salt. Chopped salad with lemon vinaigrette stays on the list for what you did not check off.',
     )
     await expect(page.getByText(/^Done shopping\./)).toBeFocused()
     expect(kitchen.backend.table('pantry_items').map((row) => row.ingredient_id)).toEqual(['kosher-salt'])

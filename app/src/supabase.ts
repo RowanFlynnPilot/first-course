@@ -3,7 +3,7 @@
 // Realtime, Storage and Functions too, which the app never calls: a third of
 // the download on weak signal.
 
-import { AuthClient } from '@supabase/auth-js'
+import { AuthClient, isAuthRetryableFetchError } from '@supabase/auth-js'
 import { PostgrestClient } from '@supabase/postgrest-js'
 import type { Database } from './database.types'
 
@@ -58,7 +58,9 @@ function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise
   return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
 }
 
+const publishableKey: string = key
 const base = new URL(url)
+const authUrl = new URL('auth/v1', base).href
 
 /**
  * Accounts and the session. The session is kept under the key supabase-js
@@ -66,8 +68,8 @@ const base = new URL(url)
  * It does not read the address bar: the email link is read above.
  */
 export const auth = new AuthClient({
-  url: new URL('auth/v1', base).href,
-  headers: { Authorization: `Bearer ${key}`, apikey: key },
+  url: authUrl,
+  headers: { Authorization: `Bearer ${publishableKey}`, apikey: publishableKey },
   storageKey: `sb-${base.hostname.split('.')[0]}-auth-token`,
   autoRefreshToken: true,
   persistSession: true,
@@ -75,31 +77,61 @@ export const auth = new AuthClient({
   fetch: fetchWithTimeout,
 })
 
-/** Every Data API request carries the key, and the signed-in cook's token, so row-level security knows whose rows. */
+/**
+ * Every Data API request carries the key, and the signed-in cook's token, so
+ * row-level security knows whose rows. With no token to send (no signal to
+ * renew one that ran out, or signed out meanwhile) the request fails here,
+ * in words plainMessage knows, rather than go out as nobody and be refused.
+ */
 async function fetchAsTheCook(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const { data } = await auth.getSession()
+  const { data, error } = await auth.getSession()
+  if (error) throw error
+  if (data.session === null) throw new Error('You are signed out on this phone.')
   const headers = new Headers(init?.headers)
-  if (!headers.has('apikey')) headers.set('apikey', key ?? '')
-  if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${data.session?.access_token ?? key}`)
+  headers.set('apikey', publishableKey)
+  headers.set('Authorization', `Bearer ${data.session.access_token}`)
   return fetchWithTimeout(input, { ...init, headers })
 }
 
-/** The tables and the database function, typed from the migrations (database.types.ts). */
-export const db = new PostgrestClient<Database>(new URL('rest/v1', base).href, { fetch: fetchAsTheCook })
+/**
+ * The tables and the database function, typed from the migrations
+ * (database.types.ts). The client would retry a read three more times after
+ * a failure, a timeout included, so a read on weak signal took a minute to
+ * say "No connection": every screen has its own Try again instead.
+ */
+export const db = new PostgrestClient<Database>(new URL('rest/v1', base).href, { fetch: fetchAsTheCook, retry: false })
+
+/** An email link failed for want of signal: its tokens are still good, so the app offers Try again. */
+export class LinkUnreachable extends Error {}
 
 /**
  * Who an email link's token really signs in, as Supabase says: the token is
  * checked on the server, so a link carrying a forged one (anyone can write a
  * token that names any email) fails here. Never read the token's own claims.
+ * Asked with a plain request, not the auth client, which signs out the cook
+ * signed in here when the server refuses a token it was handed.
  */
 export async function linkOwner(link: NonNullable<typeof emailLink>): Promise<{ id: string; email: string | null }> {
-  const { data, error } = await auth.getUser(link.accessToken)
-  if (error) throw new Error('That email link did not work.')
-  return { id: data.user.id, email: data.user.email ?? null }
+  let response: Response
+  try {
+    response = await fetchWithTimeout(`${authUrl}/user`, {
+      headers: { apikey: publishableKey, Authorization: `Bearer ${link.accessToken}` },
+    })
+  } catch {
+    throw new LinkUnreachable('No connection, so the email link could not be checked. Check your signal and try again.')
+  }
+  if (!response.ok) throw new Error('That email link did not work.')
+  const user = (await response.json()) as { id?: unknown; email?: unknown }
+  if (typeof user.id !== 'string') throw new Error('That email link did not work.')
+  return { id: user.id, email: typeof user.email === 'string' ? user.email : null }
 }
 
 /** Signs in with an email link's tokens, checked by `linkOwner` first. Rejects with why it failed. */
 export async function signInFromLink(link: NonNullable<typeof emailLink>): Promise<void> {
   const { error } = await auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
-  if (error) throw new Error('That email link did not sign you in.')
+  if (error === null) return
+  if (isAuthRetryableFetchError(error)) {
+    throw new LinkUnreachable('No connection, so the email link could not sign you in. Check your signal and try again.')
+  }
+  throw new Error('That email link did not sign you in.')
 }

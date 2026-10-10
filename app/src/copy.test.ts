@@ -20,6 +20,14 @@ describe('the app’s words', () => {
     for (const [path, text] of Object.entries(SOURCES)) expect(text, path).not.toMatch(brands)
   })
 
+  it('check things off, never tick them, in anything the cook reads', () => {
+    // Comments may say what they like; a line of code is where the app's words live.
+    for (const [path, text] of Object.entries(SOURCES)) {
+      const code = text.split('\n').filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+      for (const line of code) expect(line, path).not.toMatch(/\bticked\b|\btick (it |them )?off\b|\bticks\b/i)
+    }
+  })
+
   it('give the yolk edge only to the after-cook notice: every other notice says what kind it is', () => {
     // A bare .notice has the yolk edge (styles.css), which means something earned. A plain notice is
     // .notice-info, an error .notice-error.

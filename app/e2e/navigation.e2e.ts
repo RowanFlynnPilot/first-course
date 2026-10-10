@@ -138,13 +138,31 @@ test.describe('moving between screens', () => {
 
   test('every control is a full-size tap target, 3rem each way, the ways back included', async ({ page, kitchen }) => {
     await kitchen.open('./', { ...SALAD_DONE, plan: ['sheet-pan-sausage'] })
-    const routes = ['./', '#/recipe/sheet-pan-sausage', '#/cook/sheet-pan-sausage/3', '#/shop', '#/chef', '#/kit', '#/pantry', '#/spices']
+    const cook = kitchen.backend.table('cook_logs')[0]
+    if (cook === undefined) throw new Error('The seed has no cook to change')
+    const routes = [
+      './',
+      '#/recipe/sheet-pan-sausage',
+      '#/cook/sheet-pan-sausage/3',
+      '#/cook/sheet-pan-sausage/log',
+      `#/cook-log/${String(cook.id)}`,
+      '#/shop',
+      '#/chef',
+      '#/chef/edit',
+      '#/kit',
+      '#/pantry',
+      '#/spices',
+    ]
     for (const route of routes) {
       await page.goto(route)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
       // Links inside a sentence are exempt; every control on its own is not.
       const small = await page.evaluate(() =>
-        [...document.querySelectorAll<HTMLElement>('button, a.button, .link-button, .back a, .cook-head > a, .timer-chip, .row, summary')]
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            'button, a.button, .link-button, .back a, .cook-head > a, .timer-chip, .row, summary, .quick-links a, .chef-card, .usual-item, .check-label, .rating, .price-button',
+          ),
+        ]
           .filter((element) => element.offsetParent !== null)
           .filter((element) => {
             const box = element.getBoundingClientRect()

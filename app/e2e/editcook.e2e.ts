@@ -22,13 +22,23 @@ test.describe('changing and deleting a cook', () => {
     ])
   })
 
+  test('a change to a cook deleted on another device says so in plain words', async ({ page, kitchen }) => {
+    await kitchen.open('#/recipe/chopped-salad', ONE_SALAD)
+    await page.getByRole('link', { name: /Decent, Oct 1, 2026/ }).click()
+    await expect(page.getByRole('heading', { name: 'Change this cook' })).toBeVisible()
+    kitchen.backend.deleteElsewhere('cook_logs', { recipe_id: 'chopped-salad' })
+    await page.getByLabel('Notes for next time').fill('Less onion.')
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.getByRole('alert')).toHaveText('Could not save your changes: that cook is no longer in your log.')
+  })
+
   test('warns before a change takes away what you learned', async ({ page, kitchen }) => {
     await kitchen.open('#/recipe/chopped-salad', ONE_SALAD)
     await page.getByRole('link', { name: /Decent, Oct 1, 2026/ }).click()
     await page.getByRole('radio', { name: /^Rough/ }).check()
     await expect(
       page.locator('form').getByText(
-        'This would unlearn knife basics and seasoning to taste and lock Sheet-pan sausage and vegetables again.',
+        'This would unlearn knife basics and seasoning to taste. It would also lock Sheet-pan sausage and vegetables again.',
       ),
     ).toBeVisible()
   })

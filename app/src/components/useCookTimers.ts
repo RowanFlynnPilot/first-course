@@ -35,18 +35,14 @@ let sharedAudio: AudioContext | null = null
 
 // Safari 16.4 and later: an audio session of type "playback" sounds with the
 // ring switch off, as a kitchen timer app does, and pauses other audio. It is
-// set for each ring and put back once the beeps end. Other browsers have no
-// such switch to get past.
+// set for each ring of a timer that ran out and put back once the beeps end.
+// A stir's soft beep leaves it alone: pausing the cook's podcast every five
+// minutes of a simmer is too much for a reminder the screen also shows.
+// Other browsers have no such switch to get past.
 type AudioSessionType = 'auto' | 'playback'
 const audioSession = (navigator as Navigator & { audioSession?: { type: AudioSessionType } }).audioSession
 
 function beep(audio: AudioContext, offsets: readonly number[], wave: OscillatorType, frequency: number, volume: number) {
-  if (audioSession !== undefined) {
-    audioSession.type = 'playback'
-    window.setTimeout(() => {
-      audioSession.type = 'auto'
-    }, RING_MS)
-  }
   for (const offset of offsets) {
     const oscillator = audio.createOscillator()
     const gain = audio.createGain()
@@ -61,6 +57,12 @@ function beep(audio: AudioContext, offsets: readonly number[], wave: OscillatorT
 
 /** Three loud beeps: a timer ran out. A square wave carries over a range hood far better than a sine. */
 function ring(audio: AudioContext) {
+  if (audioSession !== undefined) {
+    audioSession.type = 'playback'
+    window.setTimeout(() => {
+      audioSession.type = 'auto'
+    }, RING_MS)
+  }
   beep(audio, [0, 0.4, 0.8], 'square', 880, 0.35)
 }
 
@@ -76,8 +78,11 @@ function ended(timers: Timers, labels: readonly string[]): Timers {
   )
 }
 
-export function useCookTimers(recipeId: string, plan: TimerPlan) {
-  const [timers, setTimers] = useState<Timers>(() => loadTimers(localStorage, recipeId))
+export function useCookTimers(owner: string, recipeId: string, plan: TimerPlan) {
+  // A timer the recipe no longer has (a revision renamed it mid-cook) is left out: no step can show it.
+  const [timers, setTimers] = useState<Timers>(() =>
+    Object.fromEntries(Object.entries(loadTimers(localStorage, owner, recipeId)).filter(([label]) => label in plan)),
+  )
   const [now, setNow] = useState(() => Date.now())
   const [soundOn, setSoundOn] = useState(sharedAudio !== null)
   const [soundError, setSoundError] = useState<string | null>(null)
@@ -101,8 +106,8 @@ export function useCookTimers(recipeId: string, plan: TimerPlan) {
 
   useEffect(() => {
     latest.current = timers
-    if (!over.current) saveTimers(localStorage, recipeId, timers)
-  }, [recipeId, timers])
+    if (!over.current) saveTimers(localStorage, owner, recipeId, timers)
+  }, [owner, recipeId, timers])
   useEffect(() => {
     latestPlan.current = plan
   }, [plan])
@@ -260,7 +265,7 @@ export function useCookTimers(recipeId: string, plan: TimerPlan) {
     /** The cook is over: every timer for the recipe goes, for good. */
     end() {
       over.current = true
-      clearTimers(localStorage, recipeId)
+      clearTimers(localStorage, owner, recipeId)
     },
     stop(label: string) {
       ringingSince.current.delete(label)

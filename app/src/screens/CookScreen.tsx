@@ -13,7 +13,7 @@ import { usePageTitle } from '../components/usePageTitle'
 import type { EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import type { Recipe, RecipeContent } from '../curriculum/types'
-import { clearCooking, saveCooking } from '../lib/cooking'
+import { clearCooking, loadCooking, saveCooking } from '../lib/cooking'
 import { formatClock, readyAt } from '../lib/format'
 import { cookable, lastNote, type CookLog } from '../lib/progress'
 import { useKitchen } from '../kitchen'
@@ -30,7 +30,15 @@ export function CookScreen() {
   const gate = cookable(params.id, logs)
   if (gate.content === null) return <LockedPage recipe={gate.recipe} logs={logs} />
   return (
-    <CookMode userId={userId} recipe={gate.recipe} content={gate.content} stepParam={params.step} logs={logs} kit={kit} />
+    <CookMode
+      key={gate.recipe.id}
+      userId={userId}
+      recipe={gate.recipe}
+      content={gate.content}
+      stepParam={params.step}
+      logs={logs}
+      kit={kit}
+    />
   )
 }
 
@@ -61,17 +69,23 @@ function CookMode({
     () => Object.fromEntries(content.steps.flatMap(({ timer }) => (timer === null ? [] : [[timer.label, timer]]))),
     [content],
   )
-  const timers = useCookTimers(recipe.id, plan)
+  const timers = useCookTimers(userId, recipe.id, plan)
   usePageTitle(`${step === 0 ? 'Before you start' : `Step ${step} of ${last}`}: ${recipe.title}`)
   const screenStaysOn = useWakeLock()
   const now = useNow()
   const startButton = useFocusTarget<HTMLButtonElement>('timer-start')
   const stopButton = useFocusTarget<HTMLButtonElement>('timer-stop')
+  const onward = useFocusTarget<HTMLAnchorElement>('cook-onward')
+  // The step this cook began at: kept through a reload, a new cook where none of this recipe is in progress.
+  const [from] = useState(() => {
+    const before = loadCooking(localStorage, userId, Date.now())
+    return before !== null && before.recipeId === recipe.id && before.step !== 'log' ? Math.min(before.from, step) : step
+  })
 
   // The cook in progress, so the menu can bring the cook back to this step if the phone closes the app.
   useEffect(() => {
-    saveCooking(localStorage, userId, { recipeId: recipe.id, step, at: Date.now() })
-  }, [userId, recipe.id, step])
+    saveCooking(localStorage, userId, { recipeId: recipe.id, step, from, at: Date.now() })
+  }, [userId, recipe.id, step, from])
 
   // Leaving cook mode, or logging the cook, stops every timer for this recipe. Ask first if one is running.
   // Says whether the cook went on (the tap was not cancelled).
@@ -97,8 +111,9 @@ function CookMode({
   const elsewhere = timers.labels.filter((label) => label !== timer?.label)
   // The step just passed had a timer that was never started: the cook tapped
   // on without it, and the recipe gives no other "when". Offered on this step
-  // only, so a cook who judged by eye is not asked again on every step.
-  const previous = step >= 2 ? content.steps[step - 2] : undefined
+  // only, so a cook who judged by eye is not asked again on every step, and
+  // only when this cook was on that step: one that began partway never saw it.
+  const previous = step >= 2 && from <= step - 1 ? content.steps[step - 2] : undefined
   const skipped =
     previous === undefined || previous.timer === null || timers.started(previous.timer.label) ? [] : [previous.timer]
 
@@ -159,9 +174,19 @@ function CookMode({
       {elsewhere.length + skipped.length + timers.stirring.length > 0 && (
         <ul className="timer-strip">
           {timers.stirring.map((label) => (
-            <li key={`stir:${label}`}>
-              <button className="timer-chip timer-chip-stir" type="button" onClick={() => timers.stirred(label)}>
-                {label}: stir it now
+            <li key={`stir:${label}`} className="timer-stir">
+              <span className="timer-chip timer-chip-stir">{label}: stir it now</span>
+              <button
+                className="link-button"
+                type="button"
+                aria-label={`Stirred: ${label}`}
+                onClick={() => {
+                  // The reminder goes with its button: focus moves on to the way forward.
+                  focusNext('cook-onward')
+                  timers.stirred(label)
+                }}
+              >
+                Stirred
               </button>
             </li>
           ))}
@@ -193,9 +218,8 @@ function CookMode({
             <p className="cook-meat">Leave the meat in the fridge until the step that uses it.</p>
           )}
           <p className="cook-meat">Start now and you eat around {readyAt(now, content.totalMinutes)}.</p>
-          <p className="cook-meat">Read every step through once first.</p>
           <details className="amounts">
-            <summary>The steps</summary>
+            <summary>Read every step once first</summary>
             <ol className="method">
               {content.steps.map((each) => (
                 <li key={each.text}>{each.text}</li>
@@ -263,17 +287,18 @@ function CookMode({
           </Link>
         )}
         {step < last ? (
-          <Link className="button" to={`/cook/${recipe.id}/${step + 1}`}>
+          <Link className="button" to={`/cook/${recipe.id}/${step + 1}`} ref={onward}>
             {step === 0 ? 'Everything is out' : 'Next step'}
           </Link>
         ) : (
           <Link
             className="button"
             to={`/cook/${recipe.id}/log`}
+            ref={onward}
             onClick={(event) => {
               // Cooked, not yet logged: the menu asks how it went until the cook is saved.
               if (stopsTimers(event, 'A timer is still running. Stop it and log the cook?')) {
-                saveCooking(localStorage, userId, { recipeId: recipe.id, step: 'log', at: Date.now() })
+                saveCooking(localStorage, userId, { recipeId: recipe.id, step: 'log', from, at: Date.now() })
               }
             }}
           >

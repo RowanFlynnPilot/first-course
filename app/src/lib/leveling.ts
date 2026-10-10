@@ -14,7 +14,7 @@ import { learnedTechniques, ratingsOf, recipeState, type CookLog, type Rating } 
  * counted, and almost nobody could reach executive chef).
  */
 export const XP_COOKS_PER_RECIPE = 5
-export const XP_PER_SKILL = 50
+export const XP_PER_SKILL = 80
 export const XP_PER_MASTERY = 100
 
 /** Harder recipes and better cooks earn more: tier 1 Rough is 10, tier 5 Nailed it is 150. */

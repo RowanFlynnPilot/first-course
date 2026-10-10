@@ -42,6 +42,7 @@ export function PantryScreen() {
                 label={INGREDIENTS[id].name}
                 note={INGREDIENTS[id].package.label}
                 onChange={(have) => setInPantry(id, have, onShopChange)}
+                focusTarget={`pantry:${id}`}
               />
             ))}
           </ul>

@@ -1,4 +1,4 @@
-import { cookNotice, COUNT_BEEPS, expect, SALAD_DONE, test } from './kitchen'
+import { cookNotice, COUNT_BEEPS, expect, SALAD_DONE, test, timersKey } from './kitchen'
 
 // Counts oscillator starts, so a test can hear the chime. Each chime is three beeps.
 
@@ -77,7 +77,7 @@ test.describe('timers in cook mode', () => {
 
   test('leaving cook mode with a timer running asks first', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/sheet-pan-sausage/7', SALAD_DONE)
-    await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
+    await page.getByRole('button', { name: 'Start 10:00 timer' }).click()
 
     const messages: string[] = []
     page.once('dialog', (dialog) => {
@@ -129,10 +129,10 @@ test.describe('timers in cook mode', () => {
   })
 
   test('a timer that finished long ago is dropped', async ({ page, kitchen }) => {
-    await page.addInitScript(() => {
+    await page.addInitScript((key) => {
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000
-      sessionStorage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: twoHoursAgo, rang: true } }))
-    })
+      localStorage.setItem(key, JSON.stringify({ Potatoes: { endsAt: twoHoursAgo, rang: true, stopped: false } }))
+    }, timersKey(kitchen.backend, 'sheet-pan-sausage'))
     await kitchen.open('#/cook/sheet-pan-sausage/4', SALAD_DONE)
     await expect(page.getByText('Step 4 of 8')).toBeVisible()
     await expect(page.getByRole('link', { name: /^Potatoes:/ })).toHaveCount(0)
@@ -140,17 +140,17 @@ test.describe('timers in cook mode', () => {
 
   test('leaving cook mode and logging the cook both stop its timers', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/sheet-pan-sausage/7', SALAD_DONE)
-    await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
+    await page.getByRole('button', { name: 'Start 10:00 timer' }).click()
     page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('link', { name: 'Leave cook mode' }).click()
     // Let the navigation to the recipe page land before going back to cook mode.
     await expect(page.getByRole('heading', { name: 'Sheet-pan sausage and vegetables' })).toBeVisible()
     await page.goto('#/cook/sheet-pan-sausage/7')
-    await expect(page.getByRole('button', { name: 'Start 20:00 timer' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Start 10:00 timer' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Start 20:00 timer' }).click()
+    await page.getByRole('button', { name: 'Start 10:00 timer' }).click()
     await page.getByRole('link', { name: 'Next step' }).click()
-    // The sheet pan's last step has no timer, but the roasting one is still running: logging asks first.
+    // The sheet pan's last step has no timer, but the second half's is still running: logging asks first.
     const asked: string[] = []
     page.once('dialog', (dialog) => {
       asked.push(dialog.message())
@@ -161,7 +161,7 @@ test.describe('timers in cook mode', () => {
     await page.getByRole('radio', { name: /^Decent/ }).check()
     await page.getByRole('button', { name: 'Save this cook' }).click()
     await expect(cookNotice(page)).toBeVisible()
-    expect(await page.evaluate(() => sessionStorage.getItem('first-course:timers-by-label:sheet-pan-sausage'))).toBeNull()
+    expect(await page.evaluate((key) => localStorage.getItem(key), timersKey(kitchen.backend, 'sheet-pan-sausage'))).toBeNull()
   })
 
   test('every step can show the ingredients without leaving cook mode', async ({ page, kitchen }) => {

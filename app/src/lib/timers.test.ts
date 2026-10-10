@@ -4,30 +4,36 @@ import { memoryStorage } from './memoryStorage'
 import { clearTimers, dueTimers, forgetOldTimers, loadTimers, saveTimers, shownTimers, STALE_AFTER_MS, stopped } from './timers'
 
 const NOW = Date.parse('2026-10-04T18:00:00Z')
+const COOK = 'b6a1c0de-0000-4000-8000-000000000001'
+const OTHER = 'b6a1c0de-0000-4000-8000-000000000002'
 
 describe('cook-mode timers', () => {
   it('forget a cook left long ago, and keep one still going', () => {
     const storage = memoryStorage()
-    saveTimers(storage, 'ragu-bolognese', { Ragù: { endsAt: NOW - RESUME_FOR_MS - 1, rang: true, stopped: false } })
-    saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW - 60_000, rang: true, stopped: false } })
+    saveTimers(storage, COOK, 'ragu-bolognese', { Ragù: { endsAt: NOW - RESUME_FOR_MS - 1, rang: true, stopped: false } })
+    saveTimers(storage, COOK, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW - 60_000, rang: true, stopped: false } })
     storage.setItem('something-else', 'kept')
     forgetOldTimers(storage, NOW)
-    expect(loadTimers(storage, 'ragu-bolognese')).toEqual({})
-    expect(Object.keys(loadTimers(storage, 'sheet-pan-sausage'))).toEqual(['Potatoes'])
+    expect(loadTimers(storage, COOK, 'ragu-bolognese')).toEqual({})
+    expect(Object.keys(loadTimers(storage, COOK, 'sheet-pan-sausage'))).toEqual(['Potatoes'])
     expect(storage.getItem('something-else')).toBe('kept')
   })
 
-  it('survive a save and a load', () => {
-    const storage = memoryStorage()
-    saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW + 60_000, rang: false, stopped: false } })
-    expect(loadTimers(storage, 'sheet-pan-sausage')).toEqual({ Potatoes: { endsAt: NOW + 60_000, rang: false, stopped: false } })
-    expect(loadTimers(storage, 'chopped-salad')).toEqual({})
-  })
-
-  it('load a timer saved before stopping was kept, as not stopped', () => {
+  it('forget timers kept before they were per account', () => {
     const storage = memoryStorage()
     storage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: NOW, rang: false } }))
-    expect(loadTimers(storage, 'sheet-pan-sausage')).toEqual({ Potatoes: { endsAt: NOW, rang: false, stopped: false } })
+    forgetOldTimers(storage, NOW)
+    expect(storage.length).toBe(0)
+  })
+
+  it('survive a save and a load, for the account that saved them only', () => {
+    const storage = memoryStorage()
+    saveTimers(storage, COOK, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW + 60_000, rang: false, stopped: false } })
+    expect(loadTimers(storage, COOK, 'sheet-pan-sausage')).toEqual({ Potatoes: { endsAt: NOW + 60_000, rang: false, stopped: false } })
+    expect(loadTimers(storage, COOK, 'chopped-salad')).toEqual({})
+    expect(loadTimers(storage, OTHER, 'sheet-pan-sausage')).toEqual({})
+    clearTimers(storage, OTHER, 'sheet-pan-sausage')
+    expect(Object.keys(loadTimers(storage, COOK, 'sheet-pan-sausage'))).toEqual(['Potatoes'])
   })
 
   it('hide one finished more than half an hour ago, and one stopped, but keep both as started', () => {
@@ -57,16 +63,16 @@ describe('cook-mode timers', () => {
 
   it('are cleared, and an empty set leaves nothing behind', () => {
     const storage = memoryStorage()
-    saveTimers(storage, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW, rang: false, stopped: false } })
-    clearTimers(storage, 'sheet-pan-sausage')
+    saveTimers(storage, COOK, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW, rang: false, stopped: false } })
+    clearTimers(storage, COOK, 'sheet-pan-sausage')
     expect(storage.length).toBe(0)
-    saveTimers(storage, 'sheet-pan-sausage', {})
+    saveTimers(storage, COOK, 'sheet-pan-sausage', {})
     expect(storage.length).toBe(0)
   })
 
   it('refuse saved data they did not write', () => {
     const storage = memoryStorage()
-    storage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: 'soon' } }))
-    expect(() => loadTimers(storage, 'sheet-pan-sausage')).toThrow('malformed')
+    storage.setItem(`first-course:timers:${COOK}:sheet-pan-sausage`, JSON.stringify({ Potatoes: { endsAt: 'soon' } }))
+    expect(() => loadTimers(storage, COOK, 'sheet-pan-sausage')).toThrow('malformed')
   })
 })

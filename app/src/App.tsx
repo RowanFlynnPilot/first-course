@@ -1,8 +1,8 @@
-import type { Session } from '@supabase/auth-js'
+import { isAuthRetryableFetchError, type Session } from '@supabase/auth-js'
 import { useEffect, useRef, useState } from 'react'
 import { KitchenContext, type Kitchen } from './kitchen'
 import { HashRouter, Route, Routes, useLocation, useNavigationType } from 'react-router'
-import { loadChecks, saveChecks } from './lib/checks'
+import { loadCart, saveCart, settleCart } from './lib/checks'
 import { fetchChef, type Chef } from './lib/chefs'
 import { fetchCookLogs } from './lib/cookLogs'
 import type { CookNotice } from './lib/notice'
@@ -28,7 +28,7 @@ import { clearFocusTarget } from './components/useFocusTarget'
 import { plainMessage } from './lib/errors'
 import { forgetOldTimers } from './lib/timers'
 import { usePageTitle } from './components/usePageTitle'
-import { auth, emailLink, fromPasswordReset, linkError, linkOwner, signInFromLink } from './supabase'
+import { auth, emailLink, fromPasswordReset, linkError, LinkUnreachable, linkOwner, signInFromLink } from './supabase'
 
 export default function App() {
   // undefined = still asking Supabase; null = signed out.
@@ -46,13 +46,25 @@ export default function App() {
   // but the session is still good elsewhere until it expires. Said on the
   // sign-in screen, which is where the cook lands.
   const [signOutProblem, setSignOutProblem] = useState<string | null>(null)
-  // Whether supabase-js signed this phone out since Sign out was tapped. It
-  // does even when the server never hears it, unless the session could not be
-  // loaded at all (no signal and an expired token): then nothing changed.
+  // Whether the auth client signed this phone out since Sign out was tapped.
+  // It does even when the server never hears it, unless the session could not
+  // be loaded at all (no signal and an expired token): then nothing changed.
   const signedOut = useRef(false)
+  // The stored session ran out and there was no signal to renew it. The cook
+  // is still signed in, so the sign-in screen would be wrong: the app says
+  // so, and opens by itself once a renewal gets through (TOKEN_REFRESHED).
+  const [unrenewed, setUnrenewed] = useState(false)
+  // The email link could not be checked or used for want of signal. Its
+  // tokens are still good, and the address no longer has them, so the app
+  // offers Try again rather than ask for another email.
+  const [linkUnreachable, setLinkUnreachable] = useState<string | null>(null)
 
   // A link that did not sign anyone in leaves no password to set, and says why.
   function linkFailed(cause: Error) {
+    if (cause instanceof LinkUnreachable) {
+      setLinkUnreachable(cause.message)
+      return
+    }
     setSettingPassword(false)
     setLinkProblem(cause.message)
     setLanded(true)
@@ -63,11 +75,10 @@ export default function App() {
     signInFromLink(emailLink).then(() => setLanded(true), linkFailed)
   }
 
-  useEffect(() => {
-    if (emailLink === null) return
-    const link = emailLink
+  function checkLink() {
+    if (emailLink === null) throw new Error('No email link to check')
     // Who the link really signs in, checked by Supabase, against who is signed in here already.
-    Promise.all([auth.getSession(), linkOwner(link)]).then(([{ data }, owner]) => {
+    Promise.all([auth.getSession(), linkOwner(emailLink)]).then(([{ data }, owner]) => {
       const current = data.session?.user
       if (current !== undefined && current.id !== owner.id) {
         setSwitching({ from: current.email ?? 'another account', to: owner.email ?? 'another account' })
@@ -75,14 +86,31 @@ export default function App() {
       }
       land()
     }, linkFailed)
+  }
+
+  useEffect(() => {
+    if (emailLink !== null) checkLink()
   }, [])
+
+  // Whether a session that came back as none is really a stored one that could not be renewed.
+  function settleSignedOut() {
+    void auth.getSession().then(({ data, error }) => {
+      setUnrenewed(data.session === null && error !== null && isAuthRetryableFetchError(error))
+      setSession(data.session)
+    })
+  }
 
   useEffect(() => {
     // Fires once on subscribe with the stored session, then on every change.
     const { data } = auth.onAuthStateChange((event, next) => {
       if (event === 'SIGNED_OUT') signedOut.current = true
-      if (next !== null) setSignOutProblem(null)
-      setSession(next)
+      if (next !== null) {
+        setSignOutProblem(null)
+        setUnrenewed(false)
+      }
+      // No session at the start can be one that ran out with no signal to renew it.
+      if (next === null && event === 'INITIAL_SESSION') settleSignedOut()
+      else setSession(next)
     })
     return () => data.subscription.unsubscribe()
   }, [])
@@ -103,7 +131,30 @@ export default function App() {
       />
     )
   }
+  if (linkUnreachable !== null) {
+    return (
+      <NoConnection
+        message={linkUnreachable}
+        onTryAgain={() => {
+          setLinkUnreachable(null)
+          checkLink()
+        }}
+      />
+    )
+  }
   if (session === undefined || !landed) return <Waiting text="Loading…" />
+  if (session === null && unrenewed) {
+    return (
+      <NoConnection
+        message="No connection, so your sign-in could not be renewed. Check your signal and try again. You are still signed in, and the app opens by itself once it can reach your kitchen."
+        onTryAgain={() => {
+          setUnrenewed(false)
+          setSession(undefined)
+          settleSignedOut()
+        }}
+      />
+    )
+  }
   if (session === null) {
     return (
       <AuthScreen
@@ -161,6 +212,25 @@ function SwitchAccount({ from, to, onSwitch, onStay }: { from: string; to: strin
   )
 }
 
+/** Nothing could reach Supabase before the kitchen opened: why, and Try again. */
+function NoConnection({ message, onTryAgain }: { message: string; onTryAgain: () => void }) {
+  usePageTitle('No connection')
+  return (
+    <main className="page loading">
+      <p className="wordmark">First Course</p>
+      <h1 className="title">No connection</h1>
+      <p className="notice notice-error" role="alert">
+        {message}
+      </p>
+      <div className="actions">
+        <button className="button" type="button" onClick={onTryAgain}>
+          Try again
+        </button>
+      </div>
+    </main>
+  )
+}
+
 /**
  * While the app loads: its name and its plate, not a blank page. The
  * installed app opens on this every time, so it is the first thing a cook
@@ -181,10 +251,13 @@ function Waiting({ text }: { text: string }) {
 /** Away from the app this long, and it loads everything again on return. */
 const REFRESH_AFTER_MS = 10 * 60 * 1000
 
-// Async, so a problem with the checks saved on this phone fails the load like any other read.
+// Async, so a problem with what this phone keeps fails the load like any other read. Every load (the
+// first, and each catch-up) also forgets the timers of cooks left long ago: an installed app can stay
+// open for days, and an old cook's timers would count as started in the next cook of that recipe.
 async function loadKitchen(userId: string) {
-  const checks = loadChecks(localStorage, userId)
-  return Promise.all([fetchCookLogs(), fetchChef(), fetchShop(checks)])
+  forgetOldTimers(localStorage, Date.now())
+  const cart = loadCart(localStorage, userId)
+  return Promise.all([fetchCookLogs(), fetchChef(), fetchShop(cart)])
 }
 
 function Kitchen({
@@ -222,14 +295,15 @@ function Kitchen({
       .catch((cause: Error) => setError(cause.message))
   }, [userId, attempt])
 
-  // Timers of cooks left without leaving cook mode or logging, from long ago, go when the app opens.
-  useEffect(() => forgetOldTimers(localStorage, Date.now()), [])
-
-  // The cart's checks are kept on this phone (lib/checks.ts): saved whenever they change.
+  // The cart is kept on this phone (lib/checks.ts): saved whenever it changes.
   const checks = shop?.checks
+  const kitChecks = shop?.kitChecks
+  const checkedFor = shop?.checkedFor
   useEffect(() => {
-    if (checks !== undefined) saveChecks(localStorage, userId, checks)
-  }, [userId, checks])
+    if (checks !== undefined && kitChecks !== undefined && checkedFor !== undefined) {
+      saveCart(localStorage, userId, { checks, kitChecks, checkedFor })
+    }
+  }, [userId, checks, kitChecks, checkedFor])
 
   // Back after a while away, catch up with whatever another device did
   // meanwhile. An installed app is never reloaded, so this is how it learns.
@@ -314,12 +388,13 @@ function Kitchen({
   if (chef === null) return <NameChefScreen onCreated={chefSaved} />
 
   // Every write's change applies to the latest state, never to what a screen
-  // drew from, so two writes that land close together both stay.
+  // drew from, so two writes that land close together both stay. The cart
+  // settles to whatever list the change leaves (settleCart in shop.ts).
   const changeShop: ShopChange = (change) => {
     writes.current += 1
     setShop((previous) => {
       if (previous === null) throw new Error('The shop changed before it loaded')
-      return change(previous)
+      return settleCart(change(previous))
     })
   }
   function changeLogs(change: (logs: readonly CookLog[]) => readonly CookLog[]) {

@@ -52,7 +52,12 @@ const TABLES: Record<string, TableSpec> = {
     check: (row) => {
       if (row.rating !== 1 && row.rating !== 2 && row.rating !== 3) return 'rating must be 1 to 3'
       if (typeof row.notes !== 'string' || row.notes.length > 2000) return 'notes must be at most 2000 characters'
-      if (typeof row.cooked_on !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.cooked_on) || row.cooked_on < '1900-01-01') {
+      if (
+        typeof row.cooked_on !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(row.cooked_on) ||
+        row.cooked_on < '1900-01-01' ||
+        row.cooked_on > '2999-12-31'
+      ) {
         return 'cooked_on must be from 1900 to 2999'
       }
       return idCheck('recipe_id')(row)
@@ -107,14 +112,8 @@ const TABLES: Record<string, TableSpec> = {
     deletable: true,
     check: idCheck('ingredient_id'),
   },
-  grocery_checks: {
-    columns: ['user_id', 'ingredient_id'],
-    key: ['user_id', 'ingredient_id'],
-    defaults: () => ({}),
-    updatable: [],
-    deletable: true,
-    check: idCheck('ingredient_id'),
-  },
+  // grocery_checks (00004) is not here: 00010 took every grant on it away, and the app keeps its checks on
+  // the phone, so a request for it fails the test like any the fake does not know.
   price_overrides: {
     columns: ['user_id', 'ingredient_id', 'price_cents'],
     key: ['user_id', 'ingredient_id'],
@@ -146,6 +145,8 @@ export interface SeedLog {
 export interface Seed {
   /** Start with a stored session, as if the cook signed in earlier. Default true. */
   readonly signedIn?: boolean
+  /** The stored session's hour is up, so it must be renewed before any read (the phone left a while). */
+  readonly sessionExpired?: boolean
   /**
    * "Confirm email" on, as on the live project since October 4, 2026: sign-up
    * returns the new user without a session. Default false, as in development.
@@ -172,8 +173,10 @@ export interface Seed {
   readonly shoppedOn?: Readonly<Record<string, string>>
   /** Ingredient ids. */
   readonly pantry?: readonly string[]
-  /** Ingredient ids already in the cart, kept on the phone (lib/checks.ts). */
+  /** Ingredient ids already in the cart, kept on the phone (lib/checks.ts), for the plan's list. */
   readonly checks?: readonly string[]
+  /** Equipment ids checked off in the list's kit aisle, kept on the phone with the checks. */
+  readonly kitChecks?: readonly string[]
   /** Package prices the cook corrected, by ingredient id. */
   readonly prices?: Readonly<Record<string, number>>
   /** Equipment ids the cook owns. */
@@ -207,6 +210,8 @@ export class FakeSupabase {
   private readonly failures: { table: string; method: string; message: string }[] = []
   private readonly lost: { table: string; method: string }[] = []
   private readonly held: { table: string; method: string; released: Promise<void> }[] = []
+  private readonly dropped: { table: string; method: string }[] = []
+  private signal = true
   private clock = Date.parse('2026-10-01T12:00:00Z')
   private confirmEmail = false
 
@@ -245,6 +250,20 @@ export class FakeSupabase {
     })
     this.held.push({ table, method, released })
     return release
+  }
+
+  /** The next matching request never reaches the server: no signal, for one request. `table` as for failNext. */
+  dropNext(table: string, method: string) {
+    this.dropped.push({ table, method })
+  }
+
+  /** No signal at all until `restoreSignal`: every request fails as the browser's does with none. */
+  loseSignal() {
+    this.signal = false
+  }
+
+  restoreSignal() {
+    this.signal = true
   }
 
   /** Rows deleted by another device: every row of the table that has these values. */
@@ -293,21 +312,31 @@ export class FakeSupabase {
     }
     for (const equipment_id of seed.kit ?? []) this.insertRow('kit_items', { user_id, equipment_id })
     if (seed.signedIn === false) return
-    // Store the session once per tab, as supabase-js would after a sign-in, and
-    // the cart's checks, which the app keeps on the phone (lib/checks.ts).
-    // A reload keeps whatever the app has done to them since (a sign-out stays signed out).
+    // Store the session once per tab, as the auth client would after a sign-in,
+    // and the cart, which the app keeps on the phone (lib/checks.ts), checked
+    // for the list the seeded plan makes. A reload keeps whatever the app has
+    // done to them since (a sign-out stays signed out).
+    const cart =
+      seed.checks === undefined && seed.kitChecks === undefined
+        ? null
+        : JSON.stringify({
+            checks: seed.checks ?? [],
+            kitChecks: seed.kitChecks ?? [],
+            checkedFor: (seed.plan ?? []).filter((id) => !(seed.shopped ?? []).includes(id)),
+          })
     await page.addInitScript(
-      ([key, value, checksKey, checks]) => {
+      ([key, value, cartKey, stored]) => {
         if (sessionStorage.getItem('e2e-session-seeded') !== null) return
         localStorage.setItem(key, value)
-        if (checks !== null) localStorage.setItem(checksKey, checks)
+        if (stored !== null) localStorage.setItem(cartKey, stored)
         sessionStorage.setItem('e2e-session-seeded', 'yes')
       },
       [
         STORAGE_KEY,
-        JSON.stringify(this.session(this.userId)),
-        `first-course:grocery-checks:${user_id}`,
-        seed.checks === undefined ? null : JSON.stringify(seed.checks),
+        // An hour that ran out in 2023: the auth client renews it before anything else.
+        JSON.stringify({ ...this.session(this.userId), ...(seed.sessionExpired === true ? { expires_at: 1_700_000_000 } : {}) }),
+        `first-course:cart:${user_id}`,
+        cart,
       ] as const,
     )
   }
@@ -315,7 +344,16 @@ export class FakeSupabase {
   async handle(route: Route) {
     const request = route.request()
     const url = new URL(request.url())
+    if (!this.signal) return route.abort('internetdisconnected')
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: corsHeaders(request) })
+    const where = url.pathname.startsWith('/auth/v1/')
+      ? `auth${url.pathname.slice('/auth/v1'.length)}`
+      : url.pathname.slice('/rest/v1/'.length)
+    const drop = this.dropped.find((candidate) => candidate.table === where && candidate.method === request.method())
+    if (drop !== undefined) {
+      this.dropped.splice(this.dropped.indexOf(drop), 1)
+      return route.abort('internetdisconnected')
+    }
     if (request.headers().apikey !== SUPABASE_KEY) {
       return this.reject(route, `${request.method()} ${url.pathname} came without the publishable key`)
     }
@@ -647,32 +685,47 @@ export class FakeSupabase {
     const args = request.postDataJSON() as Record<string, unknown>
 
     if (fn === 'finish_shopping') {
-      const { bought_staples: staples, shopped_recipes: recipes, seen_checks: seen, bought_on: boughtOn = null } = args
+      const {
+        bought_staples: staples,
+        shopped_recipes: recipes,
+        bought_on: boughtOn = null,
+        bought_kit: kit = [],
+        seen_checks: seen = null,
+      } = args
       const texts = (value: unknown): value is string[] => Array.isArray(value) && value.every((id) => typeof id === 'string')
-      // 00009: bought_on is a fourth argument with a default, so the app before it still finds the function.
-      const names = Object.keys(args).sort().join()
-      const known = names === 'bought_staples,seen_checks,shopped_recipes' || names === 'bought_on,bought_staples,seen_checks,shopped_recipes'
-      const date = boughtOn === null || (typeof boughtOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(boughtOn))
-      if (!known || !texts(staples) || !texts(recipes) || !texts(seen) || !date) {
+      // 00010: bought_staples and shopped_recipes, then bought_on, bought_kit and the ignored
+      // seen_checks, each with a default, so the two apps before it still find the function.
+      const optional = ['bought_kit', 'bought_on', 'seen_checks']
+      const known = Object.keys(args).every((name) => ['bought_staples', 'shopped_recipes', ...optional].includes(name))
+      if (!known || !texts(staples) || !texts(recipes) || !texts(kit) || (seen !== null && !texts(seen))) {
         return json(route, request, 404, {
           code: 'PGRST202',
           message: `Could not find the function public.finish_shopping(${Object.keys(args).join(', ')})`,
         })
       }
-      // 00007: stock the pantry with the bought staples, clear the ticks the device saw, and mark the recipes it covered shopped.
+      if (boughtOn !== null && !(typeof boughtOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(boughtOn) && !Number.isNaN(Date.parse(boughtOn)))) {
+        return json(route, request, 400, { code: '22007', message: `invalid input syntax for type date: "${String(boughtOn)}"` })
+      }
+      // One transaction: every row is checked before any is written, and a refusal changes nothing.
+      const marked = this.table('plan_items')
+        .filter((row) => row.user_id === userId && recipes.includes(String(row.recipe_id)))
+        // A recipe already shopped keeps its first date (00010).
+        .map((row) => ({ row, next: { ...row, shopped: true, shopped_on: row.shopped === true ? row.shopped_on : boughtOn } }))
+      const problem =
+        [...staples.map((ingredient_id) => TABLES.pantry_items?.check({ user_id: userId, ingredient_id }) ?? null),
+          ...kit.map((equipment_id) => TABLES.kit_items?.check({ user_id: userId, equipment_id }) ?? null),
+          ...marked.map(({ next }) => TABLES.plan_items?.check(next) ?? null)].find((message) => message !== null) ?? null
+      if (problem !== null) return json(route, request, 400, { code: '23514', message: problem })
+      // 00010: stock the pantry with the bought staples and the kit with the bought kit, and mark the recipes the shop covered.
       for (const ingredient_id of new Set(staples)) {
         const stocked = this.table('pantry_items').some((row) => row.user_id === userId && row.ingredient_id === ingredient_id)
         if (!stocked) this.insertRow('pantry_items', { user_id: userId, ingredient_id })
       }
-      this.rows.grocery_checks = this.table('grocery_checks').filter(
-        (row) => row.user_id !== userId || !seen.includes(String(row.ingredient_id)),
-      )
-      for (const row of this.table('plan_items')) {
-        if (row.user_id === userId && recipes.includes(String(row.recipe_id))) {
-          row.shopped = true
-          row.shopped_on = boughtOn
-        }
+      for (const equipment_id of new Set(kit)) {
+        const owned = this.table('kit_items').some((row) => row.user_id === userId && row.equipment_id === equipment_id)
+        if (!owned) this.insertRow('kit_items', { user_id: userId, equipment_id })
       }
+      for (const { row, next } of marked) Object.assign(row, next)
       // A function returning void answers 204.
       return route.fulfill({ status: 204, headers: corsHeaders(request) })
     }
