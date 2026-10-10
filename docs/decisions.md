@@ -247,10 +247,9 @@ longest timer plus 5 minutes.
 ### When each went live
 
 00001 to 00005 on October 4, 2026, 00006 and 00007 on October 5, 00008 on
-October 6, and 00009 on October 9. A schema dump after 00008 showed `anon`
-with no table grants, `authenticated` with exactly the grants CLAUDE.md
-describes, and the limits in place. 00010 was written and tested on October
-9, 2026, and is not yet live.
+October 6, and 00009 and 00010 on October 9. A schema dump after 00008
+showed `anon` with no table grants, `authenticated` with exactly the grants
+CLAUDE.md describes, and the limits in place.
 
 ### Why 00010 (October 9, 2026)
 

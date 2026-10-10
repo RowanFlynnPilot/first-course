@@ -1043,11 +1043,7 @@ an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **00010 is written and tested, not yet live.** Rowan pushes it before the
-  code that sends `bought_kit` deploys: until then Done shopping fails with
-  "Could not find the function". What its throwaway-stack test checked is
-  in docs/decisions.md.
-- **Nine migrations are applied to the live project** (00001 to 00009;
+- **All ten migrations are applied to the live project** (00001 to 00010;
   when each went live, and what each one's test checked, is in
   docs/decisions.md). Rowan pushes each migration before the app code that
   needs it deploys: a migration always goes first. The live project was
@@ -1218,7 +1214,7 @@ shop (why: docs/decisions.md).
   recipe with meat and no date reminds the cook to move frozen meat to the
   fridge the night before. A recipe bought before 00009 has no date either.
 
-Migration `00010_kit_at_the_register.sql` (not yet live; why:
+Migration `00010_kit_at_the_register.sql` (live since October 9, 2026; why:
 docs/decisions.md):
 
 - `finish_shopping(bought_staples, shopped_recipes, bought_on, bought_kit,
@@ -1323,10 +1319,9 @@ sprite, the streak and the badges (under "The rules, precisely" and
 ## Where things stand, and what comes next
 
 As of October 9, 2026: Phases 1 to 3 are built and deployed, all 31
-recipes are written (four courses and the usual), nine migrations (00001 to
-00009) are on the live project, 00010 is written and tested but not yet
-live, and every push runs 189 unit tests and 213 e2e tests before
-it deploys. How the project got here, decision by decision, is in
+recipes are written (four courses and the usual), all ten migrations
+(00001 to 00010) are on the live project, and every push runs 189 unit
+tests and 213 e2e tests before it deploys. How the project got here, decision by decision, is in
 docs/decisions.md.
 
 What comes next, in order:
