@@ -33,18 +33,34 @@ test.describe('no signal at all', () => {
     await page.clock.install({ time: EVENING })
     kitchen.backend.loseSignal()
     await kitchen.open('./', { ...SALAD_DONE, sessionExpired: true })
+    // A wait past a few seconds says why it may be taking so long.
+    await page.clock.runFor('00:06')
+    await expect(page.getByRole('status')).toContainText('No answer yet. Your phone may have no signal.')
     // The auth client tries the renewal for about half a minute before it gives up.
     await page.clock.runFor('00:45')
     await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
     await expect(page.getByRole('alert')).toContainText('You are still signed in')
     await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveCount(0)
     kitchen.backend.restoreSignal()
-    // The auth client renews in the background once it can, and the kitchen opens by itself. The clock
-    // moves in steps, so each renewal's request can come back before the next tick.
-    await expect(async () => {
-      await page.clock.runFor('00:10')
-      await expect(page.getByText('Cook this next')).toBeVisible({ timeout: 500 })
-    }).toPass({ timeout: 20_000 })
+    // The auth client renews in the background once its minute's wait is over, and the kitchen opens by
+    // itself. One jump past that minute; the kitchen's reads then go out on the clock as it runs.
+    await page.clock.runFor('01:10')
+    await expect(page.getByText('Cook this next')).toBeVisible()
+  })
+})
+
+test.describe('a sign-in that cannot be renewed', () => {
+  test('signed out on another device meanwhile, it goes to Sign in, not a promise to open by itself', async ({ page, kitchen }) => {
+    await page.clock.install({ time: EVENING })
+    kitchen.backend.dropEvery('auth/token', 'POST')
+    await kitchen.open('./', { ...SALAD_DONE, sessionExpired: true })
+    await page.clock.runFor('00:45')
+    await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
+    // Signal is back, and the server refuses the renewal: the session was ended elsewhere.
+    kitchen.backend.endSessions()
+    kitchen.backend.letThrough('auth/token', 'POST')
+    await page.clock.runFor('01:10')
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   })
 })
 

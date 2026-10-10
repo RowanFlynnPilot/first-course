@@ -22,7 +22,7 @@ test.describe('the next move', () => {
     await kitchen.open('./', FRESH)
     const tray = page.locator('.tray')
     await expect(page.getByRole('heading', { name: 'Cook this next: Soft scrambled eggs on toast' })).toBeVisible()
-    await expect(tray.locator('.actions > *').first()).toHaveText('Add to this week')
+    await expect(tray.locator('.actions > :not(.busy)').first()).toHaveText('Add to this week')
     await tray.getByRole('button', { name: 'Add to this week' }).click()
     await expect(tray.getByRole('link', { name: 'Shop for it' })).toBeFocused()
     await expect(page.getByRole('heading', { name: 'On this week’s plan: Soft scrambled eggs on toast' })).toBeVisible()

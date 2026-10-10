@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router'
 import { EquipmentList } from '../components/EquipmentList'
 import { IngredientList } from '../components/IngredientList'
 import { LockedPage } from '../components/LockedNotice'
-import { useCookTimers, type TimerPlan } from '../components/useCookTimers'
+import { timerDone, useCookTimers, type TimerPlan } from '../components/useCookTimers'
 import { focusNext, useFocusTarget } from '../components/useFocusTarget'
 import { useNow } from '../components/useNow'
 import { usePageTitle } from '../components/usePageTitle'
@@ -14,6 +14,7 @@ import type { EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS } from '../curriculum/ingredients'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 import { clearCooking, loadCooking, saveCooking } from '../lib/cooking'
+import { clearTimers } from '../lib/timers'
 import { formatClock, readyAt } from '../lib/format'
 import { cookable, lastNote, type CookLog } from '../lib/progress'
 import { useKitchen } from '../kitchen'
@@ -69,6 +70,17 @@ function CookMode({
     () => Object.fromEntries(content.steps.flatMap(({ timer }) => (timer === null ? [] : [[timer.label, timer]]))),
     [content],
   )
+  // Where this cook began, and how many cooks of the recipe the log held then: kept through a reload.
+  // With none of this recipe in progress it is a new cook, and timers stored from one left long ago
+  // must not count as started in it (read before the timers load below).
+  const [{ from, cooksBefore }] = useState(() => {
+    const before = loadCooking(localStorage, userId, Date.now())
+    if (before !== null && before.recipeId === recipe.id && before.step !== 'log') {
+      return { from: Math.min(before.from, step), cooksBefore: before.cooksBefore }
+    }
+    clearTimers(localStorage, userId, recipe.id)
+    return { from: step, cooksBefore: logs.filter((cook) => cook.recipeId === recipe.id).length }
+  })
   const timers = useCookTimers(userId, recipe.id, plan)
   usePageTitle(`${step === 0 ? 'Before you start' : `Step ${step} of ${last}`}: ${recipe.title}`)
   const screenStaysOn = useWakeLock()
@@ -76,16 +88,11 @@ function CookMode({
   const startButton = useFocusTarget<HTMLButtonElement>('timer-start')
   const stopButton = useFocusTarget<HTMLButtonElement>('timer-stop')
   const onward = useFocusTarget<HTMLAnchorElement>('cook-onward')
-  // The step this cook began at: kept through a reload, a new cook where none of this recipe is in progress.
-  const [from] = useState(() => {
-    const before = loadCooking(localStorage, userId, Date.now())
-    return before !== null && before.recipeId === recipe.id && before.step !== 'log' ? Math.min(before.from, step) : step
-  })
 
   // The cook in progress, so the menu can bring the cook back to this step if the phone closes the app.
   useEffect(() => {
-    saveCooking(localStorage, userId, { recipeId: recipe.id, step, from, at: Date.now() })
-  }, [userId, recipe.id, step, from])
+    saveCooking(localStorage, userId, { recipeId: recipe.id, step, from, cooksBefore, at: Date.now() })
+  }, [userId, recipe.id, step, from, cooksBefore])
 
   // Leaving cook mode, or logging the cook, stops every timer for this recipe. Ask first if one is running.
   // Says whether the cook went on (the tap was not cancelled).
@@ -174,7 +181,7 @@ function CookMode({
       {elsewhere.length + skipped.length + timers.stirring.length > 0 && (
         <ul className="timer-strip">
           {timers.stirring.map((label) => (
-            <li key={`stir:${label}`} className="timer-stir">
+            <li key={`stir:${label}`} className="timer-line">
               <span className="timer-chip timer-chip-stir">{label}: stir it now</span>
               <button
                 className="link-button"
@@ -207,6 +214,7 @@ function CookMode({
               label={label}
               remaining={timers.secondsLeft(label) ?? 0}
               to={`/cook/${recipe.id}/${stepOfTimer(label)}`}
+              done={timerDone(label, plan)}
             />
           ))}
         </ul>
@@ -251,6 +259,7 @@ function CookMode({
                   <p className={left === 0 ? 'timer-clock timer-clock-done' : 'timer-clock'}>
                     {left === 0 ? 'Time is up' : formatClock(left)}
                   </p>
+                  {left === 0 && <p className="timer-done">{timer.done}</p>}
                   <button className="link-button" type="button" ref={stopButton} onClick={() => stopTimer(timer.label, left)}>
                     {left === 0 ? 'Clear timer' : 'Stop timer'}
                   </button>
@@ -298,7 +307,7 @@ function CookMode({
             onClick={(event) => {
               // Cooked, not yet logged: the menu asks how it went until the cook is saved.
               if (stopsTimers(event, 'A timer is still running. Stop it and log the cook?')) {
-                saveCooking(localStorage, userId, { recipeId: recipe.id, step: 'log', from, at: Date.now() })
+                saveCooking(localStorage, userId, { recipeId: recipe.id, step: 'log', from, cooksBefore, at: Date.now() })
               }
             }}
           >
@@ -310,14 +319,19 @@ function CookMode({
   )
 }
 
-/** A timer running on another step, linking to it. Takes focus when its dashed "start" chip started it. */
-function TimerChip({ label, remaining, to }: { label: string; remaining: number; to: string }) {
+/**
+ * A timer running on another step, linking to it. Once it is up, it says what
+ * to do, here, on whatever step the cook is on. Takes focus when its dashed
+ * "start" chip started it.
+ */
+function TimerChip({ label, remaining, to, done }: { label: string; remaining: number; to: string; done: string }) {
   const chip = useFocusTarget<HTMLAnchorElement>(`timer-chip:${label}`)
   return (
-    <li>
+    <li className={remaining === 0 ? 'timer-line' : undefined}>
       <Link className={remaining === 0 ? 'timer-chip timer-chip-done' : 'timer-chip'} to={to} ref={chip}>
         {label}: {remaining === 0 ? 'time is up' : formatClock(remaining)}
       </Link>
+      {remaining === 0 && <span className="timer-done">{done}</span>}
     </li>
   )
 }

@@ -7,11 +7,15 @@
 // screen reader hears its words change: a status added together with its
 // words is often not read. An error is an alert, read as it appears.
 
-/** "Saving…" while `busy`, in a status that is always there, and what was done once it is (`done`). */
+/**
+ * "Saving…" while `busy`, in a status that is always there, and what was done
+ * once it is (`done`), for a screen reader only: on screen, the renamed button
+ * already says so.
+ */
 export function Saving({ busy, text = 'Saving…', done = '' }: { busy: boolean; text?: string; done?: string }) {
   return (
     <span className="busy" role="status">
-      {busy ? text : done}
+      {busy ? text : done !== '' && <span className="visually-hidden">{done}</span>}
     </span>
   )
 }

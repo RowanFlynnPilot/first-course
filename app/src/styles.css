@@ -558,11 +558,16 @@ p {
   place-items: center;
 }
 
+/* The moment's art takes the width the plate asks for, so the plate is round, not shrink-wrapped. */
+.beat-art {
+  width: min(16rem, 100%);
+}
+
 /* The chef stands on a plate. */
 .beat-plate {
   position: relative;
   place-items: end center;
-  width: min(16rem, 100%);
+  width: 100%;
   aspect-ratio: 1;
   padding-bottom: 2.5rem;
   background: var(--plate);
@@ -1581,6 +1586,16 @@ mark {
   flex-direction: column;
   min-height: 100dvh;
   padding-bottom: 0;
+  /* Measured in rem below, so large text, not only a narrow screen, unsticks the buttons. */
+  container: cook / inline-size;
+}
+
+/* Large text (a column under 20 of its own rem, as at 150% text and more on a phone): the buttons wrap
+   to a row each, and stuck to the bottom they would cover the step's words. They scroll with it instead. */
+@container cook (max-width: 20rem) {
+  .cook-nav {
+    position: static;
+  }
 }
 
 .cook-head {
@@ -1720,13 +1735,22 @@ mark {
   color: var(--ketchup);
 }
 
-/* A simmer asking to be stirred: solid, so it does not read as one more timer, with "Stirred" beside it. */
-.timer-stir {
+/* A chip with words beside it: a simmer asking to be stirred, with "Stirred"; a timer that is up, with what to do. */
+.timer-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem 0.5rem;
 }
+
+/* What to do now that a timer is up: on its own step under the clock, and beside its chip elsewhere. */
+.timer-done {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* A simmer asking to be stirred: solid, so it does not read as one more timer. */
 
 .timer-chip-stir {
   background: var(--rim);

@@ -20,7 +20,7 @@ import { updateChef, type Chef } from '../lib/chefs'
 import { clearCooking, loadCooking } from '../lib/cooking'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents } from '../lib/cost'
 import { extraById, wornExtras, type ExtraId } from '../lib/extras'
-import { cookBy as cookByOf, cookByDates, dayName } from '../lib/freshness'
+import { cookByDates, dayName } from '../lib/freshness'
 import { FRIED_RICE, LEFTOVER_DAYS, leftoversOf, loadEaten, makesRice, markEaten } from '../lib/leftovers'
 import {
   COURSE_NAMES,
@@ -47,7 +47,17 @@ import {
   rowNote,
   type CookLog,
 } from '../lib/progress'
-import { addAllToKit, froze, pastCookBy, planRecipe, readyTonight, shopForAgain, type Shop, type ShopChange } from '../lib/shop'
+import {
+  addAllToKit,
+  groceryState,
+  markFrozen,
+  planRecipe,
+  readyTonight,
+  shopForAgain,
+  stillHave,
+  type Shop,
+  type ShopChange,
+} from '../lib/shop'
 import { currentStreak, type Streak } from '../lib/streak'
 import { clearTimers, loadTimers, shownTimers } from '../lib/timers'
 import { useKitchen } from '../kitchen'
@@ -66,7 +76,9 @@ function momentsOf(notice: CookNotice | null): Moment[] {
 }
 
 export function MenuScreen({ notice }: { notice: CookNotice | null }) {
-  const { userId, chef, logs, shop, onChefSaved, onShopChange, onSignOut } = useKitchen()
+  const { userId, email, chef, logs, shop, onChefSaved, onShopChange, onSignOut } = useKitchen()
+  // A new chef lands here from the create form: focus comes to the app's name (NameChefScreen).
+  const wordmark = useFocusTarget<HTMLHeadingElement>('menu-title')
   usePageTitle(null)
   // Each course counts only the kit it adds, as the kit screen files it, so the numbers agree.
   const newKit = kitByCourse()
@@ -136,7 +148,9 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
       {/* Inert behind a full-screen moment: hidden from screen readers, and out of reach of Tab. */}
       <main className="page" inert={!settled}>
         <header className="masthead">
-          <h1 className="wordmark">First Course</h1>
+          <h1 className="wordmark" ref={wordmark} tabIndex={-1}>
+            First Course
+          </h1>
           <p className="kept">
             <strong>{formatCents(totalKeptCents(logs, shop.prices))}</strong> kept by cooking
           </p>
@@ -174,11 +188,11 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
                 ))}
                 {notice.readyNow.length > 0 && (
                   <li>
-                    Now ready to cook: <RecipeLinks recipes={notice.readyNow} />.
+                    Now ready to cook: <RecipeLinks recipes={notice.readyNow} between="; " />.
                   </li>
                 )}
                 {notice.newExtras.map((id) => (
-                  <NewExtra key={id} id={id} userId={userId} chef={chef} onChefSaved={onChefSaved} />
+                  <NewExtra key={id} id={id} userId={userId} chef={chef} logs={logs} onChefSaved={onChefSaved} />
                 ))}
                 <CookedWithKit recipe={recipeById(notice.cookedId)} shop={shop} onShopChange={onShopChange} />
               </ul>
@@ -280,6 +294,8 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
         {!usualFirst && usualSection}
 
         <footer className="footer">
+          {/* Whose kitchen this is: an email link can sign a phone in as whoever sent it. */}
+          {email !== null && <p className="row-note">Signed in as {email}</p>}
           <button
             className="link-button"
             type="button"
@@ -303,7 +319,12 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
         />
       )}
       {moment?.kind === 'usual' && (
-        <UsualBeat recipe={moment.recipe} last={seen === moments.length - 1} onDone={() => setSeen(seen + 1)} />
+        <UsualBeat
+          key={moment.recipe.id}
+          recipe={moment.recipe}
+          last={seen === moments.length - 1}
+          onDone={() => setSeen(seen + 1)}
+        />
       )}
     </>
   )
@@ -351,18 +372,21 @@ function NewExtra({
   id,
   userId,
   chef,
+  logs,
   onChefSaved,
 }: {
   id: ExtraId
   userId: string
   chef: Chef
+  logs: readonly CookLog[]
   onChefSaved: (chef: Chef) => void
 }) {
   const { busy, error, run } = useWrite()
   const wearingRef = useFocusTarget<HTMLSpanElement>(`extra:${id}`)
   const extra = extraById(id)
   const wearing = chef.extras.includes(id)
-  const slotTaken = chef.extras.some((other) => other !== id && extraById(other).slot === extra.slot)
+  // Only an extra still worn holds its slot: one chosen and since lost (a deleted cook) leaves it free.
+  const slotTaken = wornExtras(chef.extras, logs).some((other) => other !== id && extraById(other).slot === extra.slot)
   return (
     <li>
       New extra for {chef.name}: {extra.name}.{' '}
@@ -379,7 +403,15 @@ function NewExtra({
           aria-disabled={busy}
           onClick={() =>
             void run(() =>
-              focusAfter(`extra:${id}`, async () => onChefSaved(await updateChef(userId, { ...chef, extras: [...chef.extras, id] }))),
+              focusAfter(`extra:${id}`, async () =>
+                // An extra chosen and no longer earned may hold the slot: one per slot, so this one replaces it.
+                onChefSaved(
+                  await updateChef(userId, {
+                    ...chef,
+                    extras: [...chef.extras.filter((other) => extraById(other).slot !== extra.slot), id],
+                  }),
+                ),
+              ),
             )
           }
         >
@@ -450,9 +482,8 @@ function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[
   const recipe = recipeById(cooking.recipeId)
   // A catch-up can lock it again (a cook deleted elsewhere): its screen would only say so.
   if (recipeState(recipe, logs) === 'locked') return null
-  // Logged on another device since: asking here would log it twice.
-  const began = localDateString(new Date(cooking.at))
-  if (logs.some((cook) => cook.recipeId === recipe.id && cook.cookedOn >= began)) return null
+  // Logged since it began (on another device, say): asking here would log it twice.
+  if (logs.filter((cook) => cook.recipeId === recipe.id).length > cooking.cooksBefore) return null
   // A recipe revised mid-cook can have fewer steps now.
   const step = cooking.step === 'log' ? 'log' : Math.min(cooking.step, recipe.content.steps.length)
   // Food may be in the oven: a timer still on says when it ends. Only cook mode can ring it.
@@ -553,7 +584,6 @@ function Leftovers({ userId, logs, today }: { userId: string; logs: readonly Coo
   const title = useFocusTarget<HTMLHeadingElement>('leftovers-title')
   const left = leftoversOf(logs, today, eaten)
   // Every cook still within its days, eaten or not: the marks the phone keeps.
-  const recent = leftoversOf(logs, today, new Set()).map((each) => each.cook.id)
   if (left.length === 0) return null
   const friedRiceOpen = recipeState(FRIED_RICE, logs) !== 'locked'
   return (
@@ -580,7 +610,7 @@ function Leftovers({ userId, logs, today }: { userId: string; logs: readonly Coo
                 onClick={() => {
                   // The last one takes the section with it: focus moves to what the menu suggests.
                   focusNext(left.length === 1 ? 'tray-title' : 'leftovers-title')
-                  setEaten(markEaten(localStorage, userId, cook.id, recent))
+                  setEaten(markEaten(localStorage, userId, cook.id, logs, today))
                 }}
               >
                 All eaten
@@ -628,31 +658,46 @@ function UpNext({
   const add = useWrite()
   const again = useWrite()
   const frozen = useWrite()
+  const still = useWrite()
   const heading = useFocusTarget<HTMLHeadingElement>('tray-title')
   const { content } = recipe
   const today = localDateString(new Date(now))
-  // Past the day its meat keeps: unless it went in the freezer, it goes, and the recipe needs a new shop.
-  const stale = pastCookBy(recipe, shop, today)
+  // How its groceries stand, when bought: past their day or old enough to ask about, the card settles
+  // that before anything else; frozen, it says to thaw first (lib/freshness.ts).
+  const groceries = plan === 'bought' ? groceryState(recipe, shop, today) : null
   const boughtOn = shop.shoppedOn.get(recipe.id)
-  // Bought with no day to cook it by, and meat that keeps only days: frozen ("I froze it").
-  const thaw = plan === 'bought' && boughtOn === undefined && cookByOf(recipe, today) !== null
+  const settleFirst = groceries === 'past' || groceries === 'old'
   const state = recipeState(recipe, logs)
   const last = lastCooked(recipe, logs)
-  // Bought (the meat in its days), or all in the pantry: nothing to plan or buy, so cooking leads.
+  // Bought and fresh, or all in the pantry: nothing to plan or buy, so cooking leads.
   const cookNow = readyTonight(recipe, shop, today)
   const label =
-    plan === 'bought'
-      ? 'Groceries bought'
-      : plan === 'planned'
-        ? 'On this week’s plan'
-        : state === 'ready'
-          ? 'Cook this next'
-          : 'Cook this again'
+    settleFirst && boughtOn !== undefined
+      ? `Bought ${dayName(boughtOn, today)}`
+      : groceries === 'frozen'
+        ? 'In the freezer'
+        : plan === 'bought'
+          ? 'Groceries bought'
+          : plan === 'planned'
+            ? 'On this week’s plan'
+            : state === 'ready'
+              ? 'Cook this next'
+              : 'Cook this again'
   // The first move is the one the week needs: plan it, then shop for it, then cook it.
   const start = (
     <Link className={cookNow ? 'button' : 'button button-quiet'} to={`/cook/${recipe.id}/0`}>
       Start cooking
     </Link>
+  )
+  const putBack = (quiet: boolean) => (
+    <button
+      className={quiet ? 'button button-quiet' : 'button'}
+      type="button"
+      aria-disabled={again.busy}
+      onClick={() => void again.run(() => focusAfter('tray-shop', () => shopForAgain(recipe.id, onShopChange)))}
+    >
+      Put it back on the list
+    </button>
   )
   return (
     <section className="tray">
@@ -668,20 +713,47 @@ function UpNext({
       <Plate state={state} goodCooks={goodCooks(recipe, logs)} size={64} />
       <div className="tray-rest">
         <p className="tray-body">
-          {formatMinutes(content.totalMinutes)}: start now and eat around {readyAt(now, content.totalMinutes)}.{' '}
-          {formatCents(cookCostPerServingCents(content, shop.prices))} a serving instead of{' '}
-          {formatCents(orderCostPerServingCents(content))} delivered.
-          {cookBy !== null &&
-            !stale &&
-            ` ${cookBy === today ? 'Cook it today' : `Cook it by ${dayName(cookBy, today)}`}, while the meat is fresh.`}
-          {stale &&
-            boughtOn !== undefined &&
-            ` Bought ${dayName(boughtOn, today)}. Unless you froze it, the meat is past its days: throw it out and put it back on the list.`}
-          {thaw && ' If the meat is in the freezer, move it to the fridge the night before you cook.'}
+          {groceries === 'past' && 'Unless you froze it, the meat is past its days: throw it out and put it back on the list.'}
+          {groceries === 'old' && 'Bought more than a week ago. Still have everything it needs?'}
+          {!settleFirst && (
+            <>
+              {groceries === 'frozen'
+                ? `${formatMinutes(content.totalMinutes)} once the meat has thawed. Move it to the fridge tonight, and cook it tomorrow.`
+                : `${formatMinutes(content.totalMinutes)}: start now and eat around ${readyAt(now, content.totalMinutes)}.`}{' '}
+              {formatCents(cookCostPerServingCents(content, shop.prices))} a serving instead of{' '}
+              {formatCents(orderCostPerServingCents(content))} delivered.
+              {groceries === 'fresh' &&
+                cookBy !== null &&
+                ` ${cookBy === today ? 'Cook it today' : `Cook it by ${dayName(cookBy, today)}`}, while the meat is fresh.`}
+            </>
+          )}
           {/* Once it is all mastered, the suggestion is whatever has waited longest. */}
           {state === 'mastered' && last !== null && ` Mastered, and not cooked since ${formatCookedOn(last)}.`}
         </p>
         <div className="actions">
+          {groceries === 'past' && putBack(false)}
+          {groceries === 'past' && (
+            <button
+              className="button button-quiet"
+              type="button"
+              aria-disabled={frozen.busy}
+              onClick={() => void frozen.run(() => focusAfter('tray-title', () => markFrozen(recipe.id, onShopChange)))}
+            >
+              I froze it
+            </button>
+          )}
+          {groceries === 'old' && (
+            <button
+              className="button"
+              type="button"
+              aria-disabled={still.busy}
+              onClick={() => void still.run(() => focusAfter('tray-title', () => stillHave(recipe.id, today, onShopChange)))}
+            >
+              Still have them
+            </button>
+          )}
+          {groceries === 'old' && putBack(true)}
+          <Saving busy={again.busy || frozen.busy || still.busy} />
           {cookNow && start}
           {plan === null && !cookNow && (
             <button
@@ -694,30 +766,9 @@ function UpNext({
             </button>
           )}
           <Saving busy={add.busy} />
-          {stale && (
-            <button
-              className="button"
-              type="button"
-              aria-disabled={again.busy}
-              onClick={() => void again.run(() => focusAfter('tray-shop', () => shopForAgain(recipe.id, onShopChange)))}
-            >
-              Put it back on the list
-            </button>
-          )}
-          <Saving busy={again.busy} />
-          {stale && (
-            <button
-              className="button button-quiet"
-              type="button"
-              aria-disabled={frozen.busy}
-              onClick={() => void frozen.run(() => focusAfter('tray-title', () => froze(recipe.id, onShopChange)))}
-            >
-              I froze it
-            </button>
-          )}
-          <Saving busy={frozen.busy} />
           {plan === 'planned' && !cookNow && <ShopForIt />}
-          {!cookNow && start}
+          {/* Meat past its day or groceries in doubt are settled first: no way to start cooking until then. */}
+          {!cookNow && !settleFirst && start}
           <Link className="button button-quiet" to={`/recipe/${recipe.id}`}>
             Read the recipe
           </Link>
@@ -725,6 +776,7 @@ function UpNext({
         <ErrorNotice error={add.error} />
         <ErrorNotice error={again.error} />
         <ErrorNotice error={frozen.error} />
+        <ErrorNotice error={still.error} />
       </div>
     </section>
   )

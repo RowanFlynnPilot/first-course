@@ -371,3 +371,34 @@ test.describe('this week: the plan and the grocery list', () => {
     expect(plan).toEqual({ 'chopped-salad': true, 'soft-scrambled-eggs': false })
   })
 })
+
+test.describe('the cart, round 9', () => {
+  const everything = (id: string) => recipeById(id).content.ingredients.map((line) => line.ingredientId)
+
+  test('Done shopping says groceries left keep their recipe on the list, and kit left only itself', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', {
+      plan: ['chopped-salad'],
+      kit: ['chefs-knife', 'cutting-board', 'large-bowl'],
+      checks: everything('chopped-salad').filter((id) => id !== 'tomato'),
+    })
+    const asked: string[] = []
+    page.once('dialog', (dialog) => {
+      asked.push(dialog.message())
+      void dialog.dismiss()
+    })
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    expect(asked[0]).toMatch(
+      /^Not checked off: tomato\. Chopped salad with lemon vinaigrette stays on the list for it\. The kit not checked off stays on the list too: .+\. Finish shopping\?$/,
+    )
+  })
+
+  test('staples checked off for a recipe cooked before Done shopping still go into the pantry', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/chopped-salad/log', { plan: ['chopped-salad'], checks: ['kosher-salt', 'olive-oil', 'tomato'] })
+    await rateAndSave(page, 'Decent')
+    await page.goto('#/shop')
+    await expect(page.getByText(/^Checked off in the store, and not put away yet: kosher salt and extra-virgin olive oil\. Done shopping puts them in your pantry\./)).toBeVisible()
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByText(/^Done shopping\./)).toBeFocused()
+    expect(kitchen.backend.table('pantry_items').map((row) => row.ingredient_id).toSorted()).toEqual(['kosher-salt', 'olive-oil'])
+  })
+})

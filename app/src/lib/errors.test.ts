@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NO_CONNECTION_MESSAGE, plainMessage } from './errors'
+import { NO_CONNECTION_MESSAGE, NOT_ANSWERING_MESSAGE, plainMessage } from './errors'
 
 describe('error messages in the cook’s words', () => {
   it('says "no connection" for a request that never got an answer, in every browser’s words', () => {
@@ -24,6 +24,10 @@ describe('error messages in the cook’s words', () => {
 
   it('keeps any other message, which still says what failed', () => {
     expect(plainMessage({ message: 'new row violates check constraint', code: '23514' })).toBe('new row violates check constraint')
+  })
+
+  it('says Supabase is not answering for an error page, never its HTML', () => {
+    expect(plainMessage({ message: '<html><body>502 Bad Gateway</body></html>', code: '' })).toBe(NOT_ANSWERING_MESSAGE)
   })
 
   it('drops the "Error:" the Data API client puts before the app’s own words', () => {

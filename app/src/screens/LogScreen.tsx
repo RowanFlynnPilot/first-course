@@ -10,7 +10,7 @@ import { insertCookLog, newCookId, NOTES_MAX } from '../lib/cookLogs'
 import { checkCookedOn, EARLIEST_COOK, localDateString } from '../lib/format'
 import { cookNotice, type CookNotice } from '../lib/notice'
 import { cookable, whatTheRatingDecides, type Rating } from '../lib/progress'
-import { clearTimers } from '../lib/timers'
+import { clearTimers, loadTimers, shownTimers } from '../lib/timers'
 import type { Recipe } from '../curriculum/types'
 import { useToday } from '../components/useNow'
 import { useKitchen } from '../kitchen'
@@ -65,6 +65,10 @@ function LogForm({ recipe, onNotice }: LogProps & { recipe: Recipe }) {
       document.querySelector<HTMLInputElement>('input[type="date"]')?.focus()
       return
     }
+    // Logged from the recipe page in the middle of a cook: saving stops its timers, so ask first, as cook mode does.
+    const now = Date.now()
+    const running = Object.values(shownTimers(loadTimers(localStorage, userId, recipe.id), now)).some((timer) => timer.endsAt > now)
+    if (running && !window.confirm('A timer is still running. Stop it and log the cook?')) return
     void run(async () => {
       const log = await insertCookLog({ id: cookId, recipeId: recipe.id, cookedOn, rating, notes: notes.trim() })
       // The cook is over: its timers are done, and the menu stops asking how it went.

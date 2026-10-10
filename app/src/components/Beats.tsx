@@ -3,7 +3,6 @@
 // the menu shows the rest of what the cook earned.
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import { Link } from 'react-router'
 import type { Recipe } from '../curriculum/types'
 import { badgeById, usualBadge } from '../lib/badges'
 import type { Chef } from '../lib/chefs'
@@ -20,7 +19,6 @@ function Beat({
   art,
   onDone,
   doneLabel,
-  extra,
 }: {
   kicker: string
   title: string
@@ -28,17 +26,22 @@ function Beat({
   art: ReactNode
   onDone: () => void
   doneLabel: string
-  extra?: ReactNode
 }) {
   const done = useRef<HTMLButtonElement>(null)
+  // The menu behind redraws every minute with a new onDone: Escape reads the latest, and focus is
+  // placed once, when the moment opens, not pulled back on every redraw.
+  const latestOnDone = useRef(onDone)
+  useEffect(() => {
+    latestOnDone.current = onDone
+  }, [onDone])
   useEffect(() => {
     done.current?.focus()
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onDone()
+      if (event.key === 'Escape') latestOnDone.current()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onDone])
+  }, [])
 
   return (
     // The note is the dialog's description, so a screen reader reads it with the title: focus goes straight to the button.
@@ -53,7 +56,6 @@ function Beat({
           {children}
         </div>
         <div className="beat-actions">
-          {extra}
           <button ref={done} className="button" type="button" onClick={onDone}>
             {doneLabel}
           </button>
@@ -115,12 +117,8 @@ export function UsualBeat({ recipe, last, onDone }: { recipe: Recipe; last: bool
       }
       onDone={onDone}
       doneLabel={last ? 'Back to the menu' : 'Next'}
-      extra={
-        <Link className="button button-quiet" to={`/recipe/${recipe.id}`}>
-          See the recipe
-        </Link>
-      }
     >
+      {/* No link to the recipe here: leaving the menu now would drop what is still to show of this cook. */}
       <p>You have learned every skill it needs. Next time you would order it, cook it instead.</p>
       <p>A cook at Decent or better earns the {badgeById(badge).name} badge.</p>
     </Beat>

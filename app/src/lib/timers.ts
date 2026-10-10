@@ -89,25 +89,24 @@ export function clearTimers(storage: Storage, owner: string, recipeId: string) {
 }
 
 /**
- * Forgets the timers of cooks left without leaving cook mode or logging: a
- * recipe whose every timer ended longer ago than a cook in progress is kept
- * (RESUME_FOR_MS). Run when the app opens and when it catches up, so storage
- * does not fill with them, and an old cook's timers do not count as started
- * in the next cook of the recipe. Timers kept before they were per account
- * go too.
+ * Forgets an account's timers of cooks left without leaving cook mode or
+ * logging: a recipe whose every timer ended longer ago than a cook in
+ * progress is kept (RESUME_FOR_MS). Run on every load, so storage does not
+ * fill with them. Only the signed-in account's are read: another account's
+ * wait for that account, and cannot stop this one loading. Timers kept
+ * before they were per account go too.
  */
-export function forgetOldTimers(storage: Storage, now: number) {
+export function forgetOldTimers(storage: Storage, owner: string, now: number) {
+  const mine = `${PREFIX}${owner}:`
   const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
-    (stored): stored is string => stored !== null && (stored.startsWith(PREFIX) || stored.startsWith(OLD_PREFIX)),
+    (stored): stored is string => stored !== null && (stored.startsWith(mine) || stored.startsWith(OLD_PREFIX)),
   )
   for (const stored of keys) {
     if (stored.startsWith(OLD_PREFIX)) {
       storage.removeItem(stored)
       continue
     }
-    const [owner, recipeId] = stored.slice(PREFIX.length).split(':')
-    if (owner === undefined || recipeId === undefined) throw new Error(`Saved timers under ${stored} name no recipe`)
-    const timers = loadTimers(storage, owner, recipeId)
+    const timers = loadTimers(storage, owner, stored.slice(mine.length))
     if (Object.values(timers).every((timer) => now - timer.endsAt > RESUME_FOR_MS)) storage.removeItem(stored)
   }
 }

@@ -57,14 +57,34 @@ export function dayName(date: string, today: string): string {
   return date.slice(0, 4) === today.slice(0, 4) ? full.replace(/,? \d{4}$/, '') : full
 }
 
+/** Groceries with no meat that keeps only days are asked about once they are this many days old. */
+export const ASK_AFTER_DAYS = 7
+
 /**
- * What a bought recipe's plan line says: "Groceries bought", with the day to
- * cook its meat by, or, past that day, that the meat is past its days unless
- * the cook froze it.
+ * How a bought recipe's groceries stand. `fresh`: ready to cook. `past`: its
+ * meat is past the day to cook it by. `frozen`: bought with meat that keeps
+ * only days, and no date, because the cook said "I froze it" (or bought it
+ * before dates were kept). `old`: bought more than ASK_AFTER_DAYS ago, with no
+ * such meat, so the app asks whether they are still there.
  */
+export type Bought = 'fresh' | 'past' | 'frozen' | 'old'
+
+export function boughtState(recipe: Recipe, boughtOn: string | undefined, today: string): Bought {
+  const keepsDays = cookBy(recipe, today) !== null
+  if (boughtOn === undefined) return keepsDays ? 'frozen' : 'fresh'
+  const by = cookBy(recipe, boughtOn)
+  if (by !== null) return by < today ? 'past' : 'fresh'
+  return addDays(boughtOn, ASK_AFTER_DAYS) < today ? 'old' : 'fresh'
+}
+
+/** What a bought recipe's plan line says, by how its groceries stand (boughtState). */
 export function boughtNote(recipe: Recipe, boughtOn: string | undefined, today: string): string {
-  const by = boughtOn === undefined ? null : cookBy(recipe, boughtOn)
-  if (boughtOn === undefined || by === null) return 'Groceries bought'
-  if (by < today) return `Bought ${dayName(boughtOn, today)}. Unless you froze it, the meat is past its days`
+  const state = boughtState(recipe, boughtOn, today)
+  if (state === 'frozen') return 'Groceries bought, the meat in the freezer'
+  if (boughtOn === undefined) return 'Groceries bought'
+  if (state === 'past') return `Bought ${dayName(boughtOn, today)}. Unless you froze it, the meat is past its days`
+  if (state === 'old') return `Bought ${dayName(boughtOn, today)}. Still have these?`
+  const by = cookBy(recipe, boughtOn)
+  if (by === null) return 'Groceries bought'
   return by === today ? 'Groceries bought. Cook it today' : `Groceries bought. Cook it by ${dayName(by, today)}`
 }

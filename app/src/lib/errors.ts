@@ -24,8 +24,13 @@ const AUTH_CODES: Readonly<Record<string, string>> = {
 
 export const NO_CONNECTION_MESSAGE = 'No connection. Check your signal and try again.'
 
+/** Supabase answered with an error page, not an error: it is down or overloaded for a moment. */
+export const NOT_ANSWERING_MESSAGE = 'Supabase is not answering. Try again in a minute.'
+
 export function plainMessage(error: { readonly message: string; readonly code?: string | undefined }): string {
   if (NO_CONNECTION.test(error.message)) return NO_CONNECTION_MESSAGE
+  // A gateway's HTML error page, which the Data API client passes on as the message.
+  if (error.message.trimStart().startsWith('<')) return NOT_ANSWERING_MESSAGE
   // The Data API client names what its fetch threw ("Error: You are signed out on this phone."): the words are the app's.
   return (error.code === undefined ? undefined : AUTH_CODES[error.code]) ?? error.message.replace(/^Error: /, '')
 }

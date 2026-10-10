@@ -1,0 +1,5 @@
+# Secrets are never committed, anywhere in the repo: the Supabase CLI reads
+# supabase/.env, and the app reads app/.env (app/.env.example is the template).
+.env
+.env.*
+!.env.example

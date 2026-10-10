@@ -173,7 +173,7 @@ export interface Seed {
   readonly shoppedOn?: Readonly<Record<string, string>>
   /** Ingredient ids. */
   readonly pantry?: readonly string[]
-  /** Ingredient ids already in the cart, kept on the phone (lib/checks.ts), for the plan's list. */
+  /** Ingredient ids already in the cart, kept on the phone (lib/cart.ts), for the plan's list. */
   readonly checks?: readonly string[]
   /** Equipment ids checked off in the list's kit aisle, kept on the phone with the checks. */
   readonly kitChecks?: readonly string[]
@@ -211,6 +211,12 @@ export class FakeSupabase {
   private readonly lost: { table: string; method: string }[] = []
   private readonly held: { table: string; method: string; released: Promise<void> }[] = []
   private readonly dropped: { table: string; method: string }[] = []
+  /** Requests that never reach the server until let through again, as "table method". */
+  private readonly droppedAlways = new Set<string>()
+  /** The scope of each sign-out the server heard ("local" is this device only). */
+  readonly logouts: string[] = []
+  /** Every session ended, as Sign out on another device does: a renewal is refused from now on. */
+  private sessionsEnded = false
   private signal = true
   private clock = Date.parse('2026-10-01T12:00:00Z')
   private confirmEmail = false
@@ -255,6 +261,20 @@ export class FakeSupabase {
   /** The next matching request never reaches the server: no signal, for one request. `table` as for failNext. */
   dropNext(table: string, method: string) {
     this.dropped.push({ table, method })
+  }
+
+  /** Ends every session, as signing out on every device would: no refresh token renews any more. */
+  endSessions() {
+    this.sessionsEnded = true
+  }
+
+  /** Every matching request never reaches the server, until `letThrough`: a dead spot for one kind of call. */
+  dropEvery(table: string, method: string) {
+    this.droppedAlways.add(`${table} ${method}`)
+  }
+
+  letThrough(table: string, method: string) {
+    this.droppedAlways.delete(`${table} ${method}`)
   }
 
   /** No signal at all until `restoreSignal`: every request fails as the browser's does with none. */
@@ -313,7 +333,7 @@ export class FakeSupabase {
     for (const equipment_id of seed.kit ?? []) this.insertRow('kit_items', { user_id, equipment_id })
     if (seed.signedIn === false) return
     // Store the session once per tab, as the auth client would after a sign-in,
-    // and the cart, which the app keeps on the phone (lib/checks.ts), checked
+    // and the cart, which the app keeps on the phone (lib/cart.ts), checked
     // for the list the seeded plan makes. A reload keeps whatever the app has
     // done to them since (a sign-out stays signed out).
     const cart =
@@ -349,6 +369,7 @@ export class FakeSupabase {
     const where = url.pathname.startsWith('/auth/v1/')
       ? `auth${url.pathname.slice('/auth/v1'.length)}`
       : url.pathname.slice('/rest/v1/'.length)
+    if (this.droppedAlways.has(`${where} ${request.method()}`)) return route.abort('internetdisconnected')
     const drop = this.dropped.find((candidate) => candidate.table === where && candidate.method === request.method())
     if (drop !== undefined) {
       this.dropped.splice(this.dropped.indexOf(drop), 1)
@@ -432,7 +453,9 @@ export class FakeSupabase {
     if (method === 'POST' && path === '/token' && grant === 'refresh_token') {
       const { refresh_token: token } = request.postDataJSON() as { refresh_token: string }
       const account = this.accounts.find((candidate) => `refresh-${candidate.id}` === token)
-      if (account === undefined) return json(route, request, 400, { error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' })
+      if (account === undefined || this.sessionsEnded) {
+        return json(route, request, 400, { error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token: Refresh Token Not Found' })
+      }
       return json(route, request, 200, this.session(account.id))
     }
     if (method === 'POST' && path === '/signup') {
@@ -452,6 +475,7 @@ export class FakeSupabase {
     }
     if (method === 'POST' && path === '/logout') {
       this.userFrom(request)
+      this.logouts.push(url.searchParams.get('scope') ?? 'global')
       return route.fulfill({ status: 204, headers: corsHeaders(request) })
     }
     if (method === 'POST' && path === '/recover') {
@@ -538,10 +562,9 @@ export class FakeSupabase {
     }
 
     if (name.startsWith('rpc/')) return this.rpc(route, request, name.slice('rpc/'.length), userId)
+    // A table the app has no business with (grocery_checks, shut by 00010, or a typo) fails the test.
     const spec = TABLES[name]
-    if (spec === undefined) {
-      return json(route, request, 404, { code: '42P01', message: `relation "public.${name}" does not exist` })
-    }
+    if (spec === undefined) return this.reject(route, `${request.method()} ${name}, a table the app does not use`)
 
     const prefer = request.headers().prefer ?? ''
     const wantsObject = (request.headers().accept ?? '').startsWith('application/vnd.pgrst.object+json')

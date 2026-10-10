@@ -23,6 +23,7 @@ import { TRACK_NAMES } from '../lib/extras'
 import { FRIED_RICE, LEFTOVER_DAYS, makesRice } from '../lib/leftovers'
 import { COURSE_NAMES, formatCents, formatCookedOn, formatDuration, formatMinutes, plural } from '../lib/format'
 import { goodCooks, lastNote, MASTERED_COOKS, masteryLeft, plannable, ratingLabel, recipeFromRoute, recipeState } from '../lib/progress'
+import { containsLine } from '../lib/allergens'
 import { boughtNote } from '../lib/freshness'
 import { planRecipe, takeOffPlan, type Shop, type ShopChange } from '../lib/shop'
 import { useToday } from '../components/useNow'
@@ -216,6 +217,10 @@ function Written({ content, riceLeft, shop }: { content: RecipeContent; riceLeft
       <section className="section">
         <h2 className="section-title">Ingredients</h2>
         <IngredientList ingredients={content.ingredients} />
+        {/* Worked out from the ingredients: read the labels too, since products vary. */}
+        {containsLine(content) !== null && (
+          <p className="section-note">{containsLine(content)} Products vary, so check the labels if it matters.</p>
+        )}
       </section>
 
       <section className="section">

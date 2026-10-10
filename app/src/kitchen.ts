@@ -11,6 +11,8 @@ import type { Shop, ShopChange } from './lib/shop'
 
 export interface Kitchen {
   readonly userId: string
+  /** The signed-in account's email, said beside Sign out so a cook knows whose kitchen this is. */
+  readonly email: string | null
   readonly chef: Chef
   /** Frozen: progress is kept per log array (lib/progress.ts). */
   readonly logs: readonly CookLog[]

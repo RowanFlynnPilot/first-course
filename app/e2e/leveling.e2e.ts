@@ -72,6 +72,12 @@ test.describe('leveling up', () => {
     const beat = page.getByRole('dialog', { name: 'Double smash burger with oven fries is in reach' })
     await expect(beat).toBeVisible()
     await expect(beat).toContainText('Next time you would order it, cook it instead.')
+    // No way off the menu from here: leaving would drop what is still to show of this cook.
+    await expect(beat.getByRole('link')).toHaveCount(0)
+    // The plate is round, at the size the moment asks for (its laid-out size: it scales in as it opens).
+    const plate = await beat.locator('.beat-plate').evaluate((element) => [(element as HTMLElement).offsetWidth, (element as HTMLElement).offsetHeight])
+    expect(plate[0]).toBeGreaterThan(200)
+    expect(plate[0]).toBe(plate[1])
     await beat.getByRole('button', { name: 'Back to the menu' }).click()
     // Behind the moment the menu is hidden from assistive tech, so the notice is read only now.
     await expect(noticeLines(page).first()).toHaveText(/^Oven fries with garlic aioli: Decent\./)

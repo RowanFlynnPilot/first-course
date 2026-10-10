@@ -67,11 +67,12 @@ export function loadEaten(storage: Storage, owner: string): Set<string> {
 }
 
 /**
- * Marks a cook's leftovers eaten. Only the cooks still within their days are
- * kept (`recent`), so the list never grows past a handful.
+ * Marks a cook's leftovers eaten. Only marks for cooks still within their
+ * days are kept, eaten or not, so the list never grows past a handful.
  */
-export function markEaten(storage: Storage, owner: string, cookId: string, recent: readonly string[]): Set<string> {
-  const eaten = new Set([...loadEaten(storage, owner), cookId].filter((id) => recent.includes(id)))
+export function markEaten(storage: Storage, owner: string, cookId: string, logs: readonly CookLog[], today: string): Set<string> {
+  const recent = new Set(leftoversOf(logs, today, new Set()).map((left) => left.cook.id))
+  const eaten = new Set([...loadEaten(storage, owner), cookId].filter((id) => recent.has(id)))
   storage.setItem(key(owner), JSON.stringify([...eaten]))
   return eaten
 }

@@ -13,7 +13,10 @@ describe('cook-mode timers', () => {
     saveTimers(storage, COOK, 'ragu-bolognese', { Ragù: { endsAt: NOW - RESUME_FOR_MS - 1, rang: true, stopped: false } })
     saveTimers(storage, COOK, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW - 60_000, rang: true, stopped: false } })
     storage.setItem('something-else', 'kept')
-    forgetOldTimers(storage, NOW)
+    // Another account's stored data, even malformed, is not this account's to read.
+    storage.setItem(`first-course:timers:${OTHER}:sheet-pan-sausage`, 'not json')
+    forgetOldTimers(storage, COOK, NOW)
+    expect(storage.getItem(`first-course:timers:${OTHER}:sheet-pan-sausage`)).toBe('not json')
     expect(loadTimers(storage, COOK, 'ragu-bolognese')).toEqual({})
     expect(Object.keys(loadTimers(storage, COOK, 'sheet-pan-sausage'))).toEqual(['Potatoes'])
     expect(storage.getItem('something-else')).toBe('kept')
@@ -22,7 +25,7 @@ describe('cook-mode timers', () => {
   it('forget timers kept before they were per account', () => {
     const storage = memoryStorage()
     storage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: NOW, rang: false } }))
-    forgetOldTimers(storage, NOW)
+    forgetOldTimers(storage, COOK, NOW)
     expect(storage.length).toBe(0)
   })
 

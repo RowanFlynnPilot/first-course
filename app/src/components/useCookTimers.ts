@@ -25,8 +25,8 @@ const RING_MS = 1200
 /** A stir reminder stays on screen this long, unless tapped first. */
 const STIR_SHOWN_MS = 60 * 1000
 
-/** What a recipe's step says about each of its timers, by label. */
-export type TimerPlan = Readonly<Record<string, { readonly seconds: number; readonly stirEvery?: number }>>
+/** What a recipe's step says about each of its timers, by label: how long, how often to stir, what to do at the ring. */
+export type TimerPlan = Readonly<Record<string, { readonly seconds: number; readonly stirEvery?: number; readonly done: string }>>
 
 // One audio context for the page load, unlocked by the first tap that needs
 // it. Kept outside the hook, so leaving cook mode for the log form and
@@ -69,6 +69,18 @@ function ring(audio: AudioContext) {
 /** One soft beep: time to stir. Not to be mistaken for a timer running out. */
 function chirp(audio: AudioContext) {
   beep(audio, [0], 'sine', 660, 0.25)
+}
+
+/** What to do when a timer rings: "Turn off its burner and leave the lid on." */
+export function timerDone(label: string, plan: TimerPlan): string {
+  const timer = plan[label]
+  if (timer === undefined) throw new Error(`No timer called ${label} in this recipe`)
+  return timer.done
+}
+
+/** "Rice: time is up. Turn off its burner and leave the lid on." What a finished timer says aloud. */
+function timeIsUp(label: string, plan: TimerPlan): string {
+  return `${label}: time is up. ${timerDone(label, plan)}`
 }
 
 /** The ring is over for these labels. */
@@ -149,7 +161,8 @@ export function useCookTimers(owner: string, recipeId: string, plan: TimerPlan) 
       if (Object.keys(shown).length > 0) setNow(at)
       const fresh = dueTimers(shown, at).filter((label) => !announced.current.has(label))
       for (const label of fresh) announced.current.add(label)
-      if (fresh.length > 0) setAnnouncement(`${fresh.join(' and ')}: time is up.`)
+      // What to do comes with the words, since the beeps carry none ("Rice: time is up. Turn off its burner…").
+      if (fresh.length > 0) setAnnouncement(fresh.map((label) => timeIsUp(label, latestPlan.current)).join(' '))
       const stirs = stirsDue(at)
       if (stirs.length > 0) {
         setStirAt((previous) => ({ ...previous, ...Object.fromEntries(stirs.map((label) => [label, at])) }))

@@ -5,22 +5,22 @@ import { Fragment } from 'react'
 import { Link } from 'react-router'
 import type { TechniqueId } from '../curriculum/techniques'
 import type { Recipe } from '../curriculum/types'
-import { listPieces, skillList } from '../lib/format'
+import { skillList } from '../lib/format'
 import { missingTechniques, pathTo, teacherOf, type CookLog } from '../lib/progress'
 import { usePageTitle } from './usePageTitle'
 
-/** Recipe titles joined like any list, each a link to its page. */
-export function RecipeLinks({ recipes }: { recipes: readonly Recipe[] }) {
-  return listPieces(recipes.length).map((piece, index) => {
-    if ('text' in piece) return <Fragment key={index}>{piece.text}</Fragment>
-    const recipe = recipes[piece.index]
-    if (recipe === undefined) throw new Error(`No recipe at ${piece.index} in the list`)
-    return (
-      <Link key={recipe.id} to={`/recipe/${recipe.id}`}>
-        {recipe.title}
-      </Link>
-    )
-  })
+/**
+ * Recipe titles, each a link to its page, with `between` between them: "; "
+ * for a list, ", then " for a way there. Never "and": a title can hold one
+ * ("Sheet-pan sausage and vegetables"), and two dishes would read as three.
+ */
+export function RecipeLinks({ recipes, between }: { recipes: readonly Recipe[]; between: '; ' | ', then ' }) {
+  return recipes.map((recipe, index) => (
+    <Fragment key={recipe.id}>
+      {index > 0 && between}
+      <Link to={`/recipe/${recipe.id}`}>{recipe.title}</Link>
+    </Fragment>
+  ))
 }
 
 /**
@@ -56,7 +56,7 @@ export function LockedNotice({
       {path.length > teachers.size && (
         <>
           {' '}
-          The way there, each cooked at Decent or better: <RecipeLinks recipes={path} />, then this.
+          The way there, each cooked at Decent or better: <RecipeLinks recipes={path} between=", then " />, then this.
         </>
       )}
     </p>

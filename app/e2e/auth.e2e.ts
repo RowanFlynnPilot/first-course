@@ -242,3 +242,57 @@ test.describe('signing in and creating a chef', () => {
     expect(page.url()).not.toContain('access_token')
   })
 })
+
+test.describe('email links on weak signal', () => {
+  const EVENING = new Date('2026-10-09T18:00:00-05:00')
+
+  test('a link that lands while the sign-in here cannot be renewed waits, rather than sign in over it', async ({ page, kitchen }) => {
+    await page.clock.install({ time: EVENING })
+    // The token renewal never gets through; the link's own check does.
+    kitchen.backend.dropEvery('auth/token', 'POST')
+    // The link's own check answers at once; let it land before the clock jumps past its 15-second limit.
+    const checked = page.waitForResponse((response) => response.url().endsWith('/auth/v1/user'))
+    await kitchen.open(`./${kitchen.backend.strangerHash()}`, { ...FRESH, sessionExpired: true })
+    await checked
+    await page.clock.runFor('00:45')
+    await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
+    await expect(page.getByRole('alert')).toContainText('could not check who is signed in here')
+    await expect(page.getByRole('heading', { name: 'Switch accounts?' })).toHaveCount(0)
+    // The phone still holds this cook's sign-in, not the stranger's.
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sb-e2e-auth-token') ?? 'null') as { user: { id: string } } | null)
+    expect(stored?.user.id).toBe(kitchen.backend.userId)
+  })
+
+  test('a link that lands while Supabase is down is kept: Try again uses it', async ({ page, kitchen }) => {
+    kitchen.backend.failNext('auth/user', 'GET', 'upstream connect error')
+    await kitchen.open(`./${kitchen.backend.recoveryHash()}`, { signedIn: false })
+    await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+  })
+
+  test('a link whose token is not a token says it did not work, and asks for nothing', async ({ page, kitchen }) => {
+    await kitchen.open('./#access_token=not%0Aa%20token&refresh_token=x&type=recovery', { signedIn: false })
+    await expect(page.getByRole('alert')).toHaveText('That email link did not work.')
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  })
+})
+
+test.describe('whose kitchen this is', () => {
+  test('the menu names the account, and Sign out signs out this phone only', async ({ page, kitchen }) => {
+    await kitchen.open('./', FRESH)
+    await expect(page.getByText(`Signed in as ${EMAIL}`)).toBeVisible()
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    expect(kitchen.backend.logouts).toEqual(['local'])
+  })
+
+  test('a new chef lands at the top of the menu, with focus on its name', async ({ page, kitchen }) => {
+    await kitchen.open('./', { chef: null })
+    await expect(page.getByRole('heading', { name: 'Create your chef' })).toBeFocused()
+    await page.getByLabel('Chef’s name').fill('Remy')
+    await page.getByRole('button', { name: 'Create chef' }).click()
+    await expect(page.getByRole('heading', { name: 'First Course', level: 1 })).toBeFocused()
+    expect(await page.evaluate(() => window.scrollY)).toBe(0)
+  })
+})

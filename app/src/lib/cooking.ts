@@ -5,6 +5,9 @@
 // is what unlocks the next recipe, and a cook eaten but never logged is lost.
 // Kept in localStorage with the timers (lib/timers.ts), per account.
 
+import { addDays } from './freshness'
+import { localDateString } from './format'
+
 /** The cook in progress. */
 export interface Cooking {
   readonly recipeId: string
@@ -16,13 +19,23 @@ export interface Cooking {
    * offers a timer the cook passed by only on a step after this one.
    */
   readonly from: number
+  /**
+   * How many cooks of the recipe the log held when this one began: one more
+   * means it was logged, here or on another device, and the menu stops
+   * asking about it. A second cook of a dish the same day still comes back.
+   */
+  readonly cooksBefore: number
   /** When it was last on screen, in milliseconds. */
   readonly at: number
 }
 
 const isStep = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0
 
-/** A cook left this long is forgotten: long enough for dinner and the next morning. */
+/**
+ * A cook left mid-way this long is forgotten. One finished and not yet
+ * logged is kept until the end of the next day instead, so dinner can be
+ * logged the next evening.
+ */
 export const RESUME_FOR_MS = 12 * 60 * 60 * 1000
 
 const key = (owner: string) => `first-course:cooking:${owner}`
@@ -36,11 +49,16 @@ export function loadCooking(storage: Storage, owner: string, now: number): Cooki
     parsed !== null &&
     typeof parsed.recipeId === 'string' &&
     (parsed.step === 'log' || isStep(parsed.step)) &&
-    // A cook saved before the first step was kept (October 9, 2026) began at the start.
+    // Kept before the first step and the cooks before it were (October 9, 2026): the start, and none.
     (parsed.from === undefined || isStep(parsed.from)) &&
+    (parsed.cooksBefore === undefined || isStep(parsed.cooksBefore)) &&
     typeof parsed.at === 'number'
   if (!valid) throw new Error('The cook in progress saved on this phone is malformed')
-  const cooking = { ...parsed, from: parsed.from ?? 0 } as Cooking
+  const cooking = { ...parsed, from: parsed.from ?? 0, cooksBefore: parsed.cooksBefore ?? 0 } as Cooking
+  if (cooking.step === 'log') {
+    const lastDay = addDays(localDateString(new Date(cooking.at)), 1)
+    return localDateString(new Date(now)) > lastDay ? null : cooking
+  }
   return now - cooking.at > RESUME_FOR_MS ? null : cooking
 }
 

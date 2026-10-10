@@ -2,7 +2,7 @@
 // (the timers have their own tests).
 
 import { describe, expect, it } from 'vitest'
-import { EMPTY_CART, loadCart, saveCart, settleCart } from './checks'
+import { CART_KEEPS_MS, EMPTY_CART, loadCart, saveCart, settleCart } from './cart'
 import { clearCooking, loadCooking, RESUME_FOR_MS, saveCooking } from './cooking'
 import { memoryStorage } from './memoryStorage'
 import type { Shop } from './shop'
@@ -12,28 +12,41 @@ const NOW = Date.parse('2026-10-09T18:00:00-05:00')
 describe('the cart', () => {
   it('survives a save and a load, for its account only', () => {
     const storage = memoryStorage()
-    saveCart(storage, 'rowan', { checks: new Set(['kosher-salt', 'lemon']), kitChecks: new Set(['thermometer']), checkedFor: ['chopped-salad'] })
-    const cart = loadCart(storage, 'rowan')
+    saveCart(storage, 'rowan', {
+      checks: new Set(['kosher-salt', 'lemon']),
+      kitChecks: new Set(['thermometer']),
+      checkedFor: ['chopped-salad'],
+      at: NOW,
+    })
+    const cart = loadCart(storage, 'rowan', NOW + 60_000)
     expect([...cart.checks].toSorted()).toEqual(['kosher-salt', 'lemon'])
     expect([...cart.kitChecks]).toEqual(['thermometer'])
     expect(cart.checkedFor).toEqual(['chopped-salad'])
-    expect(loadCart(storage, 'someone-else')).toEqual(EMPTY_CART)
+    expect(loadCart(storage, 'someone-else', NOW)).toEqual(EMPTY_CART)
+  })
+
+  it('is forgotten once nothing has been checked in it for two days', () => {
+    const storage = memoryStorage()
+    saveCart(storage, 'rowan', { checks: new Set(['butter']), kitChecks: new Set(), checkedFor: ['grilled-cheese'], at: NOW })
+    expect(loadCart(storage, 'rowan', NOW + CART_KEEPS_MS).checks.size).toBe(1)
+    expect(loadCart(storage, 'rowan', NOW + CART_KEEPS_MS + 1)).toEqual(EMPTY_CART)
+    expect(storage.length).toBe(0)
   })
 
   it('leaves nothing behind once it is empty, and forgets checks kept before it knew its list', () => {
     const storage = memoryStorage()
-    saveCart(storage, 'rowan', { checks: new Set(['lemon']), kitChecks: new Set(), checkedFor: ['chopped-salad'] })
+    saveCart(storage, 'rowan', { checks: new Set(['lemon']), kitChecks: new Set(), checkedFor: ['chopped-salad'], at: NOW })
     saveCart(storage, 'rowan', EMPTY_CART)
     expect(storage.length).toBe(0)
     storage.setItem('first-course:grocery-checks:rowan', JSON.stringify(['lemon']))
-    expect(loadCart(storage, 'rowan')).toEqual(EMPTY_CART)
+    expect(loadCart(storage, 'rowan', NOW)).toEqual(EMPTY_CART)
     expect(storage.length).toBe(0)
   })
 
   it('refuses an ingredient the menu does not have, rather than drop it quietly', () => {
     const storage = memoryStorage()
-    storage.setItem('first-course:cart:rowan', JSON.stringify({ checks: ['lemon', 'unicorn'], kitChecks: [], checkedFor: [] }))
-    expect(() => loadCart(storage, 'rowan')).toThrow('Your grocery list has an ingredient the menu no longer has: unicorn')
+    storage.setItem('first-course:cart:rowan', JSON.stringify({ checks: ['lemon', 'unicorn'], kitChecks: [], checkedFor: [], at: NOW }))
+    expect(() => loadCart(storage, 'rowan', NOW)).toThrow('Your grocery list has an ingredient the menu no longer has: unicorn')
   })
 })
 
@@ -48,6 +61,7 @@ describe('settling the cart to the list', () => {
     checks: new Set(['chicken-thighs', 'broccoli']),
     kitChecks: new Set(['thermometer']),
     checkedFor: ['seared-chicken-thighs'],
+    at: NOW,
     ...change,
   })
 
@@ -64,8 +78,15 @@ describe('settling the cart to the list', () => {
     expect(settled.checkedFor).toEqual(['chicken-pan-sauce'])
   })
 
-  it('drops checks on lines the list no longer has, and kit the plan no longer needs', () => {
-    const settled = settleCart(shop({ plan: [], checkedFor: ['seared-chicken-thighs'] }))
+  it('drops checks on food the list no longer has, but keeps staples and kit in the cart for Done shopping', () => {
+    // The thighs were cooked before Done shopping: the chicken is eaten, the olive oil and the thermometer are still bought.
+    const settled = settleCart(shop({ plan: [], checks: new Set(['chicken-thighs', 'olive-oil']) }))
+    expect([...settled.checks]).toEqual(['olive-oil'])
+    expect([...settled.kitChecks]).toEqual(['thermometer'])
+  })
+
+  it('drops a staple the pantry has now, and kit the kit has now', () => {
+    const settled = settleCart(shop({ checks: new Set(['olive-oil']), pantry: new Set(['olive-oil']), kit: new Set(['thermometer']) }))
     expect(settled.checks.size).toBe(0)
     expect(settled.kitChecks.size).toBe(0)
   })
@@ -78,26 +99,31 @@ describe('settling the cart to the list', () => {
 })
 
 describe('the cook in progress', () => {
+  const cooking = { recipeId: 'seared-chicken-thighs', step: 7, from: 0, cooksBefore: 0, at: NOW }
+
   it('comes back for half a day, then is forgotten', () => {
     const storage = memoryStorage()
-    saveCooking(storage, 'rowan', { recipeId: 'seared-chicken-thighs', step: 7, from: 0, at: NOW })
-    expect(loadCooking(storage, 'rowan', NOW + 60_000)).toEqual({ recipeId: 'seared-chicken-thighs', step: 7, from: 0, at: NOW })
+    saveCooking(storage, 'rowan', cooking)
+    expect(loadCooking(storage, 'rowan', NOW + 60_000)).toEqual(cooking)
     expect(loadCooking(storage, 'rowan', NOW + RESUME_FOR_MS + 1)).toBeNull()
     expect(loadCooking(storage, 'someone-else', NOW)).toBeNull()
   })
 
-  it('remembers a cook finished and not yet logged', () => {
+  it('remembers a cook finished and not yet logged until the end of the next day', () => {
     const storage = memoryStorage()
-    saveCooking(storage, 'rowan', { recipeId: 'chopped-salad', step: 'log', from: 0, at: NOW })
-    expect(loadCooking(storage, 'rowan', NOW)?.step).toBe('log')
+    // Finished at 6 PM on October 9 where the phone is: still asked about all of October 10, gone on the 11th.
+    const local = (day: number, hour: number, minute: number) => new Date(2026, 9, day, hour, minute).getTime()
+    saveCooking(storage, 'rowan', { ...cooking, step: 'log', at: local(9, 18, 0) })
+    expect(loadCooking(storage, 'rowan', local(10, 23, 30))?.step).toBe('log')
+    expect(loadCooking(storage, 'rowan', local(11, 0, 30))).toBeNull()
     clearCooking(storage, 'rowan')
     expect(loadCooking(storage, 'rowan', NOW)).toBeNull()
   })
 
-  it('reads one kept before the first step was, as begun at the start', () => {
+  it('reads one kept before the first step and the cooks before it were, as begun at the start with none', () => {
     const storage = memoryStorage()
     storage.setItem('first-course:cooking:rowan', JSON.stringify({ recipeId: 'chopped-salad', step: 3, at: NOW }))
-    expect(loadCooking(storage, 'rowan', NOW)?.from).toBe(0)
+    expect(loadCooking(storage, 'rowan', NOW)).toMatchObject({ from: 0, cooksBefore: 0 })
   })
 
   it('refuses a malformed one', () => {

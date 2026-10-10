@@ -1,7 +1,7 @@
-// The shop and the kit: this week's plan, the pantry, grocery checks, price
+// The shop and the kit: this week's plan, the pantry, price
 // corrections and the equipment a cook owns. The only Supabase reads and
 // writes for them; rows become app data here and nowhere else. The cart's
-// checks live on the phone until Done shopping (lib/checks.ts).
+// checks live on the phone until Done shopping (lib/cart.ts).
 
 import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
@@ -9,13 +9,13 @@ import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
 import type { Database } from '../database.types'
 import { db } from '../supabase'
-import { settleCart, type Cart } from './checks'
+import { settleCart, type Cart } from './cart'
 import { plainMessage } from './errors'
 import type { Prices } from './cost'
-import { cookBy } from './freshness'
-import { boughtFor, groceryList, pantryCovers } from './grocery'
+import { boughtState, type Bought } from './freshness'
+import { boughtFor, pantryCovers } from './grocery'
 
-/** The cart's checks (lib/checks.ts) are part of the shop, so a change to the list settles them. */
+/** The cart's checks (lib/cart.ts) are part of the shop, so a change to the list settles them. */
 export interface Shop extends Cart {
   /** Recipe ids on this week's plan, in the order they were added. A recipe leaves it when it is cooked. */
   readonly plan: readonly string[]
@@ -36,23 +36,18 @@ export function toShopFor(shop: Shop): string[] {
   return shop.plan.filter((id) => !shop.shopped.has(id))
 }
 
-/**
- * Whether a bought recipe's meat is past the day to cook it by (lib/freshness.ts):
- * the cook checks the package, and may need to shop again.
- */
-export function pastCookBy(recipe: Recipe, shop: Shop, today: string): boolean {
-  const boughtOn = shop.shoppedOn.get(recipe.id)
-  const by = boughtOn === undefined ? null : cookBy(recipe, boughtOn)
-  return by !== null && by < today
+/** How a recipe's groceries stand (lib/freshness.ts), or null when they are not bought. */
+export function groceryState(recipe: Recipe, shop: Shop, today: string): Bought | null {
+  return shop.shopped.has(recipe.id) ? boughtState(recipe, shop.shoppedOn.get(recipe.id), today) : null
 }
 
 /**
- * Whether a recipe can be cooked tonight with no shop first (lib/grocery.ts):
- * its groceries are bought, and its meat is not past its day, or the pantry
- * holds everything it uses.
+ * Whether a recipe can be cooked tonight with no shop first: its groceries
+ * are bought and fresh (not past their day, frozen, or old enough to ask
+ * about), or the pantry holds everything it uses (lib/grocery.ts).
  */
 export function readyTonight(recipe: Recipe, shop: Shop, today: string): boolean {
-  return (shop.shopped.has(recipe.id) && !pastCookBy(recipe, shop, today)) || pantryCovers(recipe, shop.pantry)
+  return groceryState(recipe, shop, today) === 'fresh' || pantryCovers(recipe, shop.pantry)
 }
 
 /** The shop with a recipe off the plan: taken off, or cooked (the database does that itself, 00006). */
@@ -185,12 +180,12 @@ export async function setInPantry(id: IngredientId, have: boolean, onShopChange:
 
 /** Checked off on the grocery list (in the cart), or not. On this phone only, so it never waits on signal. */
 export function setChecked(id: IngredientId, checked: boolean, onShopChange: ShopChange) {
-  onShopChange((previous) => ({ ...previous, checks: toggled(previous.checks, id, checked) }))
+  onShopChange((previous) => ({ ...previous, checks: toggled(previous.checks, id, checked), at: Date.now() }))
 }
 
 /** Kit checked off in the list's kit aisle, or not. On this phone until Done shopping puts it in the kit. */
 export function setKitChecked(id: EquipmentId, checked: boolean, onShopChange: ShopChange) {
-  onShopChange((previous) => ({ ...previous, kitChecks: toggled(previous.kitChecks, id, checked) }))
+  onShopChange((previous) => ({ ...previous, kitChecks: toggled(previous.kitChecks, id, checked), at: Date.now() }))
 }
 
 /** One piece of equipment in the kit, or not. */
@@ -225,15 +220,31 @@ export async function planRecipe(recipeId: string, onShopChange: ShopChange) {
   }))
 }
 
-/** Updates one plan row's shopped columns, and says when the row is gone (cooked or taken off elsewhere). */
+/**
+ * Updates one plan row's shopped columns. When the row is gone (cooked or
+ * taken off on another device), the plan on screen loses it too, so its
+ * buttons do not stay to fail again, and the cook is told why.
+ */
 async function updatePlanRow(
   recipeId: string,
   change: Database['public']['Tables']['plan_items']['Update'],
   what: string,
+  onShopChange: ShopChange,
 ): Promise<void> {
   const { data, error } = await db.from('plan_items').update(change).eq('recipe_id', recipeId).select('recipe_id')
   if (error) throw new Error(`Could not ${what}: ${plainMessage(error)}`)
-  if (data.length !== 1) throw new Error('It is not on this week’s plan any more: it was cooked or taken off on another device.')
+  if (data.length !== 1) {
+    onShopChange((previous) => withoutPlanned(previous, recipeId))
+    throw new Error('It is not on this week’s plan any more: it was cooked or taken off on another device.')
+  }
+}
+
+/** The shop with a recipe's bought date set, or gone (null). */
+function datedShop(shop: Shop, recipeId: string, boughtOn: string | null): Shop {
+  const shoppedOn = new Map(shop.shoppedOn)
+  if (boughtOn === null) shoppedOn.delete(recipeId)
+  else shoppedOn.set(recipeId, boughtOn)
+  return { ...shop, shoppedOn }
 }
 
 /**
@@ -241,26 +252,24 @@ async function updatePlanRow(
  * were not bought, or went off. The cart settles to the longer list.
  */
 export async function shopForAgain(recipeId: string, onShopChange: ShopChange) {
-  await updatePlanRow(recipeId, { shopped: false, shopped_on: null }, 'put it back on the list')
-  onShopChange((previous) => {
-    const shoppedOn = new Map(previous.shoppedOn)
-    shoppedOn.delete(recipeId)
-    return { ...previous, shopped: toggled(previous.shopped, recipeId, false), shoppedOn }
-  })
+  await updatePlanRow(recipeId, { shopped: false, shopped_on: null }, 'put it back on the list', onShopChange)
+  onShopChange((previous) => ({ ...datedShop(previous, recipeId, null), shopped: toggled(previous.shopped, recipeId, false) }))
 }
 
 /**
  * "I froze it": the meat went in the freezer the day it was bought, so it
  * has no day to be cooked by any more. The recipe stays bought, without a
- * date, and the menu stops asking about the meat's date.
+ * date, which is how the app knows it is frozen (lib/freshness.ts).
  */
-export async function froze(recipeId: string, onShopChange: ShopChange) {
-  await updatePlanRow(recipeId, { shopped_on: null }, 'say it is frozen')
-  onShopChange((previous) => {
-    const shoppedOn = new Map(previous.shoppedOn)
-    shoppedOn.delete(recipeId)
-    return { ...previous, shoppedOn }
-  })
+export async function markFrozen(recipeId: string, onShopChange: ShopChange) {
+  await updatePlanRow(recipeId, { shopped_on: null }, 'say it is frozen', onShopChange)
+  onShopChange((previous) => datedShop(previous, recipeId, null))
+}
+
+/** "Still have them": groceries bought a while ago are still good, so they count from today. */
+export async function stillHave(recipeId: string, today: string, onShopChange: ShopChange) {
+  await updatePlanRow(recipeId, { shopped_on: today }, 'say you still have them', onShopChange)
+  onShopChange((previous) => datedShop(previous, recipeId, today))
 }
 
 /** The package price the cook paid, in place of the estimate in ingredients.ts. */
@@ -288,24 +297,23 @@ export function coveredRecipes(shop: Shop): string[] {
 
 /**
  * "Done shopping" for the list this screen shows, on `today` (the cook's
- * local date), in one transaction (00010): the staples checked off go into
- * the pantry, the kit checked off into the kit, and the recipes the shop
- * covers are marked shopped, with the day. Checks for what is still to buy
- * stay on the phone; the rest settle away. Only the recipes this device
- * listed change, so one added on another device meanwhile is left alone.
- * Says what went into the pantry, which recipes were bought, and which are
- * still on the list.
+ * local date), in one transaction (00010): every staple checked off goes into
+ * the pantry and every piece of kit checked off into the kit, even one whose
+ * recipe was cooked before Done shopping, and the recipes the shop covers
+ * are marked shopped, with the day. Checks for what is still to buy stay on
+ * the phone; the rest settle away. Only the recipes this device listed
+ * change, so one added on another device meanwhile is left alone. Says what
+ * went into the pantry, which recipes were bought, and which are still on
+ * the list.
  */
 export async function doneShopping(
   shop: Shop,
   today: string,
   onShopChange: ShopChange,
-): Promise<{ staples: IngredientId[]; bought: string[]; stillToShop: string[] }> {
+): Promise<{ staples: IngredientId[]; kit: EquipmentId[]; bought: string[]; stillToShop: string[] }> {
   const toShop = toShopFor(shop)
   const covered = coveredRecipes(shop)
-  const staples = groceryList(toShop, shop.pantry, shop.prices)
-    .lines.map((line) => line.ingredientId)
-    .filter((id) => shop.checks.has(id) && INGREDIENTS[id].staple)
+  const staples = [...shop.checks].filter((id) => INGREDIENTS[id].staple)
   const kit = [...shop.kitChecks]
   const { error } = await db.rpc('finish_shopping', {
     bought_staples: staples,
@@ -321,5 +329,5 @@ export async function doneShopping(
     pantry: new Set([...previous.pantry, ...staples]),
     kit: new Set([...previous.kit, ...kit]),
   }))
-  return { staples, bought: covered, stillToShop: toShop.filter((id) => !covered.includes(id)) }
+  return { staples, kit, bought: covered, stillToShop: toShop.filter((id) => !covered.includes(id)) }
 }

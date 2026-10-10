@@ -20,10 +20,10 @@ import { MenuLink } from '../components/MenuLink'
  * Recipes named in a sentence. Never joined with "and": a title can hold one
  * ("Sheet-pan sausage and vegetables"), and two dishes would read as three.
  */
-function recipesNamed(recipes: readonly Recipe[]): string {
+function recipesNamed(recipes: readonly Recipe[], verb: string, after = ''): string {
   const [only] = recipes
-  if (recipes.length === 1 && only !== undefined) return only.title
-  return `${recipes.length} recipes (${recipes.map((recipe) => recipe.title).join('; ')})`
+  if (recipes.length === 1 && only !== undefined) return `${verb} ${only.title}${after}`
+  return `${verb} ${recipes.length} recipes${after}: ${recipes.map((recipe) => recipe.title).join('; ')}`
 }
 
 /** What a change or a delete would take away, a sentence for each kind. */
@@ -31,8 +31,8 @@ function lostSentence(before: readonly CookLog[], after: readonly CookLog[], pla
   const lost = progressLost(before, after)
   const parts = [
     ...(lost.skills.length > 0 ? [`unlearn ${skillList(lost.skills)}`] : []),
-    ...(lost.locked.length > 0 ? [`lock ${recipesNamed(lost.locked)} again`] : []),
-    ...(lost.unmastered.length > 0 ? [`undo mastering ${recipesNamed(lost.unmastered)}`] : []),
+    ...(lost.locked.length > 0 ? [recipesNamed(lost.locked, 'lock', ' again')] : []),
+    ...(lost.unmastered.length > 0 ? [recipesNamed(lost.unmastered, 'undo mastering')] : []),
   ]
   const [first, ...rest] = parts
   if (first === undefined) return null
@@ -41,7 +41,11 @@ function lostSentence(before: readonly CookLog[], after: readonly CookLog[], pla
   const onPlan =
     onlyPlanned === undefined
       ? []
-      : [planned.length === 1 ? `${onlyPlanned.title} is on this week’s plan.` : `${planned.length} of them are on this week’s plan.`]
+      : [
+          planned.length === 1
+            ? `${onlyPlanned.title} is on this week’s plan.`
+            : `On this week’s plan: ${planned.map((recipe) => recipe.title).join('; ')}.`,
+        ]
   return [`This would ${first}.`, ...rest.map((part) => `It would also ${part}.`), ...onPlan].join(' ')
 }
 

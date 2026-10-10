@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { recipeById } from '../curriculum/recipes'
-import { addDays, boughtNote, cookBy, cookByDates, dayName } from './freshness'
+import { addDays, boughtNote, boughtState, cookBy, cookByDates, dayName } from './freshness'
 
 describe('how long bought meat keeps', () => {
   it('gives raw chicken two days, and no day to a recipe with no meat or meat that outlasts the week', () => {
@@ -42,8 +42,24 @@ describe('how long bought meat keeps', () => {
     expect(boughtNote(thighs, '2026-10-04', '2026-10-04')).toBe('Groceries bought. Cook it by Tuesday')
     expect(boughtNote(thighs, '2026-10-04', '2026-10-06')).toBe('Groceries bought. Cook it today')
     expect(boughtNote(thighs, '2026-10-04', '2026-10-07')).toBe('Bought Sunday. Unless you froze it, the meat is past its days')
-    // No date (frozen, or bought before dates were kept), or nothing that keeps only days.
-    expect(boughtNote(thighs, undefined, '2026-10-07')).toBe('Groceries bought')
-    expect(boughtNote(recipeById('chopped-salad'), '2026-10-04', '2026-10-30')).toBe('Groceries bought')
+    // No date on meat that keeps only days: "I froze it".
+    expect(boughtNote(thighs, undefined, '2026-10-07')).toBe('Groceries bought, the meat in the freezer')
+    // Nothing that keeps only days: bought, until a week has gone by, then asked about.
+    const salad = recipeById('chopped-salad')
+    expect(boughtNote(salad, '2026-10-04', '2026-10-11')).toBe('Groceries bought')
+    expect(boughtNote(salad, '2026-10-04', '2026-10-12')).toBe('Bought Oct 4. Still have these?')
+    expect(boughtNote(salad, undefined, '2026-10-30')).toBe('Groceries bought')
+  })
+
+  it('say how bought groceries stand: fresh, past their day, frozen, or old enough to ask about', () => {
+    const thighs = recipeById('seared-chicken-thighs')
+    const salad = recipeById('chopped-salad')
+    expect(boughtState(thighs, '2026-10-04', '2026-10-06')).toBe('fresh')
+    expect(boughtState(thighs, '2026-10-04', '2026-10-07')).toBe('past')
+    expect(boughtState(thighs, undefined, '2026-10-07')).toBe('frozen')
+    expect(boughtState(salad, '2026-10-04', '2026-10-11')).toBe('fresh')
+    expect(boughtState(salad, '2026-10-04', '2026-10-12')).toBe('old')
+    // The smoked sausage keeps two weeks: no cook-by day, so it is asked about after a week like the salad.
+    expect(boughtState(recipeById('sheet-pan-sausage'), '2026-10-04', '2026-10-12')).toBe('old')
   })
 })

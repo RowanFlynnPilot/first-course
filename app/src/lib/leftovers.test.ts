@@ -34,12 +34,13 @@ describe('leftovers', () => {
 
   it('keep what was eaten on the phone, only while it matters', () => {
     const storage = memoryStorage()
+    const logs = [cook('a', 'sheet-pan-sausage', '2026-10-06'), cook('b', 'chana-masala', '2026-10-06'), cook('c', 'ragu-bolognese', '2026-10-09')]
     // Both cooks are still within their days: eating the second keeps the first eaten too.
-    markEaten(storage, 'rowan', 'a', ['a', 'b'])
-    expect([...markEaten(storage, 'rowan', 'b', ['a', 'b'])].toSorted()).toEqual(['a', 'b'])
-    // Once a cook is past its days, its mark goes.
-    expect([...markEaten(storage, 'rowan', 'c', ['b', 'c'])].toSorted()).toEqual(['b', 'c'])
-    expect([...loadEaten(storage, 'rowan')].toSorted()).toEqual(['b', 'c'])
+    markEaten(storage, 'rowan', 'a', logs, '2026-10-07')
+    expect([...markEaten(storage, 'rowan', 'b', logs, '2026-10-07')].toSorted()).toEqual(['a', 'b'])
+    // Once a cook is past its days (the 6th's end on the 10th), its mark goes.
+    expect([...markEaten(storage, 'rowan', 'c', logs, '2026-10-11')]).toEqual(['c'])
+    expect([...loadEaten(storage, 'rowan')]).toEqual(['c'])
     expect(loadEaten(storage, 'someone-else').size).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
 # Weekly pull requests for outdated packages and actions. Each one runs the
-# full check (lint, type check, unit and e2e tests) before it can be merged;
-# none deploys.
+# full check (lint, type check, unit and e2e tests); merge it once that
+# passes. None deploys.
 version: 2
 updates:
   - package-ecosystem: npm

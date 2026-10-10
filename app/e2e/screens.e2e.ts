@@ -178,11 +178,11 @@ test('cook mode after a reload with a timer running', async ({ page, kitchen }) 
 })
 
 test('the moments after a cook: promotion, the usual, badges', async ({ page, kitchen }) => {
+  // 280 XP: the sheet pan's cook crosses 300, level 3 and prep cook.
   await kitchen.open('#/cook/sheet-pan-sausage/log', {
     logs: [
       { recipe: 'chopped-salad', rating: 2 },
       { recipe: 'soft-scrambled-eggs', rating: 2 },
-      { recipe: 'grilled-cheese', rating: 2 },
     ],
   })
   await rateAndSave(page, 'Nailed it')

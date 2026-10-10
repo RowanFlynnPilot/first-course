@@ -160,7 +160,7 @@ test.describe('moving between screens', () => {
       const small = await page.evaluate(() =>
         [
           ...document.querySelectorAll<HTMLElement>(
-            'button, a.button, .link-button, .back a, .cook-head > a, .timer-chip, .row, summary, .quick-links a, .chef-card, .usual-item, .check-label, .rating, .price-button',
+            'button, a.button, .link-button, .back a, .cook-head > a, .timer-chip, .row, summary, .quick-links a, .chef-card, .usual-item, .check-label, .rating, .price-button, .plan-row a.row-title',
           ),
         ]
           .filter((element) => element.offsetParent !== null)

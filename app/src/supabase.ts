@@ -112,19 +112,36 @@ export class LinkUnreachable extends Error {}
  * signed in here when the server refuses a token it was handed.
  */
 export async function linkOwner(link: NonNullable<typeof emailLink>): Promise<{ id: string; email: string | null }> {
+  const didNotWork = new Error('That email link did not work.')
+  // A token is three base64url parts. Anything else is not one, and some characters would make the
+  // browser refuse the request before it is sent, which would look like no signal for ever.
+  if (!JWT_SHAPE.test(link.accessToken)) throw didNotWork
+  const noAnswer = new LinkUnreachable('No connection, so the email link could not be checked. Check your signal and try again.')
   let response: Response
   try {
     response = await fetchWithTimeout(`${authUrl}/user`, {
       headers: { apikey: publishableKey, Authorization: `Bearer ${link.accessToken}` },
     })
   } catch {
-    throw new LinkUnreachable('No connection, so the email link could not be checked. Check your signal and try again.')
+    throw noAnswer
   }
-  if (!response.ok) throw new Error('That email link did not work.')
-  const user = (await response.json()) as { id?: unknown; email?: unknown }
-  if (typeof user.id !== 'string') throw new Error('That email link did not work.')
+  // Supabase down or overloaded is not a bad link: the link is kept for Try again.
+  if (response.status >= 500) throw noAnswer
+  if (!response.ok) throw didNotWork
+  let user: { id?: unknown; email?: unknown } | null
+  try {
+    user = (await response.json()) as { id?: unknown; email?: unknown } | null
+  } catch (cause) {
+    // The answer stopped arriving (the 15-second limit), or was not the user it should be.
+    const name = (cause as Error).name
+    throw name === 'AbortError' || name === 'TimeoutError' ? noAnswer : didNotWork
+  }
+  if (typeof user?.id !== 'string') throw didNotWork
   return { id: user.id, email: typeof user.email === 'string' ? user.email : null }
 }
+
+/** A JSON web token's shape: header, claims and signature, each base64url. */
+const JWT_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
 
 /** Signs in with an email link's tokens, checked by `linkOwner` first. Rejects with why it failed. */
 export async function signInFromLink(link: NonNullable<typeof emailLink>): Promise<void> {

@@ -21,7 +21,7 @@ jobs:
   # run never hold a token that can publish the site.
   build:
     runs-on: ubuntu-latest
-    # A run takes about ten minutes; one that hangs stops here, not at GitHub's six hours.
+    # A run takes a few minutes; one that hangs stops here, not at GitHub's six hours.
     timeout-minutes: 30
     permissions:
       contents: read

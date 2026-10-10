@@ -114,7 +114,7 @@ export const COUNT_BEEPS = () => {
   }
 }
 
-/** The cart's grocery checks, as the phone keeps them (lib/checks.ts), sorted. */
+/** The cart's grocery checks, as the phone keeps them (lib/cart.ts), sorted. */
 export async function phoneChecks(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const key = Object.keys(localStorage).find((name) => name.startsWith('first-course:cart:'))

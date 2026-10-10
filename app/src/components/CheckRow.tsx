@@ -17,6 +17,7 @@ export function CheckRow({
   aside,
   error: asideError,
   focusTarget,
+  onPhone = false,
 }: {
   checked: boolean
   onChange: (checked: boolean) => Promise<void>
@@ -28,6 +29,8 @@ export function CheckRow({
   error?: string | null
   /** The name a write uses to put focus on this box (see useFocusTarget). */
   focusTarget: string
+  /** The check is kept on the phone (the cart): it changes at once, so there is no "Saving…" to say. */
+  onPhone?: boolean
 }) {
   const { busy, error, run } = useWrite()
   const box = useFocusTarget<HTMLInputElement>(focusTarget)
@@ -48,7 +51,7 @@ export function CheckRow({
             {note !== undefined && <span className="row-note">{note}</span>}
           </span>
         </label>
-        <Saving busy={busy} />
+        {!onPhone && <Saving busy={busy} />}
         {aside}
       </div>
       {[error, asideError ?? null].map(
