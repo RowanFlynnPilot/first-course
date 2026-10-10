@@ -116,7 +116,7 @@ export type Database = {
           }
           Functions: {
             "finish_shopping":
-{ Args: { "bought_on"?: string,"bought_staples": (string)[],"seen_checks": (string)[],"shopped_recipes": (string)[] }; Returns: undefined
+{ Args: { "bought_kit"?: (string)[],"bought_on"?: string,"bought_staples": (string)[],"seen_checks"?: (string)[],"shopped_recipes": (string)[] }; Returns: undefined
                            }
           }
           Enums: {
