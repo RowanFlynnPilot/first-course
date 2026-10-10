@@ -397,6 +397,8 @@ test.describe('the cart, round 9', () => {
   test('staples checked off for a recipe cooked before Done shopping still go into the pantry', async ({ page, kitchen }) => {
     await kitchen.open('#/cook/chopped-salad/log', { plan: ['chopped-salad'], checks: ['kosher-salt', 'olive-oil', 'tomato'] })
     await rateAndSave(page, 'Decent')
+    // The save lands, and takes the page to the menu, before the test goes on to This week.
+    await expect(page.getByRole('region', { name: 'This cook' })).toBeVisible()
     await page.goto('#/shop')
     await expect(page.getByRole('heading', { name: 'Also in the cart' })).toBeVisible()
     await expect(page.getByText('Checked off for a recipe no longer on the list. Done shopping puts them in your pantry.')).toBeVisible()
@@ -451,6 +453,8 @@ test.describe('the cart, round 10', () => {
     if (only === undefined) throw new Error('The salad has no staple of its own')
     await kitchen.open('#/cook/chopped-salad/log', { plan: ['chopped-salad', 'aglio-e-olio'], checks: [only] })
     await rateAndSave(page, 'Decent')
+    // The save lands, and takes the page to the menu, before the test goes on to This week.
+    await expect(page.getByRole('region', { name: 'This cook' })).toBeVisible()
     await page.goto('#/shop')
     // The aglio's list is on screen, and the salad's staple is still in the cart.
     await expect(page.getByRole('heading', { name: 'Grocery list' })).toBeVisible()
