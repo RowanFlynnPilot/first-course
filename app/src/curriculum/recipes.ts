@@ -23,8 +23,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: [],
     content: {
       servings: 2,
-      activeMinutes: 15,
-      totalMinutes: 15,
+      activeMinutes: 30,
+      totalMinutes: 30,
       equipment: ['chefs-knife', 'cutting-board', 'large-bowl', 'small-bowl', 'fork', 'paper-towels', 'measuring-spoons', 'plastic-wrap'],
       ingredients: [
         { ingredientId: 'tomato', qty: 2, prep: 'cut into bite-size chunks' },
@@ -158,8 +158,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['knife-basics', 'heat-control'],
     content: {
       servings: 2,
-      activeMinutes: 25,
-      totalMinutes: 40,
+      activeMinutes: 40,
+      totalMinutes: 55,
       equipment: [
         'large-pot',
         'large-skillet',
@@ -248,7 +248,7 @@ export const RECIPES: readonly Recipe[] = [
     content: {
       servings: 1,
       activeMinutes: 10,
-      totalMinutes: 30,
+      totalMinutes: 35,
       equipment: ['small-nonstick-skillet', 'skillet-lid', 'spatula', 'butter-knife', 'chefs-knife', 'cutting-board', 'plastic-wrap'],
       ingredients: [
         { ingredientId: 'sandwich-bread', qty: 2, prep: null },
@@ -274,7 +274,7 @@ export const RECIPES: readonly Recipe[] = [
         {
           text: 'Turn the heat to medium-low and cook until the bottom is deep golden brown. Lift a corner to check.',
           why: 'High heat burns the bread before the cheese melts. Browning is slow, and that is the whole lesson here. Still pale at the timer? Another minute. Dark before it? Turn the heat down a notch.',
-          timer: { seconds: 240, label: 'First side' },
+          timer: { seconds: 360, label: 'First side' },
         },
         {
           text: 'Flip. Cover the skillet and cook until the second side is golden and the cheese is fully melted. When the timer ends, turn off the burner.',
@@ -380,8 +380,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['knife-basics', 'seasoning'],
     content: {
       servings: 3,
-      activeMinutes: 25,
-      totalMinutes: 55,
+      activeMinutes: 35,
+      totalMinutes: 70,
       equipment: ['sheet-pan', 'oven-mitts', 'chefs-knife', 'cutting-board', 'large-bowl', 'spatula', 'fork', 'measuring-spoons'],
       ingredients: [
         { ingredientId: 'kielbasa', qty: 1, prep: 'sliced into ½-inch coins' },
@@ -395,7 +395,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Put a rack in the middle of the oven and heat it to 425°F. Wait until it has fully preheated.',
+          text: 'Put a rack in the middle of the oven and heat it to 425°F. Go on to the next step while it heats.',
           why: 'Roasting needs a hot oven from the first minute. Food that goes into a warming oven steams instead of browning.',
           timer: null,
         },
@@ -405,7 +405,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Roast the potatoes on their own.',
+          text: 'Roast the potatoes on their own. Once the oven has fully preheated, put on oven mitts, slide the pan onto the middle rack, and close the door.',
           why: 'Potatoes take the longest, so they get a head start. Staggering is how everything finishes together.',
           timer: { seconds: 900, label: 'Potatoes' },
         },
@@ -420,14 +420,14 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'With oven mitts, take the pan out and set it on the stovetop. Add everything to it and spread it into a single layer with a little space between pieces. Put it back in the oven.',
-          why: 'Crowded food traps steam and turns soft. If it does not fit in one layer, use a second pan.',
-          timer: null,
+          text: 'With oven mitts, take the pan out and set it on the stovetop. Add everything to it and spread it out to the edges of the pan, in as close to one layer as it will go. Slide the pan back in and roast for 10 minutes, then go on to the next step to turn everything over.',
+          why: 'Crowded food traps steam and turns soft, so give every piece what room the pan has. A little crowded is fine for one night: it browns a little less. The sausage is already cooked, so you are only browning it. Judging raw meat comes later, with a thermometer.',
+          timer: { seconds: 600, label: 'Roasting' },
         },
         {
-          text: 'Roast, stirring once halfway (pull the pan out with oven mitts to stir), until a fork slides easily into a potato and the edges of the vegetables are browned.',
-          why: 'The sausage is already cooked, so you are only browning it. Judging raw meat comes later, with a thermometer.',
-          timer: { seconds: 1200, label: 'Roasting' },
+          text: 'With oven mitts, pull the pan out onto the stovetop. Turn everything over with the spatula and spread it out again. Slide the pan back in and roast until a fork slides easily into a potato and the edges of the vegetables are browned.',
+          why: 'Turning puts the pale sides against the hot pan. Ovens differ: check at the timer, and give it up to 5 more minutes if the potatoes are still firm.',
+          timer: { seconds: 600, label: 'Second half' },
         },
         {
           text: 'Take the pan out with oven mitts and turn off the oven. Taste a potato and a piece of broccoli, and add a pinch of salt if they need it.',
@@ -651,8 +651,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['heat-control', 'seasoning', 'roasting'],
     content: {
       servings: 3,
-      activeMinutes: 35,
-      totalMinutes: 50,
+      activeMinutes: 50,
+      totalMinutes: 70,
       equipment: [
         'sheet-pan',
         'oven-mitts',
@@ -678,26 +678,21 @@ export const RECIPES: readonly Recipe[] = [
       steps: [
         {
           text: 'Put a rack in the middle of the oven and heat it to 425°F.',
-          why: 'The broccoli roasts while you cook the chicken, so the oven goes on first.',
+          why: 'The broccoli roasts while the second batch of chicken cooks, and the oven needs that long to get fully hot.',
           timer: null,
         },
         {
           text: 'Cut the broccoli into florets, the little trees at the top, each about the size of a golf ball. Trim the tough skin off the thick stem and slice the stem into coins. Cut the lemon lengthwise into 4 wedges and set them aside. On the sheet pan, toss the broccoli with the olive oil and ½ teaspoon of the salt, and spread it out in one layer.',
-          why: 'Cut everything before you touch raw chicken, so the board and knife are still clean. A trimmed stem is as good as the tops.',
+          why: 'Cut everything before you touch raw chicken, so the board and knife are still clean. A trimmed stem is as good as the tops. The broccoli waits on its pan until the first batch of chicken is cooked.',
           timer: null,
         },
         {
-          text: 'When the oven is hot, roast the broccoli until the edges are dark brown and crisp and the stems are tender. When the timer ends, take the pan out with oven mitts, set it on a burner that is off, and turn off the oven.',
-          why: 'It needs no attention while you cook the chicken. Dark edges are flavor, not burning.',
-          timer: { seconds: 1200, label: 'Broccoli' },
-        },
-        {
-          text: 'Measure the remaining 1 teaspoon of salt and the pepper into the small bowl. Set out two plates: one by the sink for the raw chicken, one by the stove for the cooked chicken. Open the chicken onto the raw plate and throw the package away. Do not rinse the chicken.',
-          why: 'The salt waits in a bowl so your hands never touch the salt box after raw chicken. Raw chicken often carries salmonella. Rinsing does not remove it; it splashes it around the sink. Cooking to the right temperature is what makes chicken safe.',
+          text: 'Measure the remaining 1 teaspoon of salt and the pepper into the small bowl. Set out two plates: one by the sink for the raw chicken, one by the stove for the cooked chicken. Tear off 4 paper towels and set them by the raw plate. Open the chicken onto the raw plate and throw the package away. Do not rinse the chicken.',
+          why: 'The salt waits in a bowl and the towels come off the roll now, so hands that touched raw chicken never touch the salt box or the roll. Raw chicken often carries salmonella. Rinsing does not remove it; it splashes it around the sink. Cooking to the right temperature is what makes chicken safe.',
           timer: null,
         },
         {
-          text: 'Pat each thigh dry on both sides with paper towels and throw the towels away. Unfold each thigh so it lies flat. Sprinkle both sides with the salt and pepper from the bowl. Then wash your hands with soap and warm water for 20 seconds.',
+          text: 'Pat each thigh dry on both sides with the paper towels and throw the towels away. Unfold each thigh so it lies flat. Sprinkle both sides with the salt and pepper from the bowl. Then wash your hands with soap and warm water for 20 seconds.',
           why: 'A wet surface steams instead of browning; dry chicken sears. Wash your hands every time you touch raw meat, before you touch anything else.',
           timer: null,
         },
@@ -727,9 +722,9 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn the heat to low. Wash the tongs in hot, soapy water and dry them, then move the thighs to the clean plate. Turn the heat back to medium-high and wait for the oil to shimmer again.',
-          why: 'The tongs touched raw chicken when they put it in and turned it over. Washed, they are safe for cooked chicken. Low heat holds the pan while you are at the sink, and dry tongs keep hot oil from spitting.',
-          timer: null,
+          text: 'Turn the heat to low. With oven mitts, slide the broccoli onto the middle rack, close the door, and start the timer. Wash the tongs in hot, soapy water and dry them, then move the thighs to the clean plate. Turn the heat back to medium-high and wait for the oil to shimmer again.',
+          why: 'The tongs touched raw chicken when they put it in and turned it over. Washed, they are safe for cooked chicken. Low heat holds the pan while you are away from it, and dry tongs keep hot oil from spitting. Started now, the broccoli is ready about when the chicken has rested.',
+          timer: { seconds: 1200, label: 'Broccoli' },
         },
         {
           text: 'Cook the other 3 thighs the same way: lay them in, 5 to 6 minutes, flip, 4 to 6 minutes, at least 165°F. Turn off the burner, then wash the tongs and move the thighs to the clean plate.',
@@ -742,8 +737,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 300, label: 'Chicken rest' },
         },
         {
-          text: 'Squeeze the lemon wedges over the chicken and broccoli. Taste a piece of each and add a pinch of salt if it needs it.',
-          why: 'Leftovers go in a lidded container and into the fridge within 2 hours, and keep 4 days.',
+          text: 'When the broccoli’s timer ends, check it: the edges should be dark brown and crisp and the stems tender. If not, give it 3 more minutes. Take the pan out with oven mitts, set it on a burner that is off, and turn off the oven. Squeeze the lemon wedges over the chicken and broccoli. Taste a piece of each and add a pinch of salt if it needs it.',
+          why: 'Dark edges on broccoli are flavor, not burning. Leftovers go in a lidded container and into the fridge within 2 hours, and keep 4 days.',
           timer: null,
         },
       ],
@@ -856,8 +851,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['griddling', 'knife-basics'],
     content: {
       servings: 2,
-      activeMinutes: 25,
-      totalMinutes: 65,
+      activeMinutes: 35,
+      totalMinutes: 85,
       equipment: [
         'large-skillet',
         'skillet-lid',
@@ -918,8 +913,8 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Put the sandwiches in the skillet. With an oven mitt on the handle, move the skillet back onto its burner, and turn the heat to medium-low. When the timer goes, lift a corner: you want deep golden brown. Give it another minute if it is still pale.',
-          why: 'The skillet is still warm from the onions, so the bread browns faster than it did for grilled cheese.',
-          timer: { seconds: 180, label: 'First side' },
+          why: 'The skillet is still a little warm from the onions, so the bread browns a little faster than it did for grilled cheese.',
+          timer: { seconds: 300, label: 'First side' },
         },
         {
           text: 'Flip both sandwiches, cover the skillet, and cook until the second side is golden and the cheese has melted. When the timer ends, turn off the burner.',
@@ -951,8 +946,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['steaming-rice', 'sweating-aromatics'],
     content: {
       servings: 2,
-      activeMinutes: 25,
-      totalMinutes: 45,
+      activeMinutes: 40,
+      totalMinutes: 60,
       equipment: [
         'small-saucepan',
         'medium-saucepan',
@@ -1105,7 +1100,7 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'With oven mitts, take out the hot pan and set it on the stovetop. Spread the fries on it with the spatula in one layer, not touching. They should sizzle. Put the pan back in the oven to roast.',
-          why: 'Space between the fries lets steam escape. If they will not fit, use a second pan.',
+          why: 'Space between the fries lets steam escape.',
           timer: { seconds: 1200, label: 'Fries' },
         },
         {
@@ -1160,8 +1155,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['searing', 'doneness'],
     content: {
       servings: 3,
-      activeMinutes: 40,
-      totalMinutes: 60,
+      activeMinutes: 55,
+      totalMinutes: 75,
       equipment: [
         'sheet-pan',
         'oven-mitts',
@@ -1174,6 +1169,7 @@ export const RECIPES: readonly Recipe[] = [
         'plates',
         'small-bowl',
         'liquid-measuring-cup',
+        'can-opener',
         'paper-towels',
         'fork',
         'chefs-knife',
@@ -1206,7 +1202,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Get the sauce ready while the oven heats. Mince the garlic: slice it thin, then chop the slices until the pieces are tiny. Chop the parsley leaves. Squeeze the lemon into a small bowl through your fingers, which catch the seeds. Measure the broth into the measuring cup. Cut the cold butter in two and put it back in the fridge.',
+          text: 'Get the sauce ready while the oven heats. Mince the garlic: slice it thin, then chop the slices until the pieces are tiny. Chop the parsley leaves. Squeeze the lemon into a small bowl through your fingers, which catch the seeds. Open the can of broth and measure ¾ cup into the measuring cup. Cut the cold butter in two and put it back in the fridge.',
           why: 'A pan sauce takes 4 minutes from start to finish. There is no time to chop once it starts. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
           timer: null,
         },
@@ -1216,12 +1212,12 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 1800, label: 'Potatoes' },
         },
         {
-          text: 'Measure 1 teaspoon of the salt and the pepper into a second small bowl. Set a plate for the raw chicken by the sink and a clean plate by the stove. Open the chicken onto the raw plate, throw the package away, and do not rinse the chicken.',
-          why: 'The same routine as the seared thighs, every time. Raw and cooked never share a plate, and hands that touched raw chicken never touch the salt box.',
+          text: 'Measure 1 teaspoon of the salt and the pepper into a second small bowl. Set a plate for the raw chicken by the sink and a clean plate by the stove. Tear off 4 paper towels and set them by the raw plate. Open the chicken onto the raw plate, throw the package away, and do not rinse the chicken.',
+          why: 'The same routine as the seared thighs, every time. Raw and cooked never share a plate, and hands that touched raw chicken never touch the salt box or the roll of towels.',
           timer: null,
         },
         {
-          text: 'Pat each thigh dry with paper towels, unfold it flat, and sprinkle both sides with the salt and pepper from the bowl. Throw the towels away and wash your hands with soap for 20 seconds.',
+          text: 'Pat each thigh dry with the paper towels, unfold it flat, and sprinkle both sides with the salt and pepper from the bowl. Throw the towels away and wash your hands with soap for 20 seconds.',
           why: 'Dry for a crust, and clean hands before you touch anything else.',
           timer: null,
         },
@@ -1303,6 +1299,7 @@ export const RECIPES: readonly Recipe[] = [
         'steel-skillet',
         'oven-mitts',
         'metal-spatula',
+        'tongs',
         'parchment',
         'kitchen-towels',
         'thermometer',
@@ -1346,13 +1343,13 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Put 2 beef balls on opposite sides of the pan, each halfway between the middle and the edge. Lay a parchment square on one, set the spatula on it, and push down hard on the blade through a folded towel until the patty is about 5 inches across. Peel off the paper and smash the second. Season each with a quarter of the salt and pepper from the bowl.',
-          why: 'Smash in the first 30 seconds, while the beef is still cold and soft. After that, never press again: it only squeezes out the juice. Two 5-inch patties just fit the pan, and they shrink as they cook. The towel keeps your hand off the hot blade.',
+          text: 'With the tongs, set 2 beef balls on opposite sides of the pan, halfway between the middle and the edge. Lay a parchment square on one, set the spatula on it, and push down hard on the blade through a folded towel until it is about 5 inches across. Peel off the paper and smash the second. Season each with a quarter of the salt and pepper from the bowl.',
+          why: 'Smash in the first 30 seconds, while the beef is still cold and soft. After that, never press again: it only squeezes out the juice. Two 5-inch patties just fit the pan, and they shrink as they cook. The towel keeps your hand off the hot blade. The tongs carry the raw beef, so your clean hands never touch it again.',
           timer: null,
         },
         {
-          text: 'Leave them alone for 2 to 2½ minutes, until the edges are deep brown and lacy and the tops have mostly turned from red to gray. Wash your hands while they cook.',
-          why: 'Your hands touched raw beef when you put the balls in the pan.',
+          text: 'Leave them alone for 2 to 2½ minutes, until the edges are deep brown and lacy and the tops have mostly turned from red to gray.',
+          why: null,
           timer: null,
         },
         {
@@ -1366,12 +1363,12 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Scrape any burnt bits out of the pan, then cook the other 2 balls the same way: in the pan, smash, season, wash your hands, 2 minutes, scrape, flip, cheese, at least 160°F. Then turn off the burner.',
+          text: 'Scrape any burnt bits out of the pan, then cook the other 2 balls the same way: in the pan with the tongs, smash, season, 2 minutes, scrape, flip, cheese, at least 160°F. Then turn off the burner.',
           why: 'If the pan is smoking hard, turn the heat to medium-high for this batch.',
           timer: null,
         },
         {
-          text: 'Top each burger with onion and 3 pickle chips, spread a tablespoon of ketchup on the top bun, and close it. Then wash the raw-beef plate, the salt bowl, the spatula, and the thermometer probe in hot, soapy water, and put the towel you pressed with in the laundry.',
+          text: 'Top each burger with onion and 3 pickle chips, spread a tablespoon of ketchup on the top bun, and close it. Then wash the raw-beef plate, the salt bowl, the tongs, the spatula, and the thermometer probe in hot, soapy water, and put the towel you pressed with in the laundry.',
           why: null,
           timer: null,
         },
@@ -1396,8 +1393,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['simmering', 'sweating-aromatics', 'boiling-pasta', 'doneness'],
     content: {
       servings: 4,
-      activeMinutes: 35,
-      totalMinutes: 55,
+      activeMinutes: 50,
+      totalMinutes: 75,
       equipment: [
         'large-skillet',
         'medium-saucepan',
@@ -1438,12 +1435,12 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Heat the olive oil in the skillet over medium-high until it shimmers, with faint ripples running across it. Add the beef and press it into one flat layer across the whole pan with the spatula. Sprinkle it with the salt and pepper from the bowl.',
-          why: null,
+          text: 'Heat the olive oil in the skillet over medium-high until it shimmers, with faint ripples running across it. Turn the heat to medium-low. Open the beef, tip it into the pan in one lump, and throw the package away. Wash your hands with soap for 20 seconds, before you touch the spatula or anything else.',
+          why: 'Medium-low holds the pan while you are at the sink. The beef can sit in a lump for a minute; it gets pressed out next.',
           timer: null,
         },
         {
-          text: 'Leave the beef alone until the underside is deep brown, 4 to 5 minutes. If liquid pools in the pan, keep going: it cooks off, and then the browning starts. While you wait, throw the package away, wipe the counter where it sat with hot, soapy water, and wash your hands with soap for 20 seconds.',
+          text: 'Turn the heat back to medium-high. Press the beef into one flat layer across the whole pan with the spatula and sprinkle it with the salt and pepper from the bowl. Leave it alone until the underside is deep brown, 4 to 5 minutes. If liquid pools in the pan, keep going: it cooks off, and then the browning starts.',
           why: 'This is the whole skill. Stir ground beef right away and it steams in its own juice and turns gray. Undisturbed contact with a hot pan is what browns it, and brown means flavor.',
           timer: null,
         },
@@ -1453,8 +1450,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Check it: push the tip of the thermometer into the middle of a thick pile of meat, keeping it off the pan, and wait until the number stops climbing. It must read at least 160°F. If it is lower, cook 2 more minutes and check again. Wash the probe, and put the salt bowl in hot, soapy water.',
-          why: 'Ground beef is safe at 160°F, and color alone can fool you. A tip touching the pan reads too high, which is the dangerous direction.',
+          text: 'Push the tip of the thermometer into the middle of a thick pile of meat, keeping it off the pan, and wait until the number stops climbing. It must read at least 160°F. If it is lower, cook 2 more minutes and check again. Turn the heat to low. Wash the probe and the spatula in hot, soapy water, dry the spatula, and wipe the counter where the package sat.',
+          why: 'Ground beef is safe at 160°F, and color alone can fool you. A tip touching the pan reads too high, which is the dangerous direction. The spatula touched raw beef when it pressed it out; washed, it is safe for the cooked meat. Low heat holds the pan while you are at the sink, and a dry spatula keeps hot fat from spitting.',
           timer: null,
         },
         {
@@ -1473,8 +1470,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn off the burner. With an oven mitt on the handle, move the skillet to a cool burner, and set the medium saucepan on the one you just used. Keeping the mitt on the skillet handle, scrape everything into the saucepan with the spatula, getting the brown bits too. Turn the saucepan’s burner to medium.',
-          why: 'Tomatoes simmered for 20 minutes or more in cast iron strip its seasoning and taste of metal. A saucepan does not mind.',
+          text: 'Turn off the burner. Set the medium saucepan on a cool burner beside the skillet and ladle most of the meat into it. Then put an oven mitt on the skillet handle, rest the skillet’s edge on the saucepan’s rim, tilt it, and scrape in the rest with the spatula, brown bits too. Turn the saucepan’s burner to medium.',
+          why: 'Tomatoes simmered for 20 minutes or more in cast iron strip its seasoning and taste of metal. A saucepan does not mind. A cast-iron skillet weighs about 8 pounds, so ladle first and then only tilt it, resting on the rim; never hold it up in the air with one hand.',
           timer: null,
         },
         {
@@ -1529,8 +1526,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['stir-frying', 'steaming-rice', 'doneness'],
     content: {
       servings: 3,
-      activeMinutes: 45,
-      totalMinutes: 55,
+      activeMinutes: 60,
+      totalMinutes: 75,
       equipment: [
         'medium-saucepan',
         'strainer',
@@ -1546,6 +1543,7 @@ export const RECIPES: readonly Recipe[] = [
         'plates',
         'grater',
         'spoon',
+        'can-opener',
         'chefs-knife',
         'cutting-board',
         'measuring-spoons',
@@ -1573,7 +1571,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 900, label: 'Rice' },
         },
         {
-          text: 'Make the sauce: in the medium bowl, whisk the broth, soy sauce, oyster sauce, sugar, cornstarch, and sesame oil until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
+          text: 'Make the sauce: open the can of broth and measure out ½ cup. In the medium bowl, whisk it with the soy sauce, oyster sauce, sugar, cornstarch, and sesame oil until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
           why: 'Mixed ahead, the sauce goes in with one pour. The cornstarch is what thickens it in the pan. Stirred into cold liquid first, as a slurry, cornstarch cannot clump; dropped dry into a hot pan, it turns to lumps.',
           timer: null,
         },
@@ -1608,8 +1606,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn the heat back to medium-high and add the last tablespoon of oil. When it shimmers, cook the rest of the chicken the same way, and check the biggest piece: at least 165°F. Turn the heat to low, leave the chicken in the pan, and wash and dry the spatula again.',
-          why: null,
+          text: 'Turn the heat back to medium-high and add the last tablespoon of oil. When it shimmers, cook the rest of the chicken the same way, and check the biggest piece: at least 165°F. Turn the heat to low and leave the chicken in the pan. Wash and dry the spatula again, put the bowl that held the raw chicken in hot, soapy water, and wash your hands.',
+          why: 'Your hands tipped the raw chicken out of that bowl. Washed now, they are clean for the scallions and the serving.',
           timer: null,
         },
         {
@@ -1623,14 +1621,14 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn off the burner and scatter on the scallions. Taste a piece of broccoli with sauce on it, and add a few drops of soy sauce if it needs salt. Serve over the rice. Wash the bowl that held the raw chicken and the thermometer probe in hot, soapy water.',
+          text: 'Turn off the burner and scatter on the scallions. Taste a piece of broccoli with sauce on it, and add a few drops of soy sauce if it needs salt. Serve over the rice. Wash the thermometer probe in hot, soapy water.',
           why: 'Spread the leftover rice in a lidded container and get it into the fridge within an hour. It keeps 4 days, and it is exactly what egg fried rice wants. Leftover stir-fry goes in its own lidded container and into the fridge within 2 hours, and keeps 4 days.',
           timer: null,
         },
       ],
       delivery: { label: 'Chicken and broccoli with white rice', menuPriceCents: 1600, side: false },
       leftovers: {
-        reheat: 'Reheat it in the skillet over medium-high heat with a tablespoon of water, stirring, until it is steaming and the chicken reads at least 165°F, about 3 minutes.',
+        reheat: 'Reheat it in the skillet over medium-high heat with a tablespoon of water, stirring, until it is steaming and the chicken reads at least 165°F, about 3 minutes. Rice is reheated only once, so warm only the rice you will eat now, with a spoonful of water, covered, until steaming. The rest stays cold, which is what egg fried rice wants.',
       },
       pairing: {
         wine: 'Dry rosé',
@@ -1649,8 +1647,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['blooming-spices', 'simmering'],
     content: {
       servings: 4,
-      activeMinutes: 35,
-      totalMinutes: 50,
+      activeMinutes: 50,
+      totalMinutes: 65,
       equipment: [
         'medium-saucepan',
         'small-saucepan',
@@ -1685,12 +1683,12 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Finely chop the onion and mince the garlic, as in the dal. Scrape the skin off the ginger with the edge of a spoon and grate it on the fine side of the grater. Open both cans: drain and rinse the chickpeas in the colander, and set the tomatoes by the stove. Measure the coriander, garam masala, turmeric, and pepper flakes into the small bowl.',
+          text: 'Finely chop the onion and mince the garlic, as in the dal. Scrape the skin off the ginger with the edge of a spoon and grate it on the fine side of the grater. Open all three cans: drain and rinse the chickpeas in the colander, and set the tomatoes by the stove. Measure the coriander, garam masala, turmeric, and pepper flakes into the small bowl.',
           why: 'The ground spices go in together, so they share a bowl. The cumin seeds go in on their own, first.',
           timer: null,
         },
         {
-          text: 'Put the oil in the medium saucepan over medium heat and drop in one cumin seed. When it sizzles right away, the oil is ready: add the rest of the seeds and let them sizzle for 20 to 30 seconds, until a shade darker and toasty-smelling.',
+          text: 'Put the oil in the medium saucepan over medium heat, drop in one cumin seed, and wait. When it sizzles, the oil is ready: add the rest of the seeds and let them sizzle for 20 to 30 seconds, until a shade darker and toasty-smelling.',
           why: 'Blooming, as in the dal: whole seeds in hot fat first. Seeds dropped into cold oil never sizzle. Tomatoes simmered 20 minutes or more strip a cast-iron skillet’s seasoning, so this one cooks in the saucepan.',
           timer: null,
         },
@@ -1720,9 +1718,9 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 900, label: 'Rice' },
         },
         {
-          text: 'When the masala is ready, add the chickpeas, 1 cup of water, and the last ½ teaspoon of salt. Bring to a bubble, then turn the heat to low and simmer, stirring now and then. Halfway through, press a spoonful of chickpeas against the side of the pot to mash them.',
+          text: 'When the masala is ready, add the chickpeas, 1 cup of water, and the last ½ teaspoon of salt. Bring to a bubble, then turn the heat to low and simmer, stirring every 5 minutes and scraping the bottom. At the first stir, also press a spoonful of chickpeas against the side of the pot to mash them.',
           why: 'The mashed chickpeas thicken the sauce. While it simmers, put the rest of the tomatoes in a lidded container: they keep a week in the fridge, or 3 months frozen.',
-          timer: { seconds: 900, label: 'Chickpeas' },
+          timer: { seconds: 900, label: 'Chickpeas', stirEvery: 300 },
         },
         {
           text: 'Turn off the burner. Squeeze in the juice of the half lemon and taste. Add a pinch of salt if it is flat, or more pepper flakes if you want heat. Fluff the rice with the fork and serve the chana masala over it.',
@@ -1732,7 +1730,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       delivery: { label: 'Chana masala with rice', menuPriceCents: 1500, side: false },
       leftovers: {
-        reheat: 'It is better the next day. Warm it in a covered saucepan over medium-low heat, stirring now and then, with a splash of water if it has thickened, until it bubbles. It freezes for 3 months.',
+        reheat: 'It is better the next day. Warm it in a covered saucepan over medium-low heat, stirring now and then, with a splash of water if it has thickened, until it bubbles. It freezes for 3 months. Rice is reheated only once, so warm only the rice you will eat now, with a spoonful of water, covered, until steaming; the rest stays cold, ready for egg fried rice.',
       },
       pairing: {
         wine: 'Gewürztraminer',
@@ -1820,7 +1818,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Press the dough out toward the edges of the pan with your fingertips. It will spring back before it gets there; stop when it does. Cover the skillet with plastic wrap and leave it to rise somewhere warm, such as the top of the fridge. Not in the oven: it gets heated later.',
+          text: 'Press the dough out toward the edges of the pan with your fingertips. It will spring back before it gets there; stop when it does. Cover the skillet with plastic wrap and leave it to rise in a warm spot on the counter, away from the stove. Not in the oven: it gets heated later.',
           why: 'The dough springs back because the gluten is tight. Resting relaxes it, so the next press reaches the edges.',
           timer: { seconds: 3600, label: 'First rise' },
         },
@@ -1894,8 +1892,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['searing', 'doneness'],
     content: {
       servings: 3,
-      activeMinutes: 50,
-      totalMinutes: 55,
+      activeMinutes: 65,
+      totalMinutes: 70,
       equipment: [
         'large-skillet',
         'skillet-lid',
@@ -2089,7 +2087,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 3600, label: 'Marinade' },
         },
         {
-          text: 'While it marinates, make the raita. Grate half the cucumber on the big holes of the grater, then squeeze it hard in your fist over the sink. Put the remaining ½ cup of yogurt in the medium bowl and stir in the cucumber and ¼ teaspoon of the salt. Cover it with plastic wrap and put it in the fridge.',
+          text: 'While it marinates, make the raita. Grate half the cucumber on the big holes of the grater, and wrap the other half for the fridge. Squeeze the grated cucumber hard in your fist over the sink. Put the remaining ½ cup of yogurt in the medium bowl and stir in the cucumber and ¼ teaspoon of the salt. Cover it with plastic wrap and put it in the fridge.',
           why: 'A cool, creamy side for the charred, spiced chicken. Squeezing out the cucumber’s water keeps the raita from turning thin.',
           timer: null,
         },
@@ -2136,7 +2134,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       delivery: { label: 'Chicken tikka with rice and raita', menuPriceCents: 1700, side: false },
       leftovers: {
-        reheat: 'Warm the chicken in a covered skillet over medium-low heat with a splash of water until it reads at least 165°F. It is good cold, too, sliced into a wrap with the cucumber.',
+        reheat: 'Warm the chicken in a covered skillet over medium-low heat with a splash of water until it reads at least 165°F. It is good cold, too, sliced into a wrap with the rest of the cucumber. Rice is reheated only once, so warm only the rice you will eat now, with a spoonful of water, covered, until steaming; the rest stays cold, ready for egg fried rice.',
       },
       pairing: {
         wine: 'Valpolicella',
@@ -2158,8 +2156,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['pan-emulsion', 'mise-en-place', 'emulsions', 'pan-sauce'],
     content: {
       servings: 2,
-      activeMinutes: 30,
-      totalMinutes: 40,
+      activeMinutes: 45,
+      totalMinutes: 55,
       equipment: [
         'large-pot',
         'large-skillet',
@@ -2201,7 +2199,7 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Open the bacon and lift 4 slices onto the board with the fork. Close the package, wrap it in the plastic wrap, and put it in the fridge. Cut the slices crosswise into strips about ½ inch wide and put them straight into the cold skillet. Wash the board, knife, and fork in hot, soapy water, and wash your hands with soap for 20 seconds.',
-          why: 'Bacon is cured, but it is still raw pork. Treat it like raw meat: it comes out last, after the cheese, and the rest goes back in the fridge before your hands touch it. It keeps a week there, or freeze it.',
+          why: 'Bacon is cured, but it is still raw pork. Treat it like raw meat: it comes out last, after the cheese, and the rest goes back in the fridge before your hands touch it. It keeps until a week after you bought it, or freeze it.',
           timer: null,
         },
         {
@@ -2270,8 +2268,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['stir-frying', 'steaming-rice', 'seasoning', 'doneness', 'masala-base'],
     content: {
       servings: 4,
-      activeMinutes: 35,
-      totalMinutes: 45,
+      activeMinutes: 55,
+      totalMinutes: 70,
       equipment: [
         'medium-saucepan',
         'strainer',
@@ -2336,8 +2334,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Tip the chicken from the bowl into the skillet and stir until every piece is coated and no longer pink on the outside, about 3 minutes. Pour in the rest of the coconut milk and the ¾ cup of broth. Put the chicken bowl in hot, soapy water.',
-          why: null,
+          text: 'Tip the chicken from the bowl into the skillet and stir until every piece is coated and no longer pink on the outside, about 3 minutes. Pour in the rest of the coconut milk and the ¾ cup of broth. Put the chicken bowl in hot, soapy water and wash your hands.',
+          why: 'Your hands held the bowl of raw chicken. Washed now, they are clean for the basil and the serving.',
           timer: null,
         },
         {
@@ -2373,7 +2371,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       delivery: { label: 'Green curry with chicken and rice', menuPriceCents: 1600, side: false },
       leftovers: {
-        reheat: 'Warm it in a saucepan over medium-low heat, stirring, until it bubbles and the chicken reads at least 165°F. Tear in fresh basil after: the first lot has wilted.',
+        reheat: 'Warm it in a saucepan over medium-low heat, stirring, until it bubbles and the chicken reads at least 165°F. Tear in fresh basil after: the first lot has wilted. Rice is reheated only once, so warm only the rice you will eat now, with a spoonful of water, covered, until steaming; the rest stays cold, ready for egg fried rice.',
       },
       pairing: {
         wine: 'Vinho Verde',
@@ -2392,8 +2390,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['stir-fry-sauce'],
     content: {
       servings: 3,
-      activeMinutes: 40,
-      totalMinutes: 55,
+      activeMinutes: 60,
+      totalMinutes: 80,
       equipment: [
         'medium-saucepan',
         'strainer',
@@ -2409,6 +2407,7 @@ export const RECIPES: readonly Recipe[] = [
         'plates',
         'grater',
         'spoon',
+        'can-opener',
         'fork',
         'chefs-knife',
         'cutting-board',
@@ -2440,7 +2439,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: { seconds: 900, label: 'Rice' },
         },
         {
-          text: 'Make the sauce: in the medium bowl, stir the broth, 2 tablespoons of the soy sauce, the oyster sauce, the sugar, 1 tablespoon of the cornstarch, and the sesame oil with the fork until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
+          text: 'Make the sauce: open the can of broth and measure out ½ cup. With the fork, stir it in the medium bowl with 2 tablespoons of the soy sauce, the oyster sauce, the sugar, 1 tablespoon of the cornstarch, and the sesame oil until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
           why: 'The same method as the chicken stir-fry: mixed ahead, poured in at the end, thickened by the cornstarch.',
           timer: null,
         },
@@ -2490,8 +2489,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn the heat back to high, or medium-high if nonstick, and add the last tablespoon of oil. When it shimmers, cook the rest of the beef the same way and check it: at least 145°F. Turn the heat to low, leave the beef in the pan, and wash and dry the spatula. Put the bowl that held the raw beef in hot, soapy water.',
-          why: 'The spatula touched raw beef when it spread each batch out. Washed, it is safe for the cooked beef. Velveted beef stays tender even cooked through.',
+          text: 'Turn the heat back to high, or medium-high if nonstick, and add the last tablespoon of oil. When it shimmers, cook the rest of the beef the same way and check it: at least 145°F. Turn the heat to low, leave the beef in the pan, and wash and dry the spatula. Put the bowl that held the raw beef in hot, soapy water and wash your hands.',
+          why: 'The spatula touched raw beef when it spread each batch out. Washed, it is safe for the cooked beef. Your hands held the bowl of raw beef, so they get washed before they touch the finished food. Velveted beef stays tender even cooked through.',
           timer: null,
         },
         {
@@ -2512,7 +2511,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       delivery: { label: 'Beef and broccoli with white rice', menuPriceCents: 1750, side: false },
       leftovers: {
-        reheat: 'Reheat it in the skillet over medium-high heat with a tablespoon of water, stirring, until it is steaming, about 3 minutes. The sauce thickens in the fridge, and the water loosens it.',
+        reheat: 'Reheat it in the skillet over medium-high heat with a tablespoon of water, stirring, until it is steaming, about 3 minutes. The sauce thickens in the fridge, and the water loosens it. Rice is reheated only once, so warm only the rice you will eat now, with a spoonful of water, covered, until steaming. The rest stays cold, which is what egg fried rice wants.',
       },
       pairing: {
         wine: 'Merlot',
@@ -2532,8 +2531,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['smash-crust', 'caramelizing', 'emulsions'],
     content: {
       servings: 2,
-      activeMinutes: 75,
-      totalMinutes: 90,
+      activeMinutes: 85,
+      totalMinutes: 105,
       equipment: [
         'sheet-pan',
         'oven-mitts',
@@ -2637,7 +2636,7 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'When the fries’ timer ends, pull out the pan with oven mitts, flip the fries with the metal spatula, and put them back to roast until deep golden and crisp. Start the timer. If the onions are still in the skillet, go back and finish them before the next step.',
-          why: 'When this timer goes, take the fries out with oven mitts and turn the oven off, even in the middle of the burgers. If your hands have touched raw beef, wash them first; the fries can wait a minute.',
+          why: 'When this timer goes, take the fries out with oven mitts and turn the oven off, even in the middle of the burgers.',
           timer: { seconds: 600, label: 'Fries, flipped' },
         },
         {
@@ -2661,13 +2660,13 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Put 2 beef balls on opposite sides of the pan, each halfway between the middle and the edge. Lay a parchment square on one, set the metal spatula on it, and press down hard, pushing on the blade through a folded towel, until it is about 5 inches across. Peel off the paper. Smash the second the same way. Sprinkle each with a quarter of the salt and pepper.',
-          why: 'Smash in the first 30 seconds, while the beef is cold and soft, and never press again. Two 5-inch patties just fit the pan, and they shrink as they cook.',
+          text: 'With the tongs, set 2 beef balls on opposite sides of the pan, halfway between the middle and the edge. Lay a parchment square on one, set the metal spatula on it, and push down hard on the blade through a folded towel until it is about 5 inches across. Peel off the paper and smash the second. Sprinkle each with a quarter of the salt and pepper.',
+          why: 'Smash in the first 30 seconds, while the beef is cold and soft, and never press again. Two 5-inch patties just fit the pan, and they shrink as they cook. The tongs carry the raw beef, so your clean hands never touch it again.',
           timer: null,
         },
         {
-          text: 'Leave them alone for 2 minutes, until the edges are deep brown and lacy and the tops have mostly turned gray. Wash your hands while they cook.',
-          why: 'Your hands touched raw beef when you put the balls in the pan.',
+          text: 'Leave them alone for 2 minutes, until the edges are deep brown and lacy and the tops have mostly turned gray.',
+          why: null,
           timer: null,
         },
         {
@@ -2681,7 +2680,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Scrape any burnt bits out of the pan and cook the other 2 balls the same way: smash, season, wash your hands, 2 minutes, scrape, flip, cheese, at least 160°F. Stack them on the second bottom bun. Turn off the burner.',
+          text: 'Scrape any burnt bits out of the pan and cook the other 2 balls the same way: in the pan with the tongs, smash, season, 2 minutes, scrape, flip, cheese, at least 160°F. Stack them on the second bottom bun. Turn off the burner.',
           why: 'If the pan is smoking hard, turn the heat to medium-high for this batch.',
           timer: null,
         },
@@ -2691,7 +2690,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Before you sit down, wash the raw-beef plate, the salt bowl, the spatula, and the thermometer probe in hot, soapy water, and put the towel you pressed with in the laundry. Once the skillet has cooled, wipe the fat out with paper towels into the trash, then wash it.',
+          text: 'Before you sit down, wash the raw-beef plate, the salt bowl, the tongs, the spatula, and the thermometer probe in hot, soapy water, and put the towel you pressed with in the laundry. Once the skillet has cooled, wipe the fat out with paper towels into the trash, then wash it.',
           why: null,
           timer: null,
         },
@@ -2715,8 +2714,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['breading-frying', 'emulsions', 'griddling'],
     content: {
       servings: 4,
-      activeMinutes: 60,
-      totalMinutes: 65,
+      activeMinutes: 80,
+      totalMinutes: 90,
       equipment: [
         'medium-bowl',
         'small-bowl',
@@ -2836,8 +2835,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Spread the spicy mayo on both halves of each bun with the butter knife. Put a cutlet on each bottom half, then 3 pickle chips, then the top. Before you sit down, put the tongs, the raw plate, and the thermometer probe in hot, soapy water.',
-          why: 'Leave the oil on the cold burner until it has cooled completely, at least an hour. Then pour it into a jar or can you can close and throw it in the trash. Never pour oil down the sink: it hardens and clogs the pipe. Leftovers go in a lidded container and into the fridge within 2 hours, and keep 4 days.',
+          text: 'Build a sandwich for each person eating now: spread the spicy mayo on both halves of a bun with the butter knife, then add a cutlet, 3 pickle chips, and the top. Leave the other cutlets on the rack to cool. Before you sit down, put the tongs, the raw plate, and the thermometer probe in hot, soapy water.',
+          why: 'Leave the oil on the cold burner until it has cooled completely, at least an hour. Then pour it into a jar or can you can close and throw it in the trash. Never pour oil down the sink: it hardens and clogs the pipe. Once the spare cutlets have cooled, put them in a lidded container, apart from the buns and the mayo, and into the fridge within 2 hours. They keep 4 days.',
           timer: null,
         },
       ],
@@ -2862,8 +2861,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['yeasted-dough', 'simmering'],
     content: {
       servings: 2,
-      activeMinutes: 60,
-      totalMinutes: 180,
+      activeMinutes: 70,
+      totalMinutes: 200,
       equipment: [
         'large-bowl',
         'wooden-spoon',
@@ -2940,8 +2939,13 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn the heat to medium-high until it bubbles, then to low. Simmer uncovered, stirring every 5 minutes, until a spoon dragged across the bottom leaves a path that stays open for a second, about 20 minutes. Taste, add a pinch of salt if it is flat, then turn off the burner and let it cool.',
+          text: 'Turn the heat to medium-high until it bubbles, then turn it to low. Simmer uncovered, stirring every 5 minutes and scraping the bottom.',
           why: 'A thick sauce keeps the thin middle of the pizza from turning soggy. While it simmers, put the rest of the tomatoes in a lidded container: they keep a week in the fridge, or 3 months frozen.',
+          timer: { seconds: 1200, label: 'Sauce', stirEvery: 300 },
+        },
+        {
+          text: 'The sauce is ready when a spoon dragged across the bottom of the pan leaves a path that stays open for a second. If it closes right away, simmer 5 minutes more. Taste, and add a pinch of salt if it is flat. Turn off the burner and let it cool.',
+          why: 'Simmering cooks off water, as in the pan pizza’s sauce.',
           timer: null,
         },
         {
@@ -3014,8 +3018,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['browning-meat', 'pan-sauce', 'pan-emulsion'],
     content: {
       servings: 6,
-      activeMinutes: 75,
-      totalMinutes: 225,
+      activeMinutes: 85,
+      totalMinutes: 240,
       equipment: [
         'chefs-knife',
         'cutting-board',
@@ -3066,7 +3070,7 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Tear off a sheet of plastic wrap and set it aside. Open the bacon and lift 3 slices onto the board with the fork. Close the package, wrap it in the plastic wrap, and put it in the fridge. Chop the slices into pieces about the size of a pea and put them straight into the cold skillet. Wash the board, knife, and fork in hot, soapy water, and wash your hands.',
-          why: 'Bacon is raw pork until it is cooked. The rest goes back in the fridge before your hands touch it, and keeps a week there, or freeze it.',
+          why: 'Bacon is raw pork until it is cooked. The rest goes back in the fridge before your hands touch it, and keeps until a week after you bought it, or freeze it.',
           timer: null,
         },
         {
@@ -3075,18 +3079,18 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn the heat to medium-high. Add the beef and press it into one flat layer across the pan with the spatula. Sprinkle it with the salt and pepper from the bowl. Throw the package away, wipe the counter where it sat with hot, soapy water, and wash your hands with soap for 20 seconds.',
-          why: null,
+          text: 'Turn the heat to low. Open the beef, tip it into the skillet, and throw the package away. Wash your hands with soap for 20 seconds. Then turn the heat to medium-high, press the beef into one flat layer across the pan with the spatula, and sprinkle it with the salt and pepper from the bowl.',
+          why: 'Low heat holds the pan while you are at the sink, and clean hands are the only ones that touch the spatula and the salt.',
           timer: null,
         },
         {
-          text: 'Leave the beef alone until the underside is deep brown, 4 to 5 minutes. Then break it into small pieces, stir, and keep cooking until no pink is left, the liquid is gone, and the meat sizzles, 4 to 5 minutes more.',
+          text: 'Leave the beef alone until the underside is deep brown, 4 to 5 minutes. Then break it into small pieces with the spatula, stir, and keep cooking until no pink is left, the liquid is gone, and the meat sizzles, 4 to 5 minutes more.',
           why: 'Browning, as in the weeknight meat sauce. Brown bits will build up on the bottom of the pan. Leave them: they are flavor you will lift off later.',
           timer: null,
         },
         {
-          text: 'Check it: push the tip of the thermometer into the middle of a thick pile of meat, keeping it off the pan, and wait until the number stops climbing. It must read at least 160°F. If it is lower, cook 2 more minutes and check again. Wash the probe, and put the salt bowl in hot, soapy water.',
-          why: 'A tip touching the pan reads too high, which is the dangerous direction.',
+          text: 'Push the tip of the thermometer into the middle of a thick pile of meat, keeping it off the pan, and wait until the number stops climbing. It must read at least 160°F. If it is lower, cook 2 more minutes and check again. Turn the heat to low. Wash the probe and the spatula in hot, soapy water, dry the spatula, and wipe the counter where the package sat.',
+          why: 'A tip touching the pan reads too high, which is the dangerous direction. The spatula touched raw beef when it pressed it out; washed, it is safe for the cooked meat. Low heat holds the pan while you are at the sink, and a dry spatula keeps hot fat from spitting.',
           timer: null,
         },
         {
@@ -3110,8 +3114,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Turn off the burner. With an oven mitt on the handle, tip the skillet over the saucepan and scrape everything in. Open the can and add half the tomatoes and the remaining 1¼ cups of broth, and stir. Keep the rest of the tomatoes in a lidded container: a week in the fridge, 3 months frozen.',
-          why: 'A deep saucepan loses less liquid than a wide skillet over a long simmer.',
+          text: 'Turn off the burner. Set the saucepan on a cool burner beside the skillet and ladle most of the meat into it. Then put an oven mitt on the skillet handle, rest the skillet’s edge on the saucepan’s rim, tilt it, and scrape in the rest with the wooden spoon. Open the can and stir in half the tomatoes and the remaining 1¼ cups of broth.',
+          why: 'A deep saucepan loses less liquid than a wide skillet over a long simmer. A cast-iron skillet weighs about 8 pounds, so ladle first and then only tilt it, resting on the rim; never hold it up in the air with one hand. Keep the rest of the tomatoes in a lidded container: a week in the fridge, 3 months frozen.',
           timer: null,
         },
         {
@@ -3146,13 +3150,13 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Turn off the burner. Serve with the rest of the ragù ladled on top and the parmesan.',
-          why: 'Leftovers go in a lidded container and into the fridge within 2 hours. They keep 4 days, or 3 months in the freezer.',
+          why: 'Leftovers go in a lidded container and into the fridge within 2 hours, and keep 4 days. Pasta tossed in sauce turns mushy in the freezer; ragù on its own freezes for 3 months, so to freeze some, keep it back before you toss the pasta.',
           timer: null,
         },
       ],
       delivery: { label: 'Tagliatelle bolognese', menuPriceCents: 2100, side: false },
       leftovers: {
-        reheat: 'Warm the ragù in a saucepan over low heat with a splash of water, stirring, until it bubbles, then toss it with fresh pasta if you have some. The ragù on its own freezes for 3 months: thaw it overnight in the fridge.',
+        reheat: 'The pasta was all tossed, so the leftovers are sauced pasta: add a splash of water, cover, and microwave in 1-minute bursts, stirring between, until it is steaming hot all the way through. Ragù kept on its own warms in a saucepan over low heat, stirring, until it bubbles. It freezes for 3 months: thaw it overnight in the fridge.',
       },
       pairing: {
         wine: 'Barbera d’Asti',
@@ -3225,11 +3229,11 @@ export const RECIPES: readonly Recipe[] = [
         },
         {
           text: 'Tear off a sheet of plastic wrap and set it aside. Take the chicken from the fridge, open it, and lift 3 thighs onto the board with the fork. Close the package, wrap it in the plastic wrap, and put it back in the fridge. Slice the thighs into strips about ½ inch thick and 2 inches long and put them in the medium bowl.',
-          why: 'Pad thai is cooked a small amount at a time, so this uses half the pack. Cook the rest within 2 days, or freeze it.',
+          why: 'Pad thai is cooked a small amount at a time, so this uses half the pack. Raw chicken keeps 2 days from the day it was bought, not from today. Unless you will cook the rest by then, freeze it tonight, and thaw it overnight in the fridge before you cook it.',
           timer: null,
         },
         {
-          text: 'Wash the board, knife, and fork in hot, soapy water, and wash your hands. Cover the chicken bowl with plastic wrap and put it in the fridge until the noodles are ready.',
+          text: 'Wash the board, knife, and fork in hot, soapy water, and wash your hands. Cover the chicken bowl with plastic wrap and put it in the fridge until the noodles are ready, then wash your hands again.',
           why: 'Raw chicken does not sit out while the noodles finish soaking.',
           timer: null,
         },
@@ -3239,7 +3243,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Heat 1 tablespoon of the oil in the skillet over medium-high until it shimmers. Tip in the chicken, spread it into one layer with the spatula, and leave it 2 minutes to brown. Stir and cook until browned all over, 2 to 3 minutes more. Put the chicken bowl in hot, soapy water.',
+          text: 'Heat 1 tablespoon of the oil in the skillet over medium-high until it shimmers. Tip in the chicken, spread it into one layer with the spatula, and leave it 2 minutes to brown. Stir and cook until browned all over, 2 to 3 minutes more.',
           why: null,
           timer: null,
         },
@@ -3249,8 +3253,8 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Use the clean spatula to move the chicken to a clean plate. Turn the heat back to medium-high and add the remaining 2 tablespoons of oil. When it shimmers, add the garlic and stir for 15 seconds. Add the noodles and toss with the tongs for 1 minute, until they turn glossy and soft at the edges.',
-          why: 'Lift and turn the noodles with the tongs rather than stirring, so they do not break.',
+          text: 'Put the chicken bowl in hot, soapy water and wash your hands. Use the clean spatula to move the chicken to a clean plate. Turn the heat back to medium-high and add the remaining 2 tablespoons of oil. When it shimmers, add the garlic and stir for 15 seconds. Add the noodles and toss with the tongs for 1 minute, until they turn glossy and soft at the edges.',
+          why: 'Your hands tipped the raw chicken out of that bowl. Washed now, while the heat is low, they are clean for the noodles, the peanuts, and the lime. Lift and turn the noodles with the tongs rather than stirring, so they do not break.',
           timer: null,
         },
         {
@@ -3293,8 +3297,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['breading-frying', 'velveting', 'stir-fry-sauce', 'steaming-rice'],
     content: {
       servings: 4,
-      activeMinutes: 60,
-      totalMinutes: 75,
+      activeMinutes: 75,
+      totalMinutes: 95,
       equipment: [
         'small-saucepan',
         'medium-saucepan',
@@ -3308,6 +3312,7 @@ export const RECIPES: readonly Recipe[] = [
         'fork',
         'grater',
         'spoon',
+        'can-opener',
         'chefs-knife',
         'cutting-board',
         'sheet-pan',
@@ -3339,7 +3344,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       steps: [
         {
-          text: 'Make the sauce: in the medium bowl, stir the broth, 3 tablespoons of the soy sauce, the vinegar, the sugar, 1 tablespoon of the cornstarch, and the sesame oil with the fork until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
+          text: 'Make the sauce: open the can of broth and measure out ½ cup. With the fork, stir it in the medium bowl with 3 tablespoons of the soy sauce, the vinegar, the sugar, 1 tablespoon of the cornstarch, and the sesame oil until no lumps of cornstarch are left. Keep the rest of the can of broth in a lidded container: 4 days in the fridge, or 3 months frozen.',
           why: 'The same method as every stir-fry sauce you have made: mixed ahead, thickened at the end. The vinegar is what makes it sweet and sour.',
           timer: null,
         },
@@ -3411,7 +3416,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       delivery: { label: 'General Tso’s chicken with white rice', menuPriceCents: 1600, side: false },
       leftovers: {
-        reheat: 'Reheat the chicken on the wire rack in the sheet pan in a 400°F oven for 8 to 10 minutes, until it reads at least 165°F, so the coating crisps instead of steaming.',
+        reheat: 'The sauce softens the crust overnight. Line the sheet pan with foil, since the glaze drips and smokes on a bare pan, set the wire rack in it, and reheat the chicken on the rack in a 400°F oven for 8 to 10 minutes, until it reads at least 165°F. The oven firms the crust up a little; a microwave turns it soggy. Rice is reheated only once, so warm only the rice you will eat now, with a spoonful of water, covered, until steaming; the rest stays cold, ready for egg fried rice.',
       },
       pairing: {
         wine: 'Off-dry Chenin Blanc from South Africa',
@@ -3430,8 +3435,8 @@ export const RECIPES: readonly Recipe[] = [
     requires: ['masala-base', 'marinating-broiling', 'steaming-rice'],
     content: {
       servings: 4,
-      activeMinutes: 70,
-      totalMinutes: 120,
+      activeMinutes: 80,
+      totalMinutes: 140,
       equipment: [
         'small-nonstick-skillet',
         'silicone-spatula',
@@ -3517,7 +3522,7 @@ export const RECIPES: readonly Recipe[] = [
           timer: null,
         },
         {
-          text: 'Put 3 tablespoons of the oil in the medium saucepan over medium heat and drop in one cumin seed. When it sizzles right away, add the rest of the seeds and let them sizzle for 20 to 30 seconds, until a shade darker and toasty-smelling.',
+          text: 'Put 3 tablespoons of the oil in the medium saucepan over medium heat, drop in one cumin seed, and wait. When it sizzles, the oil is ready: add the rest of the seeds and let them sizzle for 20 to 30 seconds, until a shade darker and toasty-smelling.',
           why: 'The masala waits about an hour for the chicken. Tomato left that long in a cast-iron skillet strips its seasoning and tastes of metal, so it cooks in the saucepan, as the chana masala does.',
           timer: null,
         },
@@ -3584,7 +3589,7 @@ export const RECIPES: readonly Recipe[] = [
       ],
       delivery: { label: 'Chicken tikka masala with rice', menuPriceCents: 1800, side: false },
       leftovers: {
-        reheat: 'Warm it in a covered saucepan over medium-low heat, stirring, until it bubbles and the chicken reads at least 165°F. It freezes for 3 months: thaw it overnight in the fridge.',
+        reheat: 'Warm it in a covered saucepan over medium-low heat, stirring, until it bubbles and the chicken reads at least 165°F. It freezes for 3 months: thaw it overnight in the fridge. Rice is reheated only once, so warm only the rice you will eat now, with a spoonful of water, covered, until steaming; the rest stays cold, ready for egg fried rice.',
       },
       pairing: {
         wine: 'Off-dry Riesling',

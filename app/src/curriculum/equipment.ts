@@ -70,8 +70,16 @@ export const EQUIPMENT = {
   },
 
   // Tools
-  tongs: { name: 'Tongs', note: 'About 12 inches long.', coveredBy: [] },
-  spatula: { name: 'Spatula', note: 'A flat turner for flipping. Nylon or silicone, so it is safe on nonstick.', coveredBy: [] },
+  tongs: {
+    name: 'Silicone-tipped tongs',
+    note: 'About 12 inches long. Silicone tips are safe on a nonstick pan, where bare metal scratches the coating.',
+    coveredBy: [],
+  },
+  spatula: {
+    name: 'Spatula',
+    note: 'A flat turner for flipping, made of silicone that is heatproof to at least 500°F, so it is safe on nonstick and on a very hot cast-iron pan. Nylon softens and melts over high heat.',
+    coveredBy: [],
+  },
   'metal-spatula': { name: 'Stiff metal spatula', note: 'Wide and sturdy, with a sharp front edge for scraping.', coveredBy: [] },
   'silicone-spatula': { name: 'Silicone spatula', note: 'Heatproof, for scraping a pan clean.', coveredBy: [] },
   'wooden-spoon': { name: 'Wooden spoon', note: null, coveredBy: [] },

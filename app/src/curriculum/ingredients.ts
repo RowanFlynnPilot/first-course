@@ -318,11 +318,12 @@ export const INGREDIENTS = {
   },
   'pasteurized-eggs': {
     // For sauces where the yolk stays raw. Pasteurized in the shell, sold next to the other eggs.
+    // A staple: a dozen keeps like eggs, and a recipe uses 1 to 3 of it.
     name: 'Pasteurized large egg',
     plural: 'Pasteurized large eggs',
     section: 'dairy',
     unit: 'each',
-    staple: false,
+    staple: true,
     package: { label: '1 dozen, pasteurized in the shell', priceCents: 549, units: 12 },
   },
   mozzarella: {

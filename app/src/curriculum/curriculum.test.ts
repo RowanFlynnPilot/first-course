@@ -186,6 +186,36 @@ describe('written recipes', () => {
     }
   })
 
+  it('reheat rice only once: the reheat line says so wherever rice is left over', () => {
+    // Warm only the rice eaten now; the rest stays cold, for egg fried rice.
+    for (const { id, content } of written) {
+      if (content.leftovers === null || !content.ingredients.some((line) => line.ingredientId === 'jasmine-rice')) continue
+      expect(content.leftovers.reheat, id).toMatch(/\bonce\b/)
+    }
+  })
+
+  it('open every can with the can opener, and say so in a step', () => {
+    // An ingredient whose package is a can: "28 oz can", "14.5 oz can".
+    const canned = (Object.keys(INGREDIENTS) as IngredientId[]).filter((ingredientId) => /\bcan\b/.test(INGREDIENTS[ingredientId].package.label))
+    expect(canned.length).toBeGreaterThan(0)
+    for (const { id, content } of written) {
+      if (!content.ingredients.some((line) => canned.includes(line.ingredientId))) continue
+      expect(content.equipment, id).toContain('can-opener')
+      const text = content.steps.map((step) => step.text).join(' ')
+      expect(text, id).toMatch(/\bopen (?:the can\b|both cans\b|all \w+ cans\b)/i)
+    }
+  })
+
+  it('take at least as long, start to finish, as the longest timer and a few minutes around it', () => {
+    // The menu reads totalMinutes for "start now and eat around …". Timers that run one after
+    // another cannot be told from ones that overlap, so this is the floor: the longest one, plus 5.
+    for (const { id, content } of written) {
+      const longest = Math.max(0, ...content.steps.map((step) => (step.timer === null ? 0 : step.timer.seconds / 60)))
+      expect(content.totalMinutes, id).toBeGreaterThanOrEqual(longest + 5)
+      expect(content.activeMinutes, id).toBeLessThanOrEqual(content.totalMinutes)
+    }
+  })
+
   it('measure in spoons a standard set has: never a fraction of a tablespoon', () => {
     for (const { id, content } of written) {
       const words = [...content.steps.flatMap((step) => [step.text, step.why ?? '']), ...content.ingredients.map((line) => line.prep ?? '')]
