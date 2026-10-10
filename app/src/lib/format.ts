@@ -150,17 +150,6 @@ export function listOf(items: readonly string[]): string {
   return LIST.format(items)
 }
 
-/**
- * The same list as listOf, in pieces, for a list whose items are links: each
- * piece is an item's index or the text between items.
- */
-export function listPieces(count: number): ({ index: number } | { text: string })[] {
-  const marks = Array.from({ length: count }, (_, index) => `\u0000${index}\u0000`)
-  return LIST.formatToParts(marks).map((part) =>
-    part.type === 'element' ? { index: Number(part.value.slice(1, -1)) } : { text: part.value },
-  )
-}
-
 /** The most a package can cost, as the database checks it. */
 export const MAX_PRICE_CENTS = 100_000
 

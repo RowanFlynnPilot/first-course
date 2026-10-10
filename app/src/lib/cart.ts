@@ -7,13 +7,16 @@
 //
 // The cart also keeps which recipes its list was for, so checks made for one
 // list never stand for another (a recipe planned on another device does not
-// find its chicken already checked off), and when it last changed: a cart
-// left two days no longer says what is in it.
+// find its chicken already checked off), and when the first grocery in it
+// that is not a staple was checked: the day its meat was bought, which Done
+// shopping dates the shop by, however late it is tapped. It keeps until Done
+// shopping, or "Clear the cart" (Rowan's call, October 10, 2026).
 
 import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
-import { groceryList } from './grocery'
+import { localDateString } from './format'
+import { groceryList, toShopFor } from './grocery'
 import { hasKit } from './kit'
 import type { Shop } from './shop'
 
@@ -24,18 +27,16 @@ export interface Cart {
   readonly kitChecks: ReadonlySet<EquipmentId>
   /** The recipes the list was for when these were checked, by id. */
   readonly checkedFor: readonly string[]
-  /** When a check last changed, in milliseconds. */
-  readonly at: number
+  /**
+   * When the first grocery in the cart that is not a staple was checked off,
+   * in milliseconds, or null with none: the day the meat in it was bought.
+   */
+  readonly since: number | null
 }
 
-/** A cart nobody has checked anything in for this long is forgotten: a shop, and the next day to finish it. */
-export const CART_KEEPS_MS = 2 * 24 * 60 * 60 * 1000
+export const EMPTY_CART: Cart = { checks: new Set(), kitChecks: new Set(), checkedFor: [], since: null }
 
-export const EMPTY_CART: Cart = { checks: new Set(), kitChecks: new Set(), checkedFor: [], at: 0 }
-
-// The key names the format: the checks were once a bare list of ingredients.
 const key = (owner: string) => `first-course:cart:${owner}`
-const oldKey = (owner: string) => `first-course:grocery-checks:${owner}`
 
 function stringsIn(value: unknown, what: string): string[] {
   if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
@@ -44,20 +45,18 @@ function stringsIn(value: unknown, what: string): string[] {
   return value as string[]
 }
 
-export function loadCart(storage: Storage, owner: string, now: number): Cart {
-  // Checks kept before the cart knew its list cannot say what they were for: they go.
-  storage.removeItem(oldKey(owner))
+export function loadCart(storage: Storage, owner: string): Cart {
   const stored = storage.getItem(key(owner))
   if (stored === null) return EMPTY_CART
-  const parsed = JSON.parse(stored) as { checks?: unknown; kitChecks?: unknown; checkedFor?: unknown; at?: unknown } | null
+  const parsed = JSON.parse(stored) as { checks?: unknown; kitChecks?: unknown; checkedFor?: unknown; since?: unknown } | null
   if (parsed === null || typeof parsed !== 'object') throw new Error('The cart saved on this phone is malformed')
-  // A cart saved before it kept a time (October 9, 2026) counts as checked just now.
-  const at = parsed.at === undefined ? now : parsed.at
-  if (typeof at !== 'number') throw new Error('The cart saved on this phone is malformed')
-  if (now - at > CART_KEEPS_MS) {
+  // A cart kept before it knew when its groceries were bought (October 9, 2026) cannot date them: it goes.
+  if (!('since' in parsed)) {
     storage.removeItem(key(owner))
     return EMPTY_CART
   }
+  const { since } = parsed
+  if (since !== null && typeof since !== 'number') throw new Error('The cart saved on this phone is malformed')
   return {
     checks: new Set(
       stringsIn(parsed.checks, 'grocery checks').map((id) => {
@@ -72,7 +71,7 @@ export function loadCart(storage: Storage, owner: string, now: number): Cart {
       }),
     ),
     checkedFor: stringsIn(parsed.checkedFor, 'recipes of the cart').map((id) => recipeById(id).id),
-    at,
+    since,
   }
 }
 
@@ -87,19 +86,30 @@ export function loadCart(storage: Storage, owner: string, now: number): Cart {
  * (App.tsx), so checks never outlive their list.
  */
 export function settleCart(shop: Shop): Shop {
-  // The list is for the planned recipes not yet bought (toShopFor in shop.ts).
-  const listFor = shop.plan.filter((id) => !shop.shopped.has(id))
+  const listFor = toShopFor(shop)
   const added = listFor.filter((id) => !shop.checkedFor.includes(id))
   const touched = new Set(added.flatMap((id) => recipeById(id).content.ingredients.map((line) => line.ingredientId)))
   const listed = new Set(groceryList(listFor, shop.pantry, shop.prices).lines.map((line) => line.ingredientId))
   const stays = (id: IngredientId) =>
     !shop.pantry.has(id) && (INGREDIENTS[id].staple || (listed.has(id) && !touched.has(id)))
+  const checks = [...shop.checks].filter(stays)
   return {
     ...shop,
-    checks: new Set([...shop.checks].filter(stays)),
+    checks: new Set(checks),
     kitChecks: new Set([...shop.kitChecks].filter((id) => !hasKit(id, shop.kit))),
     checkedFor: listFor,
+    // The clock stops when the last grocery that dates the shop is gone (Done shopping took it).
+    since: checks.some((id) => !INGREDIENTS[id].staple) ? shop.since : null,
   }
+}
+
+/**
+ * The day the groceries in the cart were bought, YYYY-MM-DD: the day the
+ * first of them that is not a staple was checked off (`since`), or today.
+ * Meat keeps from that day, not from the day Done shopping was tapped.
+ */
+export function boughtDay(cart: Cart, today: string): string {
+  return cart.since === null ? today : localDateString(new Date(cart.since))
 }
 
 export function saveCart(storage: Storage, owner: string, cart: Cart) {
@@ -107,6 +117,6 @@ export function saveCart(storage: Storage, owner: string, cart: Cart) {
   else
     storage.setItem(
       key(owner),
-      JSON.stringify({ checks: [...cart.checks], kitChecks: [...cart.kitChecks], checkedFor: cart.checkedFor, at: cart.at }),
+      JSON.stringify({ checks: [...cart.checks], kitChecks: [...cart.kitChecks], checkedFor: cart.checkedFor, since: cart.since }),
     )
 }

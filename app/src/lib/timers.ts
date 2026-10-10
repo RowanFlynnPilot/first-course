@@ -32,10 +32,7 @@ export type Timers = Readonly<Record<string, Timer>>
 /** A finished timer stays on screen this long, then it is dropped as stale. */
 export const STALE_AFTER_MS = 30 * 60 * 1000
 
-// The key names the format: timers were once keyed by step number, then by
-// recipe alone (OLD_PREFIX), before they were kept per account.
 const PREFIX = 'first-course:timers:'
-const OLD_PREFIX = 'first-course:timers-by-label:'
 const key = (owner: string, recipeId: string) => `${PREFIX}${owner}:${recipeId}`
 
 /** The timers cook mode shows: not stopped, and not finished for longer than STALE_AFTER_MS. */
@@ -93,19 +90,14 @@ export function clearTimers(storage: Storage, owner: string, recipeId: string) {
  * logging: a recipe whose every timer ended longer ago than a cook in
  * progress is kept (RESUME_FOR_MS). Run on every load, so storage does not
  * fill with them. Only the signed-in account's are read: another account's
- * wait for that account, and cannot stop this one loading. Timers kept
- * before they were per account go too.
+ * wait for that account, and cannot stop this one loading.
  */
 export function forgetOldTimers(storage: Storage, owner: string, now: number) {
   const mine = `${PREFIX}${owner}:`
   const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
-    (stored): stored is string => stored !== null && (stored.startsWith(mine) || stored.startsWith(OLD_PREFIX)),
+    (stored): stored is string => stored !== null && stored.startsWith(mine),
   )
   for (const stored of keys) {
-    if (stored.startsWith(OLD_PREFIX)) {
-      storage.removeItem(stored)
-      continue
-    }
     const timers = loadTimers(storage, owner, stored.slice(mine.length))
     if (Object.values(timers).every((timer) => now - timer.endsAt > RESUME_FOR_MS)) storage.removeItem(stored)
   }

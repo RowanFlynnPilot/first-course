@@ -6,8 +6,6 @@ import {
   formatDuration,
   formatMinutes,
   inSentence,
-  listOf,
-  listPieces,
   packagesOf,
   MAX_PRICE_CENTS,
   parseCents,
@@ -79,16 +77,6 @@ describe('format', () => {
     expect(parseCents('.99')).toBe(99)
     expect(parseCents('$.5')).toBe(50)
     for (const typed of ['', '0', '0.00', 'three', '3.499', '-2', '$']) expect(() => parseCents(typed), typed).toThrow('like 3.49')
-  })
-
-  it('joins a list of links the same way listOf joins words', () => {
-    const words = ['salt', 'oil', 'lemons']
-    for (const count of [1, 2, 3]) {
-      const joined = listPieces(count)
-        .map((piece) => ('text' in piece ? piece.text : words[piece.index]))
-        .join('')
-      expect(joined).toBe(listOf(words.slice(0, count)))
-    }
   })
 
   it('refuses a price over $1,000 in plain words, as the database would', () => {

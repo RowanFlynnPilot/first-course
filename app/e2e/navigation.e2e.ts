@@ -189,6 +189,9 @@ test.describe('moving between screens', () => {
       const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)
       expect(fits, route).toBe(true)
     }
+    // Cook mode's buttons, a row each at this size, scroll with the step rather than cover it.
+    await page.goto('#/cook/sheet-pan-sausage/3')
+    await expect(page.locator('.cook-nav')).toHaveCSS('position', 'static')
   })
 
   test('zoomed far in, no screen runs off the side', async ({ page, kitchen }) => {
@@ -201,5 +204,9 @@ test.describe('moving between screens', () => {
       const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)
       expect(fits, route).toBe(true)
     }
+    // The suggestion's plate sits above the dish's name, which gets the whole width rather than break mid-word.
+    const plate = await page.locator('.tray > .plate').boundingBox()
+    const title = await page.locator('.tray-title').boundingBox()
+    expect(plate !== null && title !== null && plate.y + plate.height <= title.y).toBe(true)
   })
 })

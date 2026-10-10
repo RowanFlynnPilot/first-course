@@ -50,6 +50,21 @@ test.describe('no signal at all', () => {
 })
 
 test.describe('a sign-in that cannot be renewed', () => {
+  test('Try again opens the kitchen at once once there is signal, without the auth client’s minute of waiting', async ({
+    page,
+    kitchen,
+  }) => {
+    await page.clock.install({ time: EVENING })
+    kitchen.backend.dropEvery('auth/token', 'POST')
+    await kitchen.open('./', { ...SALAD_DONE, sessionExpired: true })
+    await page.clock.runFor('00:45')
+    await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
+    kitchen.backend.letThrough('auth/token', 'POST')
+    // A fresh page asks at once; the page left as it was would wait out auth-js's REFRESH_FAILURE_COOLDOWN_MS (60 s).
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await expect(page.getByText('Cook this next')).toBeVisible()
+  })
+
   test('signed out on another device meanwhile, it goes to Sign in, not a promise to open by itself', async ({ page, kitchen }) => {
     await page.clock.install({ time: EVENING })
     kitchen.backend.dropEvery('auth/token', 'POST')

@@ -12,6 +12,13 @@ updates:
     cooldown:
       default-days: 7
     groups:
+      # Packages released together are proposed together: react-dom needs the
+      # react of its own version, and the two Supabase clients ship as one
+      # release. Listed first, so these take them before the dev group does.
+      react:
+        patterns: [react, react-dom, '@types/react', '@types/react-dom']
+      supabase:
+        patterns: ['@supabase/*']
       # Minor and patch updates of the dev tools in one pull request, so a
       # week's small updates are one review. A major update comes on its own,
       # so one that breaks the build does not hold back the rest.

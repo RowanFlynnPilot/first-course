@@ -1,4 +1,4 @@
-import { EMAIL, expect, FRESH, PASSWORD, test } from './kitchen'
+import { EMAIL, expect, FRESH, PASSWORD, test, useTheLink } from './kitchen'
 
 /** An email link whose access token claims an account in a token the server never issued. */
 function forgedHash(hash: string): string {
@@ -93,6 +93,7 @@ test.describe('signing in and creating a chef', () => {
   test('the reset link asks for a new password first, and the new one signs in', async ({ page, kitchen }) => {
     const hash = kitchen.backend.recoveryHash()
     await kitchen.open(`./${hash}`, { signedIn: false })
+    await useTheLink(page)
     await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
     await expect(page).toHaveTitle('Set a new password · First Course')
     // The client took the tokens out of the address.
@@ -129,8 +130,10 @@ test.describe('signing in and creating a chef', () => {
     await expect(page.getByRole('alert')).toHaveCount(0)
   })
 
-  test('a confirmation link signs the new account in, straight to the menu', async ({ page, kitchen }) => {
+  test('a confirmation link signs the new account in, once asked, straight to the menu', async ({ page, kitchen }) => {
     await kitchen.open(`./${kitchen.backend.signupHash()}`, { signedIn: false })
+    await expect(page.getByText(`This email link signs in as ${EMAIL}. If you did not ask for this email, do not use it.`)).toBeVisible()
+    await useTheLink(page)
     await expect(page.getByText('Cook this next')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Set a new password' })).toHaveCount(0)
     expect(new URL(page.url()).hash).toBe('')
@@ -161,7 +164,27 @@ test.describe('signing in and creating a chef', () => {
     // The tokens are already out of the address bar: only the app still has them.
     expect(page.url()).not.toContain('access_token')
     await page.getByRole('button', { name: 'Try again' }).click()
+    await useTheLink(page)
     await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+  })
+
+  test('a link that lands on a phone signed out signs no one in until the cook says so', async ({ page, kitchen }) => {
+    // Anyone can send a link carrying their own account: on a phone nobody is signed in to, it still asks.
+    await kitchen.open(`./${kitchen.backend.strangerHash()}`, { signedIn: false })
+    await expect(page.getByRole('heading', { name: 'Sign in with this link?' })).toBeVisible()
+    await expect(page.getByText('This email link signs in as someone.else@example.test.')).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+    await page.getByRole('button', { name: 'Not now' }).click()
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Set a new password' })).toHaveCount(0)
+    expect(await page.evaluate(() => localStorage.getItem('sb-e2e-auth-token'))).toBeNull()
+  })
+
+  test('a link carrying a session and an error signs no one in, and says it failed', async ({ page, kitchen }) => {
+    await kitchen.open(`./${kitchen.backend.strangerHash()}&error=access_denied&error_code=otp_expired`, { signedIn: false })
+    await expect(page.getByRole('alert')).toHaveText('That email link has expired.')
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    expect(await page.evaluate(() => localStorage.getItem('sb-e2e-auth-token'))).toBeNull()
   })
 
   test('a failed link while already signed in says so above the menu', async ({ page, kitchen }) => {
@@ -184,6 +207,8 @@ test.describe('signing in and creating a chef', () => {
     await kitchen.open(`./${kitchen.backend.strangerHash()}`, FRESH)
     await expect(page.getByRole('heading', { name: 'Switch accounts?' })).toBeVisible()
     await expect(page.getByText(`This email link signs in as someone.else@example.test. You are signed in here as ${EMAIL}.`)).toBeVisible()
+    // Two emails, one of them long, and nothing runs off the side.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
     await page.getByRole('button', { name: `Stay signed in as ${EMAIL}` }).click()
     await expect(page.getByRole('link', { name: /Remy/ })).toBeVisible()
     // No new password is asked for: the reset was for the other account.
@@ -234,6 +259,7 @@ test.describe('signing in and creating a chef', () => {
   test('Back after a reset link never lands on the link, or keeps its tokens in history', async ({ page, kitchen }) => {
     await page.goto('about:blank')
     await kitchen.open(`./${kitchen.backend.recoveryHash()}`, { signedIn: false })
+    await useTheLink(page)
     await page.getByLabel('New password').fill('a brand new password')
     await page.getByRole('button', { name: 'Save new password' }).click()
     await page.getByRole('button', { name: 'Go to the menu' }).click()
@@ -268,6 +294,7 @@ test.describe('email links on weak signal', () => {
     await kitchen.open(`./${kitchen.backend.recoveryHash()}`, { signedIn: false })
     await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
     await page.getByRole('button', { name: 'Try again' }).click()
+    await useTheLink(page)
     await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
   })
 
@@ -281,7 +308,7 @@ test.describe('email links on weak signal', () => {
 test.describe('whose kitchen this is', () => {
   test('the menu names the account, and Sign out signs out this phone only', async ({ page, kitchen }) => {
     await kitchen.open('./', FRESH)
-    await expect(page.getByText(`Signed in as ${EMAIL}`)).toBeVisible()
+    await expect(page.getByText(`Signed in on this phone as ${EMAIL}`)).toBeVisible()
     await page.getByRole('button', { name: 'Sign out' }).click()
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
     expect(kitchen.backend.logouts).toEqual(['local'])

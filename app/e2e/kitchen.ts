@@ -2,7 +2,7 @@
 // check after each test that nothing went wrong quietly.
 
 import { test as base, expect, type Page } from '@playwright/test'
-import { FakeSupabase, SUPABASE_URL, type Seed } from './fakeSupabase'
+import { EMAIL, FakeSupabase, SUPABASE_URL, type Seed } from './fakeSupabase'
 
 export { expect }
 export { EMAIL, PASSWORD } from './fakeSupabase'
@@ -112,6 +112,13 @@ export const COUNT_BEEPS = () => {
     counter.beeps += 1
     return start.apply(this, args)
   }
+}
+
+/** An email link landing on a phone signed out asks first (App.tsx): the cook says yes. */
+export async function useTheLink(page: Page, email: string = EMAIL) {
+  await expect(page.getByRole('heading', { name: 'Sign in with this link?' })).toBeVisible()
+  await expect(page.getByText(`This email link signs in as ${email}.`)).toBeVisible()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
 }
 
 /** The cart's grocery checks, as the phone keeps them (lib/cart.ts), sorted. */

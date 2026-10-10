@@ -37,8 +37,8 @@ export default function App() {
   const [settingPassword, setSettingPassword] = useState(fromPasswordReset)
   // An email link's sign-in finishes before anything shows, so the sign-in screen never flashes first.
   const [landed, setLanded] = useState(emailLink === null)
-  // The link signs in a different account from the one signed in here: asked first.
-  const [switching, setSwitching] = useState<{ from: string; to: string } | null>(null)
+  // Whose account the link signs in, and who is signed in here (null: no one): the cook is asked first.
+  const [asking, setAsking] = useState<{ from: string | null; to: string; owner: string } | null>(null)
   // Why an email link that brought the cook here failed. Shown once, then
   // gone: it must not come back on the sign-in screen after a sign-out.
   const [linkProblem, setLinkProblem] = useState<string | null>(linkError)
@@ -70,9 +70,9 @@ export default function App() {
     setLanded(true)
   }
 
-  function land() {
+  function land(owner: string) {
     if (emailLink === null) throw new Error('No email link to sign in with')
-    signInFromLink(emailLink).then(() => setLanded(true), linkFailed)
+    signInFromLink(emailLink, owner).then(() => setLanded(true), linkFailed)
   }
 
   function checkLink() {
@@ -88,11 +88,18 @@ export default function App() {
           )
         }
         const current = data.session?.user
-        if (current !== undefined && current.id !== owner.id) {
-          setSwitching({ from: current.email ?? 'another account', to: owner.email ?? 'another account' })
+        // Already signed in as the link's account (a reset asked for while signed in): nothing to ask.
+        if (current?.id === owner.id) {
+          land(owner.id)
           return
         }
-        land()
+        // Anyone can send a link carrying their own account, so the cook says whether to use it,
+        // signed in here already or not.
+        setAsking({
+          from: current === undefined ? null : (emailOf(current.email) ?? 'another account'),
+          to: owner.email ?? 'another account',
+          owner: owner.id,
+        })
       })
       .catch(linkFailed)
   }
@@ -128,16 +135,18 @@ export default function App() {
     return () => data.subscription.unsubscribe()
   }, [])
 
-  if (switching !== null) {
+  if (asking !== null) {
+    const { from, to, owner } = asking
     return (
-      <SwitchAccount
-        {...switching}
-        onSwitch={() => {
-          setSwitching(null)
-          land()
+      <UseLink
+        from={from}
+        to={to}
+        onUse={() => {
+          setAsking(null)
+          land(owner)
         }}
-        onStay={() => {
-          setSwitching(null)
+        onDecline={() => {
+          setAsking(null)
           setSettingPassword(false)
           setLanded(true)
         }}
@@ -159,7 +168,7 @@ export default function App() {
   if (session === null && unrenewed) {
     return (
       <NoConnection
-        message="Your sign-in needs signal to renew. You are still signed in: the app opens by itself once your phone has signal."
+        message="Your sign-in needs signal to renew. You are still signed in, and your checks are kept on this phone: the app opens by itself once your phone has signal."
         // The auth client will not ask again for a minute after a failed renewal; a fresh page asks at once.
         onTryAgain={() => window.location.reload()}
       />
@@ -179,7 +188,7 @@ export default function App() {
     <Kitchen
       key={session.user.id}
       userId={session.user.id}
-      email={session.user.email ?? null}
+      email={emailOf(session.user.email)}
       linkProblem={linkProblem}
       onLinkProblemSeen={() => setLinkProblem(null)}
       onSignOut={async () => {
@@ -197,28 +206,43 @@ export default function App() {
   )
 }
 
+/** An account's email, or null for none: Supabase gives an account without one the empty string. */
+function emailOf(email: string | undefined): string | null {
+  return email === undefined || email === '' ? null : email
+}
+
 /**
- * An email link for a different account from the one signed in here. Anyone
- * can send a link that carries their own account, and signing in with it
- * would quietly put this cook's cooks into it, so the cook chooses.
+ * An email link, before it signs anyone in. Anyone can send a link that
+ * carries their own account: signed in with it, this cook's cooks would go
+ * into that account, so the cook chooses. Signed in here already as someone
+ * else, staying is the first choice; signed out, signing in is.
  */
-function SwitchAccount({ from, to, onSwitch, onStay }: { from: string; to: string; onSwitch: () => void; onStay: () => void }) {
-  usePageTitle('Switch accounts?')
+function UseLink({ from, to, onUse, onDecline }: { from: string | null; to: string; onUse: () => void; onDecline: () => void }) {
+  const question = from === null ? 'Sign in with this link?' : 'Switch accounts?'
+  usePageTitle(question)
+  const use = (
+    <button className={from === null ? 'button' : 'button button-quiet'} type="button" onClick={onUse}>
+      {from === null ? 'Sign in' : `Switch to ${to}`}
+    </button>
+  )
   return (
     <main className="page auth">
       <h1 className="wordmark">First Course</h1>
-      <h2 className="section-title">Switch accounts?</h2>
-      <p>
-        This email link signs in as {to}. You are signed in here as {from}. If you did not ask for this email, stay
-        signed in.
-      </p>
+      <h2 className="section-title">{question}</h2>
+      {from === null ? (
+        <p>This email link signs in as {to}. If you did not ask for this email, do not use it.</p>
+      ) : (
+        <p>
+          This email link signs in as {to}. You are signed in here as {from}. If you did not ask
+          for this email, stay signed in.
+        </p>
+      )}
       <div className="actions">
-        <button className="button" type="button" onClick={onStay}>
-          Stay signed in as {from}
+        {from === null && use}
+        <button className={from === null ? 'button button-quiet' : 'button'} type="button" onClick={onDecline}>
+          {from === null ? 'Not now' : `Stay signed in as ${from}`}
         </button>
-        <button className="button button-quiet" type="button" onClick={onSwitch}>
-          Switch to {to}
-        </button>
+        {from !== null && use}
       </div>
     </main>
   )
@@ -278,7 +302,7 @@ const REFRESH_AFTER_MS = 10 * 60 * 1000
 // open for days, and an old cook's timers would count as started in the next cook of that recipe.
 async function loadKitchen(userId: string) {
   forgetOldTimers(localStorage, userId, Date.now())
-  const cart = loadCart(localStorage, userId, Date.now())
+  const cart = loadCart(localStorage, userId)
   return Promise.all([fetchCookLogs(), fetchChef(), fetchShop(cart)])
 }
 
@@ -323,12 +347,12 @@ function Kitchen({
   const checks = shop?.checks
   const kitChecks = shop?.kitChecks
   const checkedFor = shop?.checkedFor
-  const at = shop?.at
+  const since = shop?.since
   useEffect(() => {
-    if (checks !== undefined && kitChecks !== undefined && checkedFor !== undefined && at !== undefined) {
-      saveCart(localStorage, userId, { checks, kitChecks, checkedFor, at })
+    if (checks !== undefined && kitChecks !== undefined && checkedFor !== undefined && since !== undefined) {
+      saveCart(localStorage, userId, { checks, kitChecks, checkedFor, since })
     }
-  }, [userId, checks, kitChecks, checkedFor, at])
+  }, [userId, checks, kitChecks, checkedFor, since])
 
   // Back after a while away, catch up with whatever another device did
   // meanwhile. An installed app is never reloaded, so this is how it learns.

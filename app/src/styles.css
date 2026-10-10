@@ -238,6 +238,11 @@ p {
   margin-top: 3rem;
 }
 
+/* "Signed in as …": an email has no spaces to wrap at. */
+.footer .row-note {
+  overflow-wrap: anywhere;
+}
+
 /* ── Sections: each opens with a rim line ── */
 
 .section {
@@ -1053,9 +1058,10 @@ p {
 
 /* ── Quick links on the menu: this week, pantry, kit ── */
 
+/* Four links in a row; zoomed far in, or with large text, they wrap rather than shrink below a tap. */
 .quick-links {
-  display: grid;
-  grid-template-columns: repeat(4, auto);
+  display: flex;
+  flex-wrap: wrap;
   margin-top: 1.5rem;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -1063,9 +1069,12 @@ p {
 
 .quick-links a {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
+  min-width: 3rem;
   min-height: 3rem;
+  padding: 0 0.5rem;
   font-weight: 700;
   text-decoration: none;
 }
@@ -1174,11 +1183,17 @@ p {
   white-space: nowrap;
 }
 
-/* What a bought recipe on This week can do: put it back on the list, or say the meat is frozen. */
+/* What a bought recipe on This week can do: put it back on the list, say the meat is frozen or thawing,
+   or that the groceries are still there. Each lines up at the left, wrapped or not. */
 .plan-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0 1.5rem;
+}
+
+.plan-actions .link-button {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 /* A recipe's name on This week is a link: a full-size tap target like the rest. */
@@ -1393,6 +1408,9 @@ input[aria-disabled='true'] {
 
 .auth {
   padding-top: 4rem;
+  /* An email has no spaces to wrap at: a long one in "Switch to …" breaks rather than run off the side,
+     and only where it would (break-word, unlike anywhere, leaves the buttons' widths alone). */
+  overflow-wrap: break-word;
 }
 
 /* Which form this is: sign in, create an account, or reset. */
@@ -1588,14 +1606,6 @@ mark {
   padding-bottom: 0;
   /* Measured in rem below, so large text, not only a narrow screen, unsticks the buttons. */
   container: cook / inline-size;
-}
-
-/* Large text (a column under 20 of its own rem, as at 150% text and more on a phone): the buttons wrap
-   to a row each, and stuck to the bottom they would cover the step's words. They scroll with it instead. */
-@container cook (max-width: 20rem) {
-  .cook-nav {
-    position: static;
-  }
 }
 
 .cook-head {
@@ -1951,6 +1961,20 @@ mark {
     grid-template-columns: 1fr;
   }
 
+  /* The plate takes a row of its own above the dish's name, which beside it would have a column
+     narrower than a word. */
+  .tray {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'plate'
+      'head'
+      'rest';
+  }
+
+  .recipe-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .row-title,
   .tray-title,
   .section-title {
@@ -1985,6 +2009,15 @@ mark {
 
 /* A short screen (a phone on its side): the buttons scroll with the step instead of holding a quarter of it. */
 @media (max-height: 30rem) {
+  .cook-nav {
+    position: static;
+  }
+}
+
+/* Large text (a column under 20 of its own rem, as at 150% text and more on a phone): the buttons wrap
+   to a row each, and stuck to the bottom they would cover the step's words. They scroll with it instead.
+   After .cook-nav, which it overrides at the same specificity. */
+@container cook (max-width: 20rem) {
   .cook-nav {
     position: static;
   }

@@ -1,14 +1,17 @@
-// The cook in progress on this phone: which recipe, which step, and when it
-// was last on screen. An installed app that the phone closes (the cook opened
-// the camera, took a call) reopens at the menu, so the menu offers the way
-// back to the step, or, once the last step is done, to logging it: the log
-// is what unlocks the next recipe, and a cook eaten but never logged is lost.
-// Kept in localStorage with the timers (lib/timers.ts), per account.
+// The cooks in progress on this phone, one per recipe: which step, and when
+// it was last on screen. An installed app that the phone closes (the cook
+// opened the camera, took a call) reopens at the menu, so the menu offers the
+// way back to the step, or, once the last step is done, to logging it: the
+// log is what unlocks the next recipe, and a cook eaten but never logged is
+// lost. One per recipe, so a main and its side each keep their place, and a
+// dinner not yet logged is still asked about after the next cook begins
+// (Rowan's call, October 10, 2026). Kept in localStorage with the timers
+// (lib/timers.ts), per account.
 
 import { addDays } from './freshness'
 import { localDateString } from './format'
 
-/** The cook in progress. */
+/** A cook in progress. */
 export interface Cooking {
   readonly recipeId: string
   /** The step on screen (0 is "get everything out"), or 'log' once the cook tapped "Finish and log it". */
@@ -38,34 +41,56 @@ const isStep = (value: unknown): value is number => typeof value === 'number' &&
  */
 export const RESUME_FOR_MS = 12 * 60 * 60 * 1000
 
-const key = (owner: string) => `first-course:cooking:${owner}`
+const prefix = (owner: string) => `first-course:cooking:${owner}:`
+const key = (owner: string, recipeId: string) => `${prefix(owner)}${recipeId}`
 
-/** The cook in progress, or null when there is none or it was left too long ago. */
-export function loadCooking(storage: Storage, owner: string, now: number): Cooking | null {
-  const stored = storage.getItem(key(owner))
-  if (stored === null) return null
-  const parsed = JSON.parse(stored) as Partial<Record<keyof Cooking, unknown>> | null
+function parsed(stored: string, recipeId: string): Cooking {
+  const fields = JSON.parse(stored) as Partial<Record<keyof Cooking, unknown>> | null
   const valid =
-    parsed !== null &&
-    typeof parsed.recipeId === 'string' &&
-    (parsed.step === 'log' || isStep(parsed.step)) &&
-    // Kept before the first step and the cooks before it were (October 9, 2026): the start, and none.
-    (parsed.from === undefined || isStep(parsed.from)) &&
-    (parsed.cooksBefore === undefined || isStep(parsed.cooksBefore)) &&
-    typeof parsed.at === 'number'
-  if (!valid) throw new Error('The cook in progress saved on this phone is malformed')
-  const cooking = { ...parsed, from: parsed.from ?? 0, cooksBefore: parsed.cooksBefore ?? 0 } as Cooking
-  if (cooking.step === 'log') {
-    const lastDay = addDays(localDateString(new Date(cooking.at)), 1)
-    return localDateString(new Date(now)) > lastDay ? null : cooking
-  }
-  return now - cooking.at > RESUME_FOR_MS ? null : cooking
+    fields !== null &&
+    fields.recipeId === recipeId &&
+    (fields.step === 'log' || isStep(fields.step)) &&
+    isStep(fields.from) &&
+    isStep(fields.cooksBefore) &&
+    typeof fields.at === 'number'
+  if (!valid) throw new Error(`The cook of ${recipeId} saved on this phone is malformed`)
+  return fields as Cooking
+}
+
+/** Whether a cook is still kept at `now`: left mid-way within RESUME_FOR_MS, or finished and the next day not over. */
+function kept(cooking: Cooking, now: number): boolean {
+  if (cooking.step !== 'log') return now - cooking.at <= RESUME_FOR_MS
+  return localDateString(new Date(now)) <= addDays(localDateString(new Date(cooking.at)), 1)
+}
+
+/** The cook of a recipe in progress, or null when there is none or it was left too long ago. */
+export function loadCooking(storage: Storage, owner: string, recipeId: string, now: number): Cooking | null {
+  const stored = storage.getItem(key(owner, recipeId))
+  if (stored === null) return null
+  const cooking = parsed(stored, recipeId)
+  return kept(cooking, now) ? cooking : null
+}
+
+/**
+ * Every cook in progress on this phone for an account, the latest first,
+ * leaving out ones left too long ago. Only this account's are read.
+ */
+export function cooksInProgress(storage: Storage, owner: string, now: number): Cooking[] {
+  const mine = prefix(owner)
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
+    (stored): stored is string => stored !== null && stored.startsWith(mine),
+  )
+  const cooks = keys.flatMap((stored) => {
+    const cooking = loadCooking(storage, owner, stored.slice(mine.length), now)
+    return cooking === null ? [] : [cooking]
+  })
+  return cooks.toSorted((a, b) => b.at - a.at)
 }
 
 export function saveCooking(storage: Storage, owner: string, cooking: Cooking) {
-  storage.setItem(key(owner), JSON.stringify(cooking))
+  storage.setItem(key(owner, cooking.recipeId), JSON.stringify(cooking))
 }
 
-export function clearCooking(storage: Storage, owner: string) {
-  storage.removeItem(key(owner))
+export function clearCooking(storage: Storage, owner: string, recipeId: string) {
+  storage.removeItem(key(owner, recipeId))
 }

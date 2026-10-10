@@ -2,7 +2,7 @@
 // Run with `npm run screens`; the pictures land in app/screens/.
 
 import type { Page } from '@playwright/test'
-import { RECIPES } from '../src/curriculum/recipes'
+import { RECIPES, recipeById } from '../src/curriculum/recipes'
 import type { Seed } from './fakeSupabase'
 import { rateAndSave, SALAD_DONE, test } from './kitchen'
 
@@ -34,6 +34,8 @@ test('forgot password, and the new password after the link', async ({ page, kitc
   // A new hash alone does not load the page again, so reload as the email link would.
   await page.goto(`./${hash}`)
   await page.reload()
+  await shoot(page, 'auth-link')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByRole('heading', { name: 'Set a new password' }).waitFor()
   await shoot(page, 'set-password')
 })
@@ -107,7 +109,9 @@ test('the usual: a recipe page and the ragù’s long simmer', async ({ page, ki
   const everything = RECIPES.filter((recipe) => recipe.tier < 5).map((recipe) => ({ recipe: recipe.id, rating: 2 as const }))
   await kitchen.open('#/recipe/double-smash-burger', { logs: everything })
   await shoot(page, 'recipe-usual')
-  await page.goto('#/cook/ragu-bolognese/12')
+  // The step whose timer is the 2¼-hour simmer, found by its label, so a step added before it does not move the shot.
+  const simmer = recipeById('ragu-bolognese').content.steps.findIndex((step) => step.timer?.label === 'Ragù') + 1
+  await page.goto(`#/cook/ragu-bolognese/${simmer}`)
   await page.getByRole('button', { name: /Start .* timer/ }).click()
   await shoot(page, 'cook-long-timer')
 })

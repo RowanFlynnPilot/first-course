@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RECIPES, recipeById } from '../curriculum/recipes'
+import type { Bought, Groceries } from './freshness'
 import {
   cookable,
   lastNote,
@@ -31,13 +32,18 @@ const eggs = recipeById('soft-scrambled-eggs')
 const TODAY = '2026-11-01'
 const grilledCheese = recipeById('grilled-cheese')
 
+/** Bought groceries by recipe id, as lib/shop.ts works them out: how they stand, and the day to cook the meat by. */
+const NOTHING_BOUGHT: ReadonlyMap<string, Groceries> = new Map()
+const bought = (entries: Record<string, [Bought, string | null]>) =>
+  new Map(Object.entries(entries).map(([id, [state, cookBy]]) => [id, { state, cookBy }]))
+
 describe('progress', () => {
   it('starts with the two no-prerequisite recipes ready and the rest locked', () => {
     expect(recipeState(recipeById('chopped-salad'), [])).toBe('ready')
     expect(recipeState(eggs, [])).toBe('ready')
     expect(recipeState(grilledCheese, [])).toBe('locked')
     // Both are open; the salad is a side, so night one is the eggs.
-    expect(nextRecipe([], [], new Set(), new Map(), TODAY)?.id).toBe(eggs.id)
+    expect(nextRecipe([], [], NOTHING_BOUGHT, TODAY)?.id).toBe(eggs.id)
   })
 
   it('does not teach a skill on a rough cook', () => {
@@ -56,52 +62,64 @@ describe('progress', () => {
   it('suggests a rough cook again before moving on', () => {
     const logs = [log('chopped-salad', 2), log(eggs.id, 1)]
     expect(recipeState(recipeById('sheet-pan-sausage'), logs)).toBe('ready')
-    expect(nextRecipe(logs, [], new Set(), new Map(), TODAY)?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, [], NOTHING_BOUGHT, TODAY)?.id).toBe(eggs.id)
   })
 
   it('keeps a rough cook in its menu place, not ahead of an earlier recipe never cooked', () => {
     const logs = [log('chopped-salad', 2), log('sheet-pan-sausage', 1, '2026-10-31')]
-    expect(nextRecipe(logs, [], new Set(), new Map(), TODAY)?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, [], NOTHING_BOUGHT, TODAY)?.id).toBe(eggs.id)
   })
 
   it('rests a recipe whose skill is learned after any recent cook of it, a rough one included', () => {
     const logs = [log('chopped-salad', 2), log(eggs.id, 2, '2026-08-01'), log(eggs.id, 1, '2026-10-31')]
-    expect(nextRecipe(logs, [], new Set(), new Map(), TODAY)?.id).not.toBe(eggs.id)
+    expect(nextRecipe(logs, [], NOTHING_BOUGHT, TODAY)?.id).not.toBe(eggs.id)
   })
 
   it('suggests what is on this week’s plan first, unless it is locked', () => {
     const logs = [log('chopped-salad', 2)]
     const plan = ['grilled-cheese', 'sheet-pan-sausage', eggs.id]
-    expect(nextRecipe(logs, plan, new Set(), new Map(), TODAY)?.id).toBe('sheet-pan-sausage')
+    expect(nextRecipe(logs, plan, NOTHING_BOUGHT, TODAY)?.id).toBe('sheet-pan-sausage')
     // Groceries bought come first.
-    expect(nextRecipe(logs, plan, new Set([eggs.id]), new Map(), TODAY)?.id).toBe(eggs.id)
-    expect(nextRecipe(logs, ['grilled-cheese'], new Set(['grilled-cheese']), new Map(), TODAY)?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, plan, bought({ [eggs.id]: ['fresh', null] }), TODAY)?.id).toBe(eggs.id)
+    expect(nextRecipe(logs, ['grilled-cheese'], bought({ 'grilled-cheese': ['fresh', null] }), TODAY)?.id).toBe(eggs.id)
   })
 
   it('among the groceries bought, suggests first the meat to cook soonest', () => {
     const logs = [log('chopped-salad', 2), log(eggs.id, 2)]
     const plan = ['sheet-pan-sausage', 'grilled-cheese']
-    const bought = new Set(plan)
     // Bought in the order added: the sheet pan first, until the cheese's (made-up) meat is due sooner.
-    expect(nextRecipe(logs, plan, bought, new Map(), TODAY).id).toBe('sheet-pan-sausage')
-    expect(nextRecipe(logs, plan, bought, new Map([['grilled-cheese', '2026-11-02']]), TODAY).id).toBe('grilled-cheese')
+    expect(nextRecipe(logs, plan, bought({ 'sheet-pan-sausage': ['fresh', null], 'grilled-cheese': ['fresh', null] }), TODAY).id).toBe(
+      'sheet-pan-sausage',
+    )
     expect(
-      nextRecipe(logs, plan, bought, new Map([['grilled-cheese', '2026-11-05'], ['sheet-pan-sausage', '2026-11-03']]), TODAY).id,
+      nextRecipe(logs, plan, bought({ 'sheet-pan-sausage': ['fresh', null], 'grilled-cheese': ['fresh', '2026-11-02'] }), TODAY).id,
+    ).toBe('grilled-cheese')
+    expect(
+      nextRecipe(logs, plan, bought({ 'sheet-pan-sausage': ['fresh', '2026-11-03'], 'grilled-cheese': ['fresh', '2026-11-05'] }), TODAY)
+        .id,
     ).toBe('sheet-pan-sausage')
   })
 
-  it('puts meat past its day after fresh meat and after groceries with no day', () => {
+  it('suggests fresh groceries before ones to ask about, thawing, frozen, or past their day, in that order', () => {
     const logs = [log('chopped-salad', 2), log(eggs.id, 2)]
-    const plan = ['sheet-pan-sausage', 'grilled-cheese']
-    const bought = new Set(plan)
-    // The cheese's (made-up) meat was due yesterday: the sheet pan, with no day, comes first.
-    expect(nextRecipe(logs, plan, bought, new Map([['grilled-cheese', '2026-10-31']]), TODAY).id).toBe('sheet-pan-sausage')
-    // Fresh meat due later still comes before meat already past its day.
-    expect(
-      nextRecipe(logs, plan, bought, new Map([['grilled-cheese', '2026-10-31'], ['sheet-pan-sausage', '2026-11-03']]), TODAY).id,
-    ).toBe('sheet-pan-sausage')
+    const plan = ['grilled-cheese', 'sheet-pan-sausage']
+    const order: [Bought, string | null][] = [
+      ['fresh', null],
+      ['old', null],
+      ['thawing', '2026-11-04'],
+      ['frozen', null],
+      ['past', '2026-10-31'],
+    ]
+    // Whatever the plan's order, the cheese with the earlier state in the list comes first.
+    for (const [index, first] of order.entries()) {
+      for (const second of order.slice(index + 1)) {
+        expect(nextRecipe(logs, plan, bought({ 'grilled-cheese': second, 'sheet-pan-sausage': first }), TODAY).id).toBe(
+          'sheet-pan-sausage',
+        )
+      }
+    }
     // Past its day, it still comes before what is not bought yet: the card says what to do about it.
-    expect(nextRecipe(logs, [...plan, eggs.id], new Set(['grilled-cheese']), new Map([['grilled-cheese', '2026-10-31']]), TODAY).id).toBe(
+    expect(nextRecipe(logs, [...plan, eggs.id], bought({ 'grilled-cheese': ['past', '2026-10-31'] }), TODAY).id).toBe(
       'grilled-cheese',
     )
   })
@@ -196,7 +214,7 @@ describe('progress', () => {
     const mastered = [log(salad.id, 2), log(salad.id, 2), log(salad.id, 3)]
     const ready = readyToPlan(mastered, [], TODAY).map((recipe) => recipe.id)
     expect(ready.at(-1)).toBe(salad.id)
-    expect(nextRecipe(mastered, [], new Set(), new Map(), TODAY).id).not.toBe(salad.id)
+    expect(nextRecipe(mastered, [], NOTHING_BOUGHT, TODAY).id).not.toBe(salad.id)
   })
 
   it('rests a recipe cooked well for a week, then offers it again; a Rough one comes straight back', () => {
@@ -213,24 +231,24 @@ describe('progress', () => {
     expect(later.indexOf('chopped-salad')).toBeLessThan(later.indexOf(eggs.id))
     // A Rough cook yesterday: no good cook yet, so no rest. It comes back before anything new.
     const roughYesterday = [{ ...log('chopped-salad', 1), cookedOn: '2026-10-31' }]
-    expect(nextRecipe(roughYesterday, [], new Set(), new Map(), TODAY).id).toBe('chopped-salad')
+    expect(nextRecipe(roughYesterday, [], NOTHING_BOUGHT, TODAY).id).toBe('chopped-salad')
   })
 
   it('puts a dish of the usual first once it comes into reach', () => {
     const burger = recipeById('double-smash-burger')
     const path = pathTo(burger, []).map((recipe) => log(recipe.id, 2))
     expect(recipeState(burger, path)).toBe('ready')
-    expect(nextRecipe(path, [], new Set(), new Map(), TODAY).id).toBe(burger.id)
+    expect(nextRecipe(path, [], NOTHING_BOUGHT, TODAY).id).toBe(burger.id)
     expect(readyToPlan(path, [], TODAY)[0]?.id).toBe(burger.id)
     // Cooked well once, it takes its place among the rest.
-    expect(nextRecipe([...path, log(burger.id, 2)], [], new Set(), new Map(), TODAY).id).not.toBe(burger.id)
+    expect(nextRecipe([...path, log(burger.id, 2)], [], NOTHING_BOUGHT, TODAY).id).not.toBe(burger.id)
   })
 
   it('with everything mastered, suggests the dish that has waited longest, the usual first', () => {
     const everything = RECIPES.flatMap((recipe, index) =>
       [2, 2, 3].map((rating) => ({ ...log(recipe.id, rating as Rating), cookedOn: `2026-10-${String(1 + (index % 20)).padStart(2, '0')}` })),
     )
-    const next = nextRecipe(everything, [], new Set(), new Map(), TODAY)
+    const next = nextRecipe(everything, [], NOTHING_BOUGHT, TODAY)
     const oldest = everything.reduce((min, entry) => (entry.cookedOn < min ? entry.cookedOn : min), '9999')
     expect(everything.filter((entry) => entry.recipeId === next.id).every((entry) => entry.cookedOn === oldest)).toBe(true)
     // Among the dishes cooked on that day, one of the usual comes first when there is one.

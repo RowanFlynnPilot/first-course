@@ -15,7 +15,8 @@ export const SUPABASE_KEY = 'sb_publishable_e2e'
 // supabase-js names its storage key after the first label of the host.
 const STORAGE_KEY = 'sb-e2e-auth-token'
 
-export const EMAIL = 'cook@example.test'
+// Long, as a real one can be: an email has no spaces to wrap at, and the menu shows it.
+export const EMAIL = 'remy.the.weeknight.cook@example.test'
 export const PASSWORD = 'correct horse battery'
 
 type Row = Record<string, unknown>
@@ -177,6 +178,8 @@ export interface Seed {
   readonly checks?: readonly string[]
   /** Equipment ids checked off in the list's kit aisle, kept on the phone with the checks. */
   readonly kitChecks?: readonly string[]
+  /** When the cart's first grocery was checked off, as an ISO time; by default, as the page opens. */
+  readonly checkedSince?: string
   /** Package prices the cook corrected, by ingredient id. */
   readonly prices?: Readonly<Record<string, number>>
   /** Equipment ids the cook owns. */
@@ -344,11 +347,13 @@ export class FakeSupabase {
             kitChecks: seed.kitChecks ?? [],
             checkedFor: (seed.plan ?? []).filter((id) => !(seed.shopped ?? []).includes(id)),
           })
+    const since = seed.checkedSince === undefined ? null : Date.parse(seed.checkedSince)
     await page.addInitScript(
-      ([key, value, cartKey, stored]) => {
+      ([key, value, cartKey, stored, checkedSince]) => {
         if (sessionStorage.getItem('e2e-session-seeded') !== null) return
         localStorage.setItem(key, value)
-        if (stored !== null) localStorage.setItem(cartKey, stored)
+        // Checked off as the page opens (on its clock, installed or not), unless the seed says when.
+        if (stored !== null) localStorage.setItem(cartKey, JSON.stringify({ ...JSON.parse(stored), since: checkedSince ?? Date.now() }))
         sessionStorage.setItem('e2e-session-seeded', 'yes')
       },
       [
@@ -357,6 +362,7 @@ export class FakeSupabase {
         JSON.stringify({ ...this.session(this.userId), ...(seed.sessionExpired === true ? { expires_at: 1_700_000_000 } : {}) }),
         `first-course:cart:${user_id}`,
         cart,
+        since,
       ] as const,
     )
   }
@@ -492,7 +498,8 @@ export class FakeSupabase {
     }
     if (path === '/user' && (method === 'GET' || method === 'PUT')) {
       const userId = this.userFrom(request)
-      if (userId === null) return json(route, request, 401, { error_code: 'bad_jwt', msg: 'invalid JWT' })
+      // As GoTrue answers a token it cannot read: 403, bad_jwt.
+      if (userId === null) return json(route, request, 403, { error_code: 'bad_jwt', msg: 'invalid JWT' })
       if (method === 'PUT') {
         const { password } = request.postDataJSON() as { password: string }
         const index = this.accounts.findIndex((candidate) => candidate.id === userId)

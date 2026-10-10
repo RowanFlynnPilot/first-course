@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { recipeById } from '../curriculum/recipes'
-import { addDays, boughtNote, boughtState, cookBy, cookByDates, dayName } from './freshness'
+import { addDays, boughtNote, boughtState, cookBy, dayName } from './freshness'
 
 describe('how long bought meat keeps', () => {
   it('gives raw chicken two days, and no day to a recipe with no meat or meat that outlasts the week', () => {
@@ -13,11 +13,6 @@ describe('how long bought meat keeps', () => {
   it('goes by the meat that keeps least', () => {
     // Carbonara's bacon keeps a week; nothing else in it is meat.
     expect(cookBy(recipeById('carbonara'), '2026-10-04')).toBe('2026-10-11')
-  })
-
-  it('works out a cook-by day for each bought recipe with meat', () => {
-    const dates = cookByDates(new Map([['seared-chicken-thighs', '2026-10-04'], ['chopped-salad', '2026-10-04']]))
-    expect([...dates]).toEqual([['seared-chicken-thighs', '2026-10-06']])
   })
 
   it('counts days across a month', () => {
@@ -42,8 +37,11 @@ describe('how long bought meat keeps', () => {
     expect(boughtNote(thighs, '2026-10-04', '2026-10-04')).toBe('Groceries bought. Cook it by Tuesday')
     expect(boughtNote(thighs, '2026-10-04', '2026-10-06')).toBe('Groceries bought. Cook it today')
     expect(boughtNote(thighs, '2026-10-04', '2026-10-07')).toBe('Bought Sunday. Unless you froze it, the meat is past its days')
-    // No date on meat that keeps only days: "I froze it".
+    // No date on meat: "I froze it".
     expect(boughtNote(thighs, undefined, '2026-10-07')).toBe('Groceries bought, the meat in the freezer')
+    // Moved to the fridge on Wednesday: thawed, and its days counting, from Thursday.
+    expect(boughtNote(thighs, '2026-10-08', '2026-10-07')).toBe('Thawing in the fridge, to cook from tomorrow')
+    expect(boughtNote(thighs, '2026-10-08', '2026-10-08')).toBe('Groceries bought. Cook it by Saturday')
     // Nothing that keeps only days: bought, until a week has gone by, then asked about.
     const salad = recipeById('chopped-salad')
     expect(boughtNote(salad, '2026-10-04', '2026-10-11')).toBe('Groceries bought')
@@ -51,15 +49,25 @@ describe('how long bought meat keeps', () => {
     expect(boughtNote(salad, undefined, '2026-10-30')).toBe('Groceries bought')
   })
 
-  it('say how bought groceries stand: fresh, past their day, frozen, or old enough to ask about', () => {
+  it('say how bought groceries stand: fresh, past their day, frozen, thawing, or old enough to ask about', () => {
     const thighs = recipeById('seared-chicken-thighs')
     const salad = recipeById('chopped-salad')
     expect(boughtState(thighs, '2026-10-04', '2026-10-06')).toBe('fresh')
     expect(boughtState(thighs, '2026-10-04', '2026-10-07')).toBe('past')
     expect(boughtState(thighs, undefined, '2026-10-07')).toBe('frozen')
+    expect(boughtState(thighs, '2026-10-08', '2026-10-07')).toBe('thawing')
     expect(boughtState(salad, '2026-10-04', '2026-10-11')).toBe('fresh')
     expect(boughtState(salad, '2026-10-04', '2026-10-12')).toBe('old')
-    // The smoked sausage keeps two weeks: no cook-by day, so it is asked about after a week like the salad.
-    expect(boughtState(recipeById('sheet-pan-sausage'), '2026-10-04', '2026-10-12')).toBe('old')
+    expect(boughtState(salad, undefined, '2026-10-30')).toBe('fresh')
+  })
+
+  it('never asks about meat, which keeps from the day it was bought: the smoked sausage is past its days after two weeks', () => {
+    const sausage = recipeById('sheet-pan-sausage')
+    // No cook-by day (it outlasts the week), but a last day all the same: "Still have them" would count it from today.
+    expect(boughtState(sausage, '2026-10-04', '2026-10-12')).toBe('fresh')
+    expect(boughtState(sausage, '2026-10-04', '2026-10-18')).toBe('fresh')
+    expect(boughtState(sausage, '2026-10-04', '2026-10-19')).toBe('past')
+    // "I froze it" leaves it frozen like any meat.
+    expect(boughtState(sausage, undefined, '2026-10-19')).toBe('frozen')
   })
 })

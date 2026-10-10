@@ -6,7 +6,7 @@ import { hasKit } from '../lib/kit'
 
 export function EquipmentList({ items, kit }: { items: readonly EquipmentId[]; kit: ReadonlySet<EquipmentId> }) {
   const missing = items.filter((id) => !hasKit(id, kit))
-  // Until the cook ticks any kit at all, a marker on every tool says nothing they do not know.
+  // Until the cook checks off any kit at all, a marker on every tool says nothing they do not know.
   const started = kit.size > 0
   return (
     <>

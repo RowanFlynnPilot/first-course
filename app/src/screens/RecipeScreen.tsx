@@ -219,7 +219,7 @@ function Written({ content, riceLeft, shop }: { content: RecipeContent; riceLeft
         <IngredientList ingredients={content.ingredients} />
         {/* Worked out from the ingredients: read the labels too, since products vary. */}
         {containsLine(content) !== null && (
-          <p className="section-note">{containsLine(content)} Products vary, so check the labels if it matters.</p>
+          <p className="section-note">{containsLine(content)} Products vary: check the labels.</p>
         )}
       </section>
 
@@ -320,10 +320,15 @@ function PlanButton({
       {planned && (
         <p className="plan-note">
           On <Link to="/shop">this week’s plan</Link>.
-          {shop.shopped.has(recipe.id) && ` ${boughtNote(recipe, shop.shoppedOn.get(recipe.id), today)}.`}
+          {shop.shopped.has(recipe.id) && ` ${sentence(boughtNote(recipe, shop.shoppedOn.get(recipe.id), today))}`}
         </p>
       )}
       <ErrorNotice error={error} />
     </>
   )
+}
+
+/** A plan note as a sentence: a full stop, unless it asks a question already ("Still have these?"). */
+function sentence(note: string): string {
+  return note.endsWith('?') ? note : `${note}.`
 }

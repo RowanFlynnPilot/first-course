@@ -72,10 +72,11 @@ function CookMode({
   )
   // Where this cook began, and how many cooks of the recipe the log held then: kept through a reload.
   // With none of this recipe in progress it is a new cook, and timers stored from one left long ago
-  // must not count as started in it (read before the timers load below).
+  // must not count as started in it (read before the timers load below). Another recipe's cook in
+  // progress (the side to this main) keeps its own place and timers.
   const [{ from, cooksBefore }] = useState(() => {
-    const before = loadCooking(localStorage, userId, Date.now())
-    if (before !== null && before.recipeId === recipe.id && before.step !== 'log') {
+    const before = loadCooking(localStorage, userId, recipe.id, Date.now())
+    if (before !== null && before.step !== 'log') {
       return { from: Math.min(before.from, step), cooksBefore: before.cooksBefore }
     }
     clearTimers(localStorage, userId, recipe.id)
@@ -149,7 +150,9 @@ function CookMode({
         <Link
           to={`/recipe/${recipe.id}`}
           onClick={(event) => {
-            if (stopsTimers(event, 'A timer is still running. Leave cook mode and stop it?')) clearCooking(localStorage, userId)
+            if (stopsTimers(event, 'A timer is still running. Leave cook mode and stop it?')) {
+              clearCooking(localStorage, userId, recipe.id)
+            }
           }}
         >
           Leave cook mode

@@ -12,17 +12,20 @@ import { EQUIPMENT, type EquipmentId } from '../curriculum/equipment'
 import { INGREDIENTS, type IngredientId } from '../curriculum/ingredients'
 import { recipeById } from '../curriculum/recipes'
 import type { Recipe } from '../curriculum/types'
+import { boughtDay } from '../lib/cart'
 import { cookCostPerServingCents } from '../lib/cost'
-import { boughtNote, cookBy, dayName } from '../lib/freshness'
+import { addDays, boughtNote, cookBy, dayName, WEEK_DAYS } from '../lib/freshness'
 import { formatAmount, formatCents, formatMinutes, inSentence, listOf, packagesOf, parseCents, plural } from '../lib/format'
-import { groceryList, groceryText, type GroceryLine } from '../lib/grocery'
+import { groceryList, groceryText, toShopFor, type GroceryLine } from '../lib/grocery'
 import { missingKit } from '../lib/kit'
 import { pathTo, readyToPlan, recipeState, type CookLog } from '../lib/progress'
 import {
+  clearCart,
   coveredRecipes,
   doneShopping,
   groceryState,
   markFrozen,
+  moveToFridge,
   planRecipe,
   resetPrice,
   setChecked,
@@ -32,7 +35,6 @@ import {
   shopForAgain,
   stillHave,
   takeOffPlan,
-  toShopFor,
   type Shop,
   type ShopChange,
 } from '../lib/shop'
@@ -80,7 +82,11 @@ export function ShopScreen() {
     const covered = coveredRecipes(shop)
     const staying = toShop.filter((id) => !covered.includes(id))
     const groceries = notInCart.map((line) => inSentence(INGREDIENTS[line.ingredientId].name))
-    const kit = listOf(kitNotInCart.map((id) => inSentence(EQUIPMENT[id].name)))
+    // A long kit list in a phone's dialog is a wall: past a few, the count.
+    const kit =
+      kitNotInCart.length <= 3
+        ? listOf(kitNotInCart.map((id) => inSentence(EQUIPMENT[id].name)))
+        : `${kitNotInCart.length} things`
     const parts = [
       ...(groceries.length === 0
         ? []
@@ -90,7 +96,11 @@ export function ShopScreen() {
           ]),
       ...(kitNotInCart.length === 0
         ? []
-        : [groceries.length === 0 ? `Kit not checked off: ${kit}. It stays on the list.` : `The kit not checked off stays on the list too: ${kit}.`]),
+        : [
+            groceries.length === 0
+              ? `Kit not checked off: ${kit}. This week keeps saying you need ${kitNotInCart.length === 1 ? 'it' : 'them'}.`
+              : `The kit not checked off stays on This week too: ${kit}.`,
+          ]),
     ]
     return `${parts.join(' ')} Finish shopping?`
   }
@@ -102,19 +112,28 @@ export function ShopScreen() {
     if (question !== null && !window.confirm(question)) return
     await finish.run(() =>
       focusAfter('shop-done', async () => {
-        const { staples, kit, bought, stillToShop } = await doneShopping(shop, today, onShopChange)
+        const { staples, kit, bought, boughtOn, stillToShop } = await doneShopping(shop, today, onShopChange)
         const pantry = staples.length === 0 ? '' : ` Into your pantry: ${listOf(staples.map((id) => inSentence(INGREDIENTS[id].name)))}.`
         const tools = kit.length === 0 ? '' : ` Into your kit: ${listOf(kit.map((id) => inSentence(EQUIPMENT[id].name)))}.`
         const still = stillToShop.length === 0 ? '' : ` ${staysOnTheList(stillToShop, toShop, 'what you did not check off')}`
-        // Raw meat keeps a couple of days: when to cook each, or the way to buy time.
+        // Raw meat keeps a couple of days from the day it was bought: when to cook each, or the way to buy time.
         const meat = bought.flatMap((id) => {
-          const by = cookBy(recipeById(id), today)
+          const by = cookBy(recipeById(id), boughtOn)
           return by === null
             ? []
             : [` ${recipeById(id).title}: cook it by ${dayName(by, today)}, or freeze the meat tonight and thaw it in the fridge the night before you cook.`]
         })
+        // Meat in the cart for a recipe still on the list (the store was out of its broccoli) is bought all the same.
+        const stillUses = new Set(stillToShop.flatMap((id) => recipeById(id).content.ingredients.map((line) => line.ingredientId)))
+        const meatWaiting = [...shop.checks].flatMap((id) => {
+          const ingredient = INGREDIENTS[id]
+          if (ingredient.section !== 'meat' || ingredient.fridgeDays > WEEK_DAYS || !stillUses.has(id)) return []
+          const by = addDays(boughtOn, ingredient.fridgeDays)
+          return [` The ${inSentence(ingredient.name)} you checked off: cook it by ${dayName(by, today)}, or freeze it tonight.`]
+        })
+        const said = `${pantry}${tools}${still}${meat.join('')}${meatWaiting.join('')}`
         setFinished({
-          text: `Done shopping.${pantry}${tools}${still}${meat.join('')}${pantry === '' && tools === '' && still === '' && meat.length === 0 ? ' The list is cleared.' : ''}`,
+          text: `Done shopping.${said === '' ? ' The list is cleared.' : said}`,
           bought: bought.length > 0,
         })
       }),
@@ -123,10 +142,29 @@ export function ShopScreen() {
 
   // In the store, the list comes first; at home, the plan.
   const shopping = toShop.length > 0
-  // Checked off in the store but never put away (Done shopping failed, or a recipe was cooked first):
-  // with nothing left to buy, the plan offers Done shopping for them.
-  const waiting = shopping ? [] : [...shop.checks, ...shop.kitChecks]
+  // In the cart but not on the list now: checked off for a recipe cooked or taken off since. Still
+  // bought, so Done shopping puts them away; with nothing left to buy, the plan offers it for them.
+  const listed = new Set(list.lines.map((line) => line.ingredientId))
+  const waitingChecks = [...shop.checks].filter((id) => !listed.has(id))
+  const waitingKit = [...shop.kitChecks].filter((id) => !kitToGet.includes(id))
+  const waiting = waitingChecks.length + waitingKit.length > 0
+  const inCart = shop.checks.size + shop.kitChecks.size > 0
+  // The cart keeps until Done shopping: a cart from days ago says when it began, beside the way to clear it.
+  const cartDay = boughtDay(shop, today)
   const ready = readyToPlan(logs, shop.plan, today).slice(0, SUGGESTIONS)
+  const clearButton = inCart && (
+    <button
+      className="link-button"
+      type="button"
+      onClick={() => {
+        if (!window.confirm('Uncheck everything in the cart?')) return
+        focusNext(shopping ? 'grocery-title' : 'plan-title')
+        clearCart(onShopChange)
+      }}
+    >
+      Clear the cart
+    </button>
+  )
 
   const listSection = (
     <section className="section">
@@ -135,6 +173,7 @@ export function ShopScreen() {
       </h2>
       <p className="section-note">
         {things - toBuy} of {plural(things, 'thing', 'things')} in the cart.
+        {cartDay < today && ` The first was checked off ${dayName(cartDay, today)}.`}
       </p>
       {toBuy > 0 && <ShareButton text={groceryText(toShop, list, shop.checks, kitNotInCart)} />}
       {list.sections.map((section) => (
@@ -175,6 +214,7 @@ export function ShopScreen() {
           )}
         </div>
       )}
+      {waiting && <AlsoInCart checks={waitingChecks} kit={waitingKit} after="grocery-title" onShopChange={onShopChange} />}
       {list.inPantry.length > 0 && (
         <>
           <p className="section-note">
@@ -211,6 +251,7 @@ export function ShopScreen() {
           Done shopping
         </button>
         <Saving busy={finish.busy} />
+        {clearButton}
       </div>
       <p className="section-note">
         Marks the recipes you have everything for as bought, and puts the staples and kit you checked off into your
@@ -241,31 +282,25 @@ export function ShopScreen() {
       {!shopping && planned.length > 0 && (
         <p className="section-note">Everything on the plan is bought. Add a recipe and its groceries go on a new list.</p>
       )}
-      {waiting.length > 0 && (
+      {!shopping && waiting && (
         <>
-          <p className="notice notice-info">
-            Checked off in the store, and not put away yet:{' '}
-            {listOf(
-              [...shop.checks]
-                .map((id) => inSentence(INGREDIENTS[id].name))
-                .concat([...shop.kitChecks].map((id) => inSentence(EQUIPMENT[id].name))),
-            )}
-            . Done shopping puts them in your{' '}
-            {shop.checks.size === 0 ? 'kit' : shop.kitChecks.size === 0 ? 'pantry' : 'pantry and kit'}.
-          </p>
+          <AlsoInCart checks={waitingChecks} kit={waitingKit} after="plan-title" onShopChange={onShopChange} />
           <ErrorNotice error={finish.error} />
           <div className="actions">
             <button className="button" type="button" aria-disabled={finish.busy} onClick={() => void finishShopping()}>
               Done shopping
             </button>
             <Saving busy={finish.busy} />
+            {clearButton}
           </div>
         </>
       )}
-      {/* With a grocery list on screen, the kit to get is on it; with everything bought, it is said here. */}
-      {!shopping && needKit.length > 0 && (
+      {/* With a grocery list on screen, the kit to get is on it; with everything bought, it is said here,
+          leaving out what is in the cart already. */}
+      {!shopping && needKit.some((id) => !shop.kitChecks.has(id)) && (
         <p className="notice notice-info">
-          To cook these you also need: {listOf(needKit.map((id) => inSentence(EQUIPMENT[id].name)))}.{' '}
+          To cook these you also need:{' '}
+          {listOf(needKit.filter((id) => !shop.kitChecks.has(id)).map((id) => inSentence(EQUIPMENT[id].name)))}.{' '}
           <Link to="/kit">Your kit</Link>
         </p>
       )}
@@ -417,8 +452,10 @@ function PlanRow({
   const { busy, error, run } = useWrite()
   const title = useFocusTarget<HTMLAnchorElement>(`plan-row:${recipe.id}`)
   const shopped = shop.shopped.has(recipe.id)
-  // Meat past its day, or groceries old enough to ask about (lib/freshness.ts).
+  // Meat past its day, fresh, or frozen, or groceries old enough to ask about (lib/freshness.ts).
   const groceries = groceryState(recipe, shop, today)
+  const boughtOn = shop.shoppedOn.get(recipe.id)
+  const keepsDays = boughtOn !== undefined && cookBy(recipe, boughtOn) !== null
   // Planned ahead of the cooks that open it, or locked again by a deleted cook.
   const locked = recipeState(recipe, logs) === 'locked'
   return (
@@ -452,7 +489,7 @@ function PlanRow({
           >
             Put it back on the list
           </button>
-          {groceries === 'past' && (
+          {(groceries === 'past' || (groceries === 'fresh' && keepsDays)) && (
             <button
               className="link-button"
               type="button"
@@ -461,6 +498,17 @@ function PlanRow({
               onClick={() => void run(() => focusAfter(`plan-row:${recipe.id}`, () => markFrozen(recipe.id, onShopChange)))}
             >
               I froze it
+            </button>
+          )}
+          {groceries === 'frozen' && (
+            <button
+              className="link-button"
+              type="button"
+              aria-disabled={busy}
+              aria-label={`Moved it to the fridge: ${recipe.title}`}
+              onClick={() => void run(() => focusAfter(`plan-row:${recipe.id}`, () => moveToFridge(recipe.id, today, onShopChange)))}
+            >
+              Moved it to the fridge
             </button>
           )}
           {groceries === 'old' && (
@@ -478,6 +526,59 @@ function PlanRow({
       )}
       <ErrorNotice error={error} />
     </li>
+  )
+}
+
+/**
+ * What the cart holds that the list no longer shows: staples and kit checked
+ * off for a recipe cooked or taken off since. Still bought, so Done shopping
+ * puts them away; unchecked, one leaves the cart, and focus goes to `after`.
+ */
+function AlsoInCart({
+  checks,
+  kit,
+  after,
+  onShopChange,
+}: {
+  checks: readonly IngredientId[]
+  kit: readonly EquipmentId[]
+  after: string
+  onShopChange: ShopChange
+}) {
+  const into = checks.length === 0 ? 'your kit' : kit.length === 0 ? 'your pantry' : 'your pantry and kit'
+  return (
+    <div className="aisle">
+      <h3 className="aisle-title">Also in the cart</h3>
+      <p className="section-note">Checked off for a recipe no longer on the list. Done shopping puts them in {into}.</p>
+      <ul className="checks checks-cart">
+        {checks.map((id) => (
+          <CheckRow
+            key={id}
+            checked
+            label={INGREDIENTS[id].name}
+            onPhone
+            onChange={async (next) => {
+              focusNext(after)
+              setChecked(id, next, onShopChange)
+            }}
+            focusTarget={`cart:${id}`}
+          />
+        ))}
+        {kit.map((id) => (
+          <CheckRow
+            key={id}
+            checked
+            label={EQUIPMENT[id].name}
+            onPhone
+            onChange={async (next) => {
+              focusNext(after)
+              setKitChecked(id, next, onShopChange)
+            }}
+            focusTarget={`cart-kit:${id}`}
+          />
+        ))}
+      </ul>
+    </div>
   )
 }
 

@@ -22,13 +22,6 @@ describe('cook-mode timers', () => {
     expect(storage.getItem('something-else')).toBe('kept')
   })
 
-  it('forget timers kept before they were per account', () => {
-    const storage = memoryStorage()
-    storage.setItem('first-course:timers-by-label:sheet-pan-sausage', JSON.stringify({ Potatoes: { endsAt: NOW, rang: false } }))
-    forgetOldTimers(storage, COOK, NOW)
-    expect(storage.length).toBe(0)
-  })
-
   it('survive a save and a load, for the account that saved them only', () => {
     const storage = memoryStorage()
     saveTimers(storage, COOK, 'sheet-pan-sausage', { Potatoes: { endsAt: NOW + 60_000, rang: false, stopped: false } })

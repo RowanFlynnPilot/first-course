@@ -1,5 +1,7 @@
 import type { Route } from '@playwright/test'
+import { INGREDIENTS } from '../src/curriculum/ingredients'
 import { recipeById } from '../src/curriculum/recipes'
+import { pathTo } from '../src/lib/progress'
 import { expect, FRESH, phoneChecks, rateAndSave, SALAD_DONE, test } from './kitchen'
 
 /** Everything the salad uses: a cart with all of it checked off covers the salad. */
@@ -388,7 +390,7 @@ test.describe('the cart, round 9', () => {
     })
     await page.getByRole('button', { name: 'Done shopping' }).click()
     expect(asked[0]).toMatch(
-      /^Not checked off: tomato\. Chopped salad with lemon vinaigrette stays on the list for it\. The kit not checked off stays on the list too: .+\. Finish shopping\?$/,
+      /^Not checked off: tomato\. Chopped salad with lemon vinaigrette stays on the list for it\. The kit not checked off stays on This week too: .+\. Finish shopping\?$/,
     )
   })
 
@@ -396,9 +398,88 @@ test.describe('the cart, round 9', () => {
     await kitchen.open('#/cook/chopped-salad/log', { plan: ['chopped-salad'], checks: ['kosher-salt', 'olive-oil', 'tomato'] })
     await rateAndSave(page, 'Decent')
     await page.goto('#/shop')
-    await expect(page.getByText(/^Checked off in the store, and not put away yet: kosher salt and extra-virgin olive oil\. Done shopping puts them in your pantry\./)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Also in the cart' })).toBeVisible()
+    await expect(page.getByText('Checked off for a recipe no longer on the list. Done shopping puts them in your pantry.')).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: 'Kosher salt' })).toBeChecked()
     await page.getByRole('button', { name: 'Done shopping' }).click()
     await expect(page.getByText(/^Done shopping\./)).toBeFocused()
     expect(kitchen.backend.table('pantry_items').map((row) => row.ingredient_id).toSorted()).toEqual(['kosher-salt', 'olive-oil'])
+  })
+})
+
+test.describe('the cart, round 10', () => {
+  const everything = (id: string) => recipeById(id).content.ingredients.map((line) => line.ingredientId)
+  const thighs = recipeById('seared-chicken-thighs')
+  const OPEN = { logs: pathTo(thighs, []).map((recipe) => ({ recipe: recipe.id, rating: 2 as const })) }
+
+  test('a late Done shopping dates the groceries by the day they were checked off', async ({ page, kitchen }) => {
+    // Everything checked off in the store on Saturday; Done shopping tapped on Monday.
+    await page.clock.install({ time: new Date('2026-10-12T17:00:00-05:00') })
+    await kitchen.open('#/shop', {
+      ...OPEN,
+      plan: [thighs.id],
+      kit: thighs.content.equipment,
+      checks: everything(thighs.id),
+      checkedSince: '2026-10-10T18:00:00-05:00',
+    })
+    await expect(page.getByText(/in the cart\. The first was checked off Saturday\.$/)).toBeVisible()
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    // Chicken keeps two days from Saturday: today is its last.
+    await expect(page.getByText(/^Done shopping\./)).toContainText(`${thighs.title}: cook it by today`)
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: true, shopped_on: '2026-10-10' }])
+  })
+
+  test('meat checked off for a recipe that stays on the list still gets its day', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-11T17:00:00-05:00') })
+    // The store was out of broccoli.
+    await kitchen.open('#/shop', {
+      ...OPEN,
+      plan: [thighs.id],
+      kit: thighs.content.equipment,
+      checks: everything(thighs.id).filter((id) => id !== 'broccoli'),
+    })
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByRole('button', { name: 'Done shopping' }).click()
+    await expect(page.getByText(/^Done shopping\./)).toContainText(
+      'The boneless skinless chicken thighs you checked off: cook it by Tuesday, or freeze it tonight.',
+    )
+  })
+
+  test('what is in the cart for a recipe cooked since shows while shopping, and can come out', async ({ page, kitchen }) => {
+    const aglio = everything('aglio-e-olio')
+    const only = everything('chopped-salad').find((id) => INGREDIENTS[id].staple && !aglio.includes(id))
+    if (only === undefined) throw new Error('The salad has no staple of its own')
+    await kitchen.open('#/cook/chopped-salad/log', { plan: ['chopped-salad', 'aglio-e-olio'], checks: [only] })
+    await rateAndSave(page, 'Decent')
+    await page.goto('#/shop')
+    // The aglio's list is on screen, and the salad's staple is still in the cart.
+    await expect(page.getByRole('heading', { name: 'Grocery list' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Also in the cart' })).toBeVisible()
+    const box = page.getByRole('checkbox', { name: INGREDIENTS[only].name })
+    await expect(box).toBeChecked()
+    // Unchecked, it leaves the cart and the aisle with it: a click, since there is no box left to see unchecked.
+    await box.click()
+    await expect(page.getByRole('heading', { name: 'Also in the cart' })).toHaveCount(0)
+    expect(await phoneChecks(page)).toEqual([])
+  })
+
+  test('“Clear the cart” unchecks everything, once asked', async ({ page, kitchen }) => {
+    await kitchen.open('#/shop', { plan: ['chopped-salad'], checks: ['lemon', 'tomato'] })
+    await expect(page.getByText(/^2 of \d+ things in the cart\./)).toBeVisible()
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByRole('button', { name: 'Clear the cart' }).click()
+    await expect(page.getByText(/^0 of \d+ things in the cart\./)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Grocery list' })).toBeFocused()
+    expect(await phoneChecks(page)).toEqual([])
+  })
+
+  test('the plan row says when meat is frozen, and when it has gone in the fridge', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-04T17:00:00-05:00') })
+    await kitchen.open('#/shop', { ...OPEN, plan: [thighs.id], shopped: [thighs.id], shoppedOn: { [thighs.id]: '2026-10-04' } })
+    await page.getByRole('button', { name: `I froze it: ${thighs.title}` }).click()
+    await expect(page.getByText('Groceries bought, the meat in the freezer')).toBeVisible()
+    await page.getByRole('button', { name: `Moved it to the fridge: ${thighs.title}` }).click()
+    await expect(page.getByText('Thawing in the fridge, to cook from tomorrow')).toBeVisible()
+    await expect(page.getByRole('link', { name: thighs.title })).toBeFocused()
   })
 })

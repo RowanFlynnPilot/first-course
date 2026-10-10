@@ -29,6 +29,7 @@ test.describe('tonight', () => {
       ...SALAD_DONE,
       plan: ['sheet-pan-sausage'],
       shopped: ['sheet-pan-sausage'],
+      shoppedOn: { 'sheet-pan-sausage': '2026-10-09' },
       pantry: everything('soft-scrambled-eggs'),
     })
     await expect(page.getByRole('heading', { name: 'Groceries bought: Sheet-pan sausage and vegetables' })).toBeVisible()
@@ -108,7 +109,14 @@ test.describe('a cook the phone interrupted', () => {
     await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
     await page.goto('./')
     const resume = page.getByRole('region', { name: 'The cook in progress' })
+    // The timer is still counting, maybe food in the oven: asked first, as leaving cook mode does.
+    const asked: string[] = []
+    page.once('dialog', (dialog) => {
+      asked.push(dialog.message())
+      void dialog.accept()
+    })
     await resume.getByRole('button', { name: 'Not cooking it now' }).click()
+    expect(asked).toEqual(['A timer is still running. Stop it?'])
     await expect(resume).toHaveCount(0)
     // The card took its buttons with it: focus is on what the menu suggests, not the top of the page.
     await expect(page.locator('.tray-title')).toBeFocused()
@@ -118,6 +126,21 @@ test.describe('a cook the phone interrupted', () => {
     // Its timer went too: back in cook mode, it has not been started.
     await page.goto('#/cook/sheet-pan-sausage/3')
     await expect(page.getByRole('button', { name: 'Start 15:00 timer' })).toBeVisible()
+  })
+
+  test('a main and its side each keep their place and their timers', async ({ page, kitchen }) => {
+    await kitchen.open('#/cook/sheet-pan-sausage/3', SALAD_DONE)
+    await page.getByRole('button', { name: 'Start 15:00 timer' }).click()
+    // Another recipe's cook mode, opened meanwhile, keeps the first one's cook and its running timer.
+    await page.goto('#/cook/chopped-salad/2')
+    await page.goto('./')
+    const resume = page.getByRole('region', { name: 'The cook in progress' })
+    await expect(resume).toHaveCount(2)
+    // The latest first.
+    await expect(resume.first()).toHaveAccessibleName(/Chopped salad/)
+    await expect(resume.last()).toContainText('Potatoes timer: ends at')
+    await resume.last().getByRole('link', { name: 'Back to step 3' }).click()
+    await expect(page.getByRole('button', { name: 'Stop timer' })).toBeVisible()
   })
 
   test('leaving cook mode on purpose leaves nothing to come back to', async ({ page, kitchen }) => {
@@ -159,6 +182,8 @@ test.describe('a simmer that needs stirring', () => {
     await page.clock.fastForward('05:00')
     await expect(stir).toBeVisible()
     await expect.poll(beeps).toBe(2)
+    // The second stir is said again: the first one's words went after a few seconds, so these are new.
+    await expect(page.getByText('Sauce: stir it now.', { exact: true })).toBeAttached()
   })
 })
 
@@ -244,16 +269,45 @@ test.describe('bought meat', () => {
     expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: false, shopped_on: null }])
   })
 
-  test('“I froze it” takes the day away, and the card says to thaw the meat', async ({ page, kitchen }) => {
+  test('“I froze it” takes the day away, and “Moved it to the fridge” gives it a new one from tomorrow', async ({ page, kitchen }) => {
     await page.clock.install({ time: new Date('2026-10-08T17:00:00-05:00') })
     await kitchen.open('./', { logs: OPEN, plan: [thighs.id], shopped: [thighs.id], shoppedOn: { [thighs.id]: '2026-10-04' } })
     const tray = page.locator('.tray')
     await tray.getByRole('button', { name: 'I froze it' }).click()
     await expect(tray.getByRole('heading', { name: `In the freezer: ${thighs.title}` })).toBeFocused()
-    await expect(tray.locator('.tray-body')).toContainText('Move it to the fridge tonight, and cook it tomorrow.')
-    // Frozen meat is not ready tonight: cooking is there, but does not lead.
-    await expect(tray.getByRole('link', { name: 'Start cooking' })).toHaveClass(/button-quiet/)
+    await expect(tray.locator('.tray-body')).toContainText('The night before you cook it, move the meat to the fridge to thaw.')
+    // Frozen meat is not cooked tonight: no way to start until it has thawed.
+    await expect(tray.getByRole('link', { name: 'Start cooking' })).toHaveCount(0)
     expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: true, shopped_on: null }])
+    // Moved to the fridge on Thursday: thawed by Friday, and two days in the fridge from then.
+    await tray.getByRole('button', { name: 'Moved it to the fridge' }).click()
+    await expect(tray.getByRole('heading', { name: `Thawing in the fridge: ${thighs.title}` })).toBeFocused()
+    await expect(tray.locator('.tray-body')).toContainText('Ready to cook tomorrow, and by Sunday.')
+    await expect(tray.getByRole('link', { name: 'Start cooking' })).toHaveCount(0)
+    expect(kitchen.backend.table('plan_items')).toMatchObject([{ recipe_id: thighs.id, shopped: true, shopped_on: '2026-10-09' }])
+  })
+
+  test('meat frozen as Done shopping advised, before its day, can be said to be frozen', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-04T17:00:00-05:00') })
+    await kitchen.open('./', { logs: OPEN, plan: [thighs.id], shopped: [thighs.id], shoppedOn: { [thighs.id]: '2026-10-04' } })
+    const tray = page.locator('.tray')
+    await expect(tray.locator('.actions > :not(.busy)').first()).toHaveText('Start cooking')
+    await tray.getByRole('button', { name: 'I froze it' }).click()
+    await expect(tray.getByRole('heading', { name: `In the freezer: ${thighs.title}` })).toBeFocused()
+  })
+
+  test('a smoked sausage is never asked about: past its two weeks, it is past its days', async ({ page, kitchen }) => {
+    await page.clock.install({ time: new Date('2026-10-19T17:00:00-05:00') })
+    await kitchen.open('./', {
+      ...SALAD_DONE,
+      plan: ['sheet-pan-sausage'],
+      shopped: ['sheet-pan-sausage'],
+      shoppedOn: { 'sheet-pan-sausage': '2026-10-04' },
+    })
+    const tray = page.locator('.tray')
+    await expect(tray.getByRole('heading', { name: 'Bought Oct 4: Sheet-pan sausage and vegetables' })).toBeVisible()
+    await expect(tray.getByRole('button', { name: 'Still have them' })).toHaveCount(0)
+    await expect(tray.locator('.actions > :not(.busy)').first()).toHaveText('Put it back on the list')
   })
 
   test('meat past its day is not ready tonight, and fresh groceries come first', async ({ page, kitchen }) => {
@@ -409,6 +463,6 @@ test.describe('the cook in progress, again', () => {
 test.describe('allergens', () => {
   test('a recipe page says which it contains, worked out from the ingredients', async ({ page, kitchen }) => {
     await kitchen.open('#/recipe/soft-scrambled-eggs', FRESH)
-    await expect(page.getByText(/^Contains milk, egg.* Products vary, so check the labels if it matters\.$/)).toBeVisible()
+    await expect(page.getByText(/^Contains milk, egg.* Products vary: check the labels\.$/)).toBeVisible()
   })
 })

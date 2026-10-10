@@ -31,12 +31,14 @@ if ((accessToken !== null && refreshToken !== null) || failed) {
 
 /**
  * An email link that brought the cook here carrying a session, or null. The
- * app asks Supabase whose it is (`linkOwner`) before signing in with it:
- * anyone can send a link carrying their own account's tokens, so a cook
- * already signed in as someone else is asked first.
+ * app asks Supabase whose it is (`linkOwner`) and asks the cook before
+ * signing in with it: anyone can send a link carrying their own account's
+ * tokens. A link that also carries an error signs no one in: it says it failed.
  */
 export const emailLink =
-  accessToken !== null && refreshToken !== null ? { accessToken, refreshToken, recovery: landing.get('type') === 'recovery' } : null
+  accessToken !== null && refreshToken !== null && !failed
+    ? { accessToken, refreshToken, recovery: landing.get('type') === 'recovery' }
+    : null
 
 /** The cook arrived from a password reset link, so the app asks for a new password first. */
 export const fromPasswordReset = emailLink?.recovery === true
@@ -113,9 +115,10 @@ export class LinkUnreachable extends Error {}
  */
 export async function linkOwner(link: NonNullable<typeof emailLink>): Promise<{ id: string; email: string | null }> {
   const didNotWork = new Error('That email link did not work.')
-  // A token is three base64url parts. Anything else is not one, and some characters would make the
-  // browser refuse the request before it is sent, which would look like no signal for ever.
-  if (!JWT_SHAPE.test(link.accessToken)) throw didNotWork
+  // A token is three base64url parts, about a kilobyte. Anything else is not one: some characters would
+  // make the browser refuse the request before it is sent, and a huge one a server may refuse unread,
+  // either of which would look like no signal for ever.
+  if (link.accessToken.length > TOKEN_MAX || !JWT_SHAPE.test(link.accessToken)) throw didNotWork
   const noAnswer = new LinkUnreachable('No connection, so the email link could not be checked. Check your signal and try again.')
   let response: Response
   try {
@@ -125,28 +128,39 @@ export async function linkOwner(link: NonNullable<typeof emailLink>): Promise<{ 
   } catch {
     throw noAnswer
   }
-  // Supabase down or overloaded is not a bad link: the link is kept for Try again.
-  if (response.status >= 500) throw noAnswer
+  // Supabase down, overloaded or slow, or too many requests from here, is not a bad link: it is kept for Try again.
+  if (response.status >= 500 || response.status === 408 || response.status === 429) throw noAnswer
   if (!response.ok) throw didNotWork
   let user: { id?: unknown; email?: unknown } | null
   try {
     user = (await response.json()) as { id?: unknown; email?: unknown } | null
   } catch (cause) {
-    // The answer stopped arriving (the 15-second limit), or was not the user it should be.
-    const name = (cause as Error).name
-    throw name === 'AbortError' || name === 'TimeoutError' ? noAnswer : didNotWork
+    // An answer that is not JSON was not the user it should be; any other failure is the answer
+    // that stopped arriving (the 15-second limit, or the signal dropped partway).
+    throw cause instanceof SyntaxError ? didNotWork : noAnswer
   }
   if (typeof user?.id !== 'string') throw didNotWork
-  return { id: user.id, email: typeof user.email === 'string' ? user.email : null }
+  // An account with no email (a phone sign-in, if one is ever turned on) has the empty string.
+  return { id: user.id, email: typeof user.email === 'string' && user.email !== '' ? user.email : null }
 }
 
 /** A JSON web token's shape: header, claims and signature, each base64url. */
 const JWT_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
+/** Supabase's access tokens are about a kilobyte; one this long is not one of them. */
+const TOKEN_MAX = 8192
 
-/** Signs in with an email link's tokens, checked by `linkOwner` first. Rejects with why it failed. */
-export async function signInFromLink(link: NonNullable<typeof emailLink>): Promise<void> {
-  const { error } = await auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
-  if (error === null) return
+/**
+ * Signs in with an email link's tokens, as the account `linkOwner` said they
+ * are. Rejects with why it failed. A token past its hour is renewed first, and
+ * the auth client joins a renewal already on its way for the account signed in
+ * here, which would leave that account signed in: the account is checked.
+ */
+export async function signInFromLink(link: NonNullable<typeof emailLink>, owner: string): Promise<void> {
+  const { data, error } = await auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
+  if (error === null) {
+    if (data.user?.id !== owner) throw new Error('That email link did not sign you in.')
+    return
+  }
   if (isAuthRetryableFetchError(error)) {
     throw new LinkUnreachable('No connection, so the email link could not sign you in. Check your signal and try again.')
   }

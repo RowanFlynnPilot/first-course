@@ -15,6 +15,7 @@
 // and a timer that runs out first rings once at that tap.
 
 import { useEffect, useRef, useState } from 'react'
+import { listOf } from '../lib/format'
 import { clearTimers, dueTimers, loadTimers, saveTimers, shownTimers, stopped, type Timers } from '../lib/timers'
 
 const TICK_MS = 250
@@ -24,6 +25,13 @@ const RING_FOR_MS = 2 * 60 * 1000
 const RING_MS = 1200
 /** A stir reminder stays on screen this long, unless tapped first. */
 const STIR_SHOWN_MS = 60 * 1000
+/**
+ * What a timer said stays in the status this long, then goes: the next
+ * message, even in the same words (the second stir of a simmer), is then a
+ * change a screen reader reads, and a cook swiping through the page later
+ * does not meet an old one.
+ */
+const SAID_FOR_MS = 5000
 
 /** What a recipe's step says about each of its timers, by label: how long, how often to stir, what to do at the ring. */
 export type TimerPlan = Readonly<Record<string, { readonly seconds: number; readonly stirEvery?: number; readonly done: string }>>
@@ -102,6 +110,7 @@ export function useCookTimers(owner: string, recipeId: string, plan: TimerPlan) 
   const [stirAt, setStirAt] = useState<Readonly<Record<string, number>>>({})
   // What a screen reader is told when a timer runs out or asks for a stir: the beeps carry no words.
   const [announcement, setAnnouncement] = useState('')
+  const unsay = useRef<number | undefined>(undefined)
   // The tick reads the latest timers and plan without restarting itself on every change.
   const latest = useRef(timers)
   const latestPlan = useRef(plan)
@@ -154,6 +163,12 @@ export function useCookTimers(owner: string, recipeId: string, plan: TimerPlan) 
       }
       return due
     }
+    /** One message for everything a check found, so a ring and a stir at once are both read. */
+    function say(text: string) {
+      setAnnouncement(text)
+      window.clearTimeout(unsay.current)
+      unsay.current = window.setTimeout(() => setAnnouncement(''), SAID_FOR_MS)
+    }
     function check() {
       const at = Date.now()
       const shown = shownTimers(latest.current, at)
@@ -162,11 +177,12 @@ export function useCookTimers(owner: string, recipeId: string, plan: TimerPlan) 
       const fresh = dueTimers(shown, at).filter((label) => !announced.current.has(label))
       for (const label of fresh) announced.current.add(label)
       // What to do comes with the words, since the beeps carry none ("Rice: time is up. Turn off its burner…").
-      if (fresh.length > 0) setAnnouncement(fresh.map((label) => timeIsUp(label, latestPlan.current)).join(' '))
+      const said = fresh.map((label) => timeIsUp(label, latestPlan.current))
       const stirs = stirsDue(at)
+      if (stirs.length > 0) said.push(`${listOf(stirs)}: stir it now.`)
+      if (said.length > 0) say(said.join(' '))
       if (stirs.length > 0) {
         setStirAt((previous) => ({ ...previous, ...Object.fromEntries(stirs.map((label) => [label, at])) }))
-        setAnnouncement(`${stirs.join(' and ')}: stir it now.`)
         if (sharedAudio !== null) {
           const audio = sharedAudio
           audio
@@ -196,6 +212,7 @@ export function useCookTimers(owner: string, recipeId: string, plan: TimerPlan) 
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       window.clearInterval(tick)
+      window.clearTimeout(unsay.current)
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])

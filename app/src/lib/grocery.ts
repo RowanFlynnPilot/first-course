@@ -37,6 +37,11 @@ export interface GroceryList {
   readonly inPantry: readonly { readonly ingredientId: IngredientId; readonly qty: number }[]
 }
 
+/** Planned recipes whose groceries are still to buy: the grocery list covers only these. */
+export function toShopFor(shop: { readonly plan: readonly string[]; readonly shopped: ReadonlySet<string> }): string[] {
+  return shop.plan.filter((id) => !shop.shopped.has(id))
+}
+
 export function groceryList(plan: readonly string[], pantry: ReadonlySet<IngredientId>, prices: Prices): GroceryList {
   const needed = new Map<IngredientId, number>()
   for (const recipeId of plan) {

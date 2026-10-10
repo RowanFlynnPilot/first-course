@@ -4,6 +4,7 @@
 import { RECIPES, recipeById } from '../curriculum/recipes'
 import type { TechniqueId } from '../curriculum/techniques'
 import { skillList } from './format'
+import type { Bought, Groceries } from './freshness'
 import type { Recipe, RecipeContent } from '../curriculum/types'
 
 export type Rating = 1 | 2 | 3
@@ -249,40 +250,40 @@ export function pathTo(recipe: Recipe, logs: readonly CookLog[]): Recipe[] {
   return path
 }
 
+/** The order bought groceries are suggested in, after fresh ones: a word first, then a day, then a new shop. */
+const AFTER_FRESH: readonly Bought[] = ['old', 'thawing', 'frozen', 'past']
+
 /**
  * What the menu suggests cooking next: the first unlocked recipe on this
- * week's plan, groceries bought before groceries still to buy, and among the
- * bought, the one whose meat should be cooked soonest first (`cookBy`, by
- * recipe id: lib/freshness.ts), the rest in the order added; else the first
- * in suggestion order (a dish of the usual just in reach, then a recipe
- * without a good cook, then one not mastered, then the mastered one that has
- * waited longest; anything cooked well in the last week last). There is
- * always one: the eggs and the salad need no skills.
+ * week's plan, groceries bought before groceries still to buy. Among the
+ * bought (`bought`, by recipe id: lib/shop.ts), fresh meat first, the
+ * soonest due leading, then fresh groceries with no day, in the order added;
+ * then groceries to ask about, meat thawing, meat in the freezer, and meat
+ * past its days (lib/freshness.ts). Else the first in suggestion order (a
+ * dish of the usual just in reach, then a recipe without a good cook, then
+ * one not mastered, then the mastered one that has waited longest; anything
+ * cooked well in the last week last). There is always one: the eggs and the
+ * salad need no skills.
  */
 export function nextRecipe(
   logs: readonly CookLog[],
   plan: readonly string[],
-  shopped: ReadonlySet<string>,
-  cookBy: ReadonlyMap<string, string>,
+  bought: ReadonlyMap<string, Groceries>,
   today: string,
 ): Recipe {
-  const bought = plan.filter((id) => shopped.has(id))
-  // Meat in its days first, the soonest due leading; then what has no day; then meat past its
-  // days, which needs a new shop (or "I froze it"), and comes before what is not bought yet.
-  const by = (id: string) => cookBy.get(id) ?? null
-  const fresh = bought
-    .filter((id) => (by(id) ?? '') >= today)
-    .toSorted((a, b) => (by(a) ?? '').localeCompare(by(b) ?? ''))
-  const past = bought.filter((id) => {
-    const day = by(id)
-    return day !== null && day < today
-  })
-  const planned = [
-    ...fresh,
-    ...bought.filter((id) => by(id) === null),
-    ...past,
-    ...plan.filter((id) => !shopped.has(id)),
-  ]
+  const groceries = (id: string): Groceries => {
+    const found = bought.get(id)
+    if (found === undefined) throw new Error(`${id} is not bought`)
+    return found
+  }
+  const rank = ({ state, cookBy }: Groceries) => (state === 'fresh' ? (cookBy === null ? 1 : 0) : 2 + AFTER_FRESH.indexOf(state))
+  const ready = plan
+    .filter((id) => bought.has(id))
+    .toSorted((a, b) => {
+      const [first, second] = [groceries(a), groceries(b)]
+      return rank(first) - rank(second) || (first.cookBy ?? '').localeCompare(second.cookBy ?? '')
+    })
+  const planned = [...ready, ...plan.filter((id) => !bought.has(id))]
     .map(recipeById)
     .find((recipe) => recipeState(recipe, logs) !== 'locked')
   if (planned !== undefined) return planned

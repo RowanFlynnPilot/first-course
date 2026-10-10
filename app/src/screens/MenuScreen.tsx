@@ -17,10 +17,10 @@ import { RECIPES, recipeById } from '../curriculum/recipes'
 import type { Recipe, Tier } from '../curriculum/types'
 import { badgeById } from '../lib/badges'
 import { updateChef, type Chef } from '../lib/chefs'
-import { clearCooking, loadCooking } from '../lib/cooking'
+import { clearCooking, cooksInProgress, type Cooking } from '../lib/cooking'
 import { cookCostPerServingCents, orderCostPerServingCents, totalKeptCents } from '../lib/cost'
 import { extraById, wornExtras, type ExtraId } from '../lib/extras'
-import { cookByDates, dayName } from '../lib/freshness'
+import { cookBy, dayName } from '../lib/freshness'
 import { FRIED_RICE, LEFTOVER_DAYS, leftoversOf, loadEaten, makesRice, markEaten } from '../lib/leftovers'
 import {
   COURSE_NAMES,
@@ -49,8 +49,10 @@ import {
 } from '../lib/progress'
 import {
   addAllToKit,
+  boughtGroceries,
   groceryState,
   markFrozen,
+  moveToFridge,
   planRecipe,
   readyTonight,
   shopForAgain,
@@ -91,9 +93,8 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
   // the card says when dinner would be ready.
   const now = useNow()
   const today = localDateString(new Date(now))
-  // Bought meat keeps only days: the one to cook soonest comes first.
-  const cookBy = cookByDates(shop.shoppedOn)
-  const next = nextRecipe(logs, shop.plan, shop.shopped, cookBy, today)
+  // Bought meat keeps only days: the one to cook soonest comes first, and what is not ready tonight after.
+  const next = nextRecipe(logs, shop.plan, boughtGroceries(shop, today), today)
   const streak = currentStreak(logs, today)
 
   // Each moment holds the screen until the cook moves on. The menu's own
@@ -214,13 +215,14 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
 
         {logs.length === 0 && <FirstSteps shop={shop} />}
 
+        {/* Keyed by the dish, so a button busy for one suggestion is not busy for the next. */}
         <UpNext
+          key={next.id}
           recipe={next}
           plan={!shop.plan.includes(next.id) ? null : shop.shopped.has(next.id) ? 'bought' : 'planned'}
           logs={logs}
           shop={shop}
           now={now}
-          cookBy={cookBy.get(next.id) ?? null}
           onShopChange={onShopChange}
         />
         <Tonight except={next} logs={logs} shop={shop} now={now} today={today} />
@@ -294,8 +296,8 @@ export function MenuScreen({ notice }: { notice: CookNotice | null }) {
         {!usualFirst && usualSection}
 
         <footer className="footer">
-          {/* Whose kitchen this is: an email link can sign a phone in as whoever sent it. */}
-          {email !== null && <p className="row-note">Signed in as {email}</p>}
+          {/* Whose kitchen this is, and that Sign out is for this phone only (scope 'local' in App.tsx). */}
+          {email !== null && <p className="row-note">Signed in on this phone as {email}</p>}
           <button
             className="link-button"
             type="button"
@@ -340,7 +342,7 @@ function StreakLine({ streak }: { streak: Streak }) {
 }
 
 /**
- * Before the first cook, the order to do things in, each ticked off as it is
+ * Before the first cook, the order to do things in, each checked off as it is
  * done: the kit and the pantry first, so the first list does not buy what
  * the kitchen already has.
  */
@@ -425,7 +427,7 @@ function NewExtra({
 }
 
 /**
- * After a cook, the tools it used that are not ticked in the kit, with one
+ * After a cook, the tools it used that are not checked off in the kit, with one
  * tap to add them: the cook plainly owns them now, and the kit counts on the
  * menu should say so.
  */
@@ -471,25 +473,41 @@ function CookedWithKit({ recipe, shop, onShopChange }: { recipe: Recipe; shop: S
 }
 
 /**
- * The cook in progress on this phone, when the app closed in the middle of
- * it (lib/cooking.ts): the way back to the step, with any timer still on, or,
- * once the last step was done, to logging it.
+ * The cooks in progress on this phone, when the app closed in the middle of
+ * them (lib/cooking.ts): the way back to each one's step, with any timer
+ * still on, or, once its last step was done, to logging it. The latest first.
  */
 function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[]; now: number }) {
-  const [forgotten, setForgotten] = useState(false)
-  const cooking = forgotten ? null : loadCooking(localStorage, userId, now)
-  if (cooking === null) return null
+  // Counts the cooks let go here, so the list is read again.
+  const [, setLetGo] = useState(0)
+  const cooks = cooksInProgress(localStorage, userId, now).filter((cooking) => {
+    const recipe = recipeById(cooking.recipeId)
+    // A catch-up can lock it again (a cook deleted elsewhere): its screen would only say so. Logged
+    // since it began (on another device, say): asking here would log it twice.
+    return (
+      recipeState(recipe, logs) !== 'locked' &&
+      logs.filter((cook) => cook.recipeId === recipe.id).length <= cooking.cooksBefore
+    )
+  })
+  return cooks.map((cooking) => (
+    <ResumeCard
+      key={cooking.recipeId}
+      userId={userId}
+      cooking={cooking}
+      now={now}
+      onLetGo={() => setLetGo((count) => count + 1)}
+    />
+  ))
+}
+
+function ResumeCard({ userId, cooking, now, onLetGo }: { userId: string; cooking: Cooking; now: number; onLetGo: () => void }) {
   const recipe = recipeById(cooking.recipeId)
-  // A catch-up can lock it again (a cook deleted elsewhere): its screen would only say so.
-  if (recipeState(recipe, logs) === 'locked') return null
-  // Logged since it began (on another device, say): asking here would log it twice.
-  if (logs.filter((cook) => cook.recipeId === recipe.id).length > cooking.cooksBefore) return null
   // A recipe revised mid-cook can have fewer steps now.
   const step = cooking.step === 'log' ? 'log' : Math.min(cooking.step, recipe.content.steps.length)
   // Food may be in the oven: a timer still on says when it ends. Only cook mode can ring it.
   const timers = Object.entries(shownTimers(loadTimers(localStorage, userId, recipe.id), now))
   return (
-    <section className="notice notice-info resume" aria-label="The cook in progress">
+    <section className="notice notice-info resume" aria-label={`The cook in progress: ${recipe.title}`}>
       <p>
         {step === 'log'
           ? `You finished ${recipe.title}. How did it go?`
@@ -511,11 +529,17 @@ function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[
           className="link-button"
           type="button"
           onClick={() => {
+            // As leaving cook mode does: a timer still counting may be food in the oven.
+            const at = Date.now()
+            const running = Object.values(loadTimers(localStorage, userId, recipe.id)).some(
+              (timer) => !timer.stopped && timer.endsAt > at,
+            )
+            if (running && !window.confirm('A timer is still running. Stop it?')) return
             // The card goes with its buttons: focus moves to what the menu suggests.
             focusNext('tray-title')
-            clearCooking(localStorage, userId)
+            clearCooking(localStorage, userId, recipe.id)
             clearTimers(localStorage, userId, recipe.id)
-            setForgotten(true)
+            onLetGo()
           }}
         >
           {step === 'log' ? 'Not logging it' : 'Not cooking it now'}
@@ -529,9 +553,9 @@ function Resume({ userId, logs, now }: { userId: string; logs: readonly CookLog[
 const TONIGHT = 3
 
 /**
- * Other recipes that need no shop tonight: groceries bought (and the meat
- * not past its days), or everything in the pantry. Quickest first, with
- * when each would be ready.
+ * Other recipes that need no shop tonight: groceries bought and fresh (not
+ * past their days, frozen, thawing, or old enough to ask about), or
+ * everything in the pantry. Quickest first, with when each would be ready.
  */
 function Tonight({
   except,
@@ -642,7 +666,6 @@ function UpNext({
   logs,
   shop,
   now,
-  cookBy,
   onShopChange,
 }: {
   recipe: Recipe
@@ -651,22 +674,23 @@ function UpNext({
   logs: readonly CookLog[]
   shop: Shop
   now: number
-  /** The day its bought meat should be cooked by, or null (lib/freshness.ts). */
-  cookBy: string | null
   onShopChange: ShopChange
 }) {
   const add = useWrite()
   const again = useWrite()
   const frozen = useWrite()
+  const thawed = useWrite()
   const still = useWrite()
   const heading = useFocusTarget<HTMLHeadingElement>('tray-title')
   const { content } = recipe
   const today = localDateString(new Date(now))
-  // How its groceries stand, when bought: past their day or old enough to ask about, the card settles
-  // that before anything else; frozen, it says to thaw first (lib/freshness.ts).
+  // How its groceries stand, when bought (lib/freshness.ts): past their day or old enough to ask
+  // about, the card settles that first; frozen or thawing, the meat thaws first.
   const groceries = plan === 'bought' ? groceryState(recipe, shop, today) : null
   const boughtOn = shop.shoppedOn.get(recipe.id)
+  const by = boughtOn === undefined ? null : cookBy(recipe, boughtOn)
   const settleFirst = groceries === 'past' || groceries === 'old'
+  const thawFirst = groceries === 'frozen' || groceries === 'thawing'
   const state = recipeState(recipe, logs)
   const last = lastCooked(recipe, logs)
   // Bought and fresh, or all in the pantry: nothing to plan or buy, so cooking leads.
@@ -676,7 +700,9 @@ function UpNext({
       ? `Bought ${dayName(boughtOn, today)}`
       : groceries === 'frozen'
         ? 'In the freezer'
-        : plan === 'bought'
+        : groceries === 'thawing'
+          ? 'Thawing in the fridge'
+          : plan === 'bought'
           ? 'Groceries bought'
           : plan === 'planned'
             ? 'On this week’s plan'
@@ -694,9 +720,19 @@ function UpNext({
       className={quiet ? 'button button-quiet' : 'button'}
       type="button"
       aria-disabled={again.busy}
-      onClick={() => void again.run(() => focusAfter('tray-shop', () => shopForAgain(recipe.id, onShopChange)))}
+      onClick={() => void again.run(() => focusAfter('tray-title', () => shopForAgain(recipe.id, onShopChange)))}
     >
       Put it back on the list
+    </button>
+  )
+  const froze = (quiet: boolean) => (
+    <button
+      className={quiet ? 'button button-quiet' : 'button'}
+      type="button"
+      aria-disabled={frozen.busy}
+      onClick={() => void frozen.run(() => focusAfter('tray-title', () => markFrozen(recipe.id, onShopChange)))}
+    >
+      I froze it
     </button>
   )
   return (
@@ -714,17 +750,21 @@ function UpNext({
       <div className="tray-rest">
         <p className="tray-body">
           {groceries === 'past' && 'Unless you froze it, the meat is past its days: throw it out and put it back on the list.'}
-          {groceries === 'old' && 'Bought more than a week ago. Still have everything it needs?'}
+          {groceries === 'old' && 'More than a week ago. Still have everything it needs?'}
+          {groceries === 'frozen' && 'The night before you cook it, move the meat to the fridge to thaw. '}
+          {groceries === 'thawing' &&
+            boughtOn !== undefined &&
+            `Ready to cook ${dayName(boughtOn, today)}${by === null ? '' : `, and by ${dayName(by, today)}`}. `}
           {!settleFirst && (
             <>
-              {groceries === 'frozen'
-                ? `${formatMinutes(content.totalMinutes)} once the meat has thawed. Move it to the fridge tonight, and cook it tomorrow.`
+              {thawFirst
+                ? `${formatMinutes(content.totalMinutes)} once the meat has thawed.`
                 : `${formatMinutes(content.totalMinutes)}: start now and eat around ${readyAt(now, content.totalMinutes)}.`}{' '}
               {formatCents(cookCostPerServingCents(content, shop.prices))} a serving instead of{' '}
               {formatCents(orderCostPerServingCents(content))} delivered.
               {groceries === 'fresh' &&
-                cookBy !== null &&
-                ` ${cookBy === today ? 'Cook it today' : `Cook it by ${dayName(cookBy, today)}`}, while the meat is fresh.`}
+                by !== null &&
+                ` ${by === today ? 'Cook it today' : `Cook it by ${dayName(by, today)}`}, while the meat is fresh.`}
             </>
           )}
           {/* Once it is all mastered, the suggestion is whatever has waited longest. */}
@@ -732,14 +772,17 @@ function UpNext({
         </p>
         <div className="actions">
           {groceries === 'past' && putBack(false)}
-          {groceries === 'past' && (
+          {groceries === 'past' && froze(true)}
+          {groceries === 'frozen' && (
             <button
-              className="button button-quiet"
+              className="button"
               type="button"
-              aria-disabled={frozen.busy}
-              onClick={() => void frozen.run(() => focusAfter('tray-title', () => markFrozen(recipe.id, onShopChange)))}
+              aria-disabled={thawed.busy}
+              onClick={() =>
+                void thawed.run(() => focusAfter('tray-title', () => moveToFridge(recipe.id, today, onShopChange)))
+              }
             >
-              I froze it
+              Moved it to the fridge
             </button>
           )}
           {groceries === 'old' && (
@@ -753,8 +796,10 @@ function UpNext({
             </button>
           )}
           {groceries === 'old' && putBack(true)}
-          <Saving busy={again.busy || frozen.busy || still.busy} />
+          <Saving busy={again.busy || frozen.busy || thawed.busy || still.busy} />
           {cookNow && start}
+          {/* Frozen as Done shopping advised, before its day: said here, so the card stops saying to cook it. */}
+          {groceries === 'fresh' && by !== null && froze(true)}
           {plan === null && !cookNow && (
             <button
               className="button"
@@ -767,8 +812,8 @@ function UpNext({
           )}
           <Saving busy={add.busy} />
           {plan === 'planned' && !cookNow && <ShopForIt />}
-          {/* Meat past its day or groceries in doubt are settled first: no way to start cooking until then. */}
-          {!cookNow && !settleFirst && start}
+          {/* Meat past its day, groceries in doubt and frozen meat are settled first: no way to start cooking until then. */}
+          {!cookNow && !settleFirst && !thawFirst && start}
           <Link className="button button-quiet" to={`/recipe/${recipe.id}`}>
             Read the recipe
           </Link>
@@ -776,6 +821,7 @@ function UpNext({
         <ErrorNotice error={add.error} />
         <ErrorNotice error={again.error} />
         <ErrorNotice error={frozen.error} />
+        <ErrorNotice error={thawed.error} />
         <ErrorNotice error={still.error} />
       </div>
     </section>
