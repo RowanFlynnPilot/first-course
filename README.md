@@ -129,17 +129,19 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 198 unit tests. The curriculum's graph rules, raw-meat
-      safety, burners turned off, step length, the serial comma and names
-      without commas, cans and rice and beginner times, XP and levels,
+- [x] `npm test`: 200 unit tests. The curriculum's graph rules, raw-meat
+      safety, burners turned off, the stove fan, knives to the dish rack,
+      step length, the serial comma and names without commas, cans and rice
+      and beginner times, XP and levels,
       costs and corrected prices, the grocery list and the cart, the kit,
       timers, the streak, the badges, and errors in plain words.
 - [x] `npx tsc -b`, the type check.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 226 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 237 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
-  - signing in and up, a password reset, an expired or forged email link, creating
+  - signing in and up, a password reset, an expired or forged email link, a
+    link that asks before it signs in, creating
     and changing the chef, the character
     creator, and earning and wearing extras
   - cooking and logging, the after-cook notice and what unlocks, and Back
@@ -152,8 +154,11 @@ The deploy workflow runs these, and nothing deploys unless all pass:
     no signal at all (a read that gives up once, after 15 seconds; a
     sign-in that cannot be renewed; an email link that lands in a dead
     spot), and no screen running off the side at 200% zoom or 200% text
-  - a weeknight: what is ready tonight, a cook the phone interrupted,
-    stirring, bought meat and leftovers
+  - a weeknight: what is ready tonight, a cook the phone interrupted (a
+    main and its side at once), stirring, bought meat (frozen, thawing,
+    past its days) and leftovers
+  - the cart: dated by the day it was checked off, what stays in it after a
+    cook, and clearing it
   - 3rem tap targets on every control, and focus and announcements for a
     screen reader
   - each screen's title, where focus lands, where the menu was scrolled,
@@ -180,7 +185,9 @@ These need hardware, a kitchen, or a store:
       tap once so it can ring.
 - [ ] From the installed app, start a cook and a timer, then swipe the app
       away. Reopen it: the menu offers "Back to step …" and says when the
-      timer ends, and back in cook mode it is still counting.
+      timer ends, and back in cook mode it is still counting. Do it with a
+      main and a side at once (the oven fries and a burger): each comes
+      back with its own timer.
 - [ ] A simmer with a timer (the marinara's sauce) beeps softly and says
       "stir it now" every 5 minutes, even on a later step, without pausing a
       podcast; "Stirred" clears it.
@@ -196,7 +203,11 @@ These need hardware, a kitchen, or a store:
 - [ ] Done shopping keeps the plan, marked "Groceries bought", until each
       recipe is cooked. It puts the checked-off staples in the pantry, and next
       week's list leaves them off. A recipe with something left unchecked
-      stays on the list.
+      stays on the list. Tapped a day late, it still dates the meat by the
+      day you checked it off.
+- [ ] Freeze the chicken after a shop and tap "I froze it"; the night before,
+      move it to the fridge and tap "Moved it to the fridge". The next day
+      the card leads with Start cooking.
 - [ ] Sign out and sign back in: everything is still there.
 - [ ] "Share the list" opens the share sheet, and the list lands in Notes.
 - [ ] "Forgot your password?" sends an email whose link opens the app at

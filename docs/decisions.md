@@ -89,6 +89,20 @@ read-back found:
   or measured; the pan-sauce chicken's oven left on; hot tap water to soak
   potatoes, which another recipe warns against. Each became a rule, and
   the cans a stricter test.
+- **The tenth read-back** (October 10, 2026): hands that tipped a raw
+  marinade into the trash then put on oven mitts and tapped the phone (the
+  tikka, four steps before the bowl was washed); the single smash's washed
+  hands carrying the raw-beef plate to the fridge and back; a damp towel
+  pressed on a blade hot from the pan; 45 minutes of stirring caramelized
+  onions in cast iron with the handle as hot as the pan; cooked patties
+  moved with the tongs that set the raw balls; no word on a broiler
+  flare-up, or on the smoke alarm in nineteen recipes that sear, broil or
+  bake at 450°F and up; potatoes, carrots and tomatoes cut with no flat side;
+  `done` lines that sent a fork into a 425°F oven; ¼ cup of water ladled
+  out of an empty skillet; a silenced rice ring that left the burner on, and
+  "the rice stays hot for half an hour" at a beginner's pace; three hands
+  to steam broccoli; knives "washed in hot, soapy water" with the board.
+  Each became a rule, and the stove fan and the knife a test.
 
 ### What a timer says when it rings (Rowan's call, October 9, 2026)
 
@@ -149,6 +163,23 @@ bought recipe with such meat and no date is taken as frozen: not ready
 tonight, with "Move it to the fridge tonight, and cook it tomorrow." Frozen
 is the absence of a date, which only "I froze it" leaves now, rather than a
 stored state.
+
+### Thawing (Rowan's call, October 10, 2026)
+
+Frozen meat read "Move it to the fridge tonight, and cook it tomorrow" every
+day, forever, and "I froze it" appeared only once the meat was already past
+its day, so a cook who froze it as Done shopping advised was told to throw
+it out. "I froze it" is now offered while the meat is fresh too, and the
+frozen card has "Moved it to the fridge", which dates the recipe tomorrow:
+the day it will have thawed, from which its days in the fridge count. Until
+then it reads "Thawing in the fridge". A date ahead of today is the thawing
+state, so no column was added.
+
+Meat is never asked about any more ("Still have them" restarted the smoked
+sausage's two weeks from the day of the answer): any meat has a last day,
+and only groceries with no meat are asked about after a week. The
+suggestion orders the bought by how they stand: fresh meat (soonest first),
+fresh with no day, then to ask about, thawing, frozen, and past.
 
 ### Planning ahead of what is open (Rowan's call, October 9, 2026)
 
@@ -248,8 +279,18 @@ deleting it, and saving a cook takes its recipe off the plan.
 ### The cart's checks live on the phone (Rowan's call, October 9, 2026)
 
 One bar of signal had meant "Saving…" on line after line. The checks moved to
-the phone (`lib/checks.ts`) and reach Supabase together in `finish_shopping`;
-the cost is that a second device does not see checks live.
+the phone (`lib/checks.ts`, now `lib/cart.ts`) and reach Supabase together in
+`finish_shopping`; the cost is that a second device does not see checks live.
+
+### The cart keeps until Done shopping (Rowan's call, October 10, 2026)
+
+Round 9 forgot a cart after two untouched days, silently. The tenth review
+found Done shopping dated the meat by the day the button was tapped, so a
+cart checked off Saturday and put away Monday said to cook Saturday's
+chicken by Wednesday. The cart now keeps until Done shopping or "Clear the
+cart", and remembers when its first grocery that is not a staple was checked
+(`since`): the shop is dated by that day. The list says when that was once it
+is before today, beside "Clear the cart".
 
 ### Dating the shop (00009, October 9, 2026)
 
@@ -426,8 +467,15 @@ The October 9 review's finding about new functions is under "Why 00010".
 
 The auth client's default signed out every device (`scope: 'global'`),
 while the screen spoke of this phone. Now `scope: 'local'`; and the menu
-says "Signed in as …" beside Sign out, since a signed-out phone takes a
-link's account without asking.
+says "Signed in on this phone as …" beside Sign out.
+
+### A signed-out phone asks too (Rowan's call, October 10, 2026)
+
+A phone nobody was signed in to took any link's account without a word, so
+a stranger's link could put a cook's cooks and notes into the stranger's
+kitchen, with only the footer to tell. Every link now asks: "Sign in with
+this link?", naming the account, with Sign in and "Not now" on a signed-out
+phone, at the cost of one tap on every confirmation and reset link.
 
 ### Whose link it is (October 9, 2026)
 
@@ -474,6 +522,29 @@ meanwhile goes to Sign in; a gateway's HTML error page reads "Supabase is
 not answering"; another account's stored timers can no longer stop this
 one loading; and `.env` is ignored anywhere in the repo.
 
+### The tenth review's sign-in fixes (October 10, 2026)
+
+A hash carrying both a session and an error signed in, then said the link
+had failed; it now signs no one in. `signInFromLink` checks the session it
+ends with is the link's account: a link's token past its hour is renewed
+first, and the auth client joins a renewal already on its way for the
+account signed in here, which left that account signed in (and a reset
+link would have changed its password). `linkOwner` keeps a link for Try
+again on a 408 or 429 and on an answer that stops arriving partway, not
+only a timeout, refuses a token over 8 KB unsent, and reads an empty email
+as none. Left open, in CLAUDE.md: a renewal refused with a 429 signs the
+phone out, and Sign out with no signal and an expired token does nothing.
+
+### One cook in progress per recipe (Rowan's call, October 10, 2026)
+
+The phone kept one cook in progress. Opening another recipe's cook mode
+replaced it, and since round 9 a new cook also cleared that recipe's
+timers, so starting the burger while the fries roasted lost the fries'
+timer when the cook went back to them; and a dinner not yet logged was
+forgotten as soon as the next cook began. Each recipe now keeps its own
+(`first-course:cooking:<account>:<recipe>`), and the menu lists each, the
+latest first. "Not cooking it now" asks first while a timer counts.
+
 ## Build history
 
 - **Phase 2**, the shop and the kit, was built on October 4, 2026.
@@ -498,3 +569,10 @@ one loading; and `.env` is ignored anywhere in the repo.
   and forgetting itself after two days, the cook in progress counted by
   cooks rather than dates, sign-out on this phone only, and the recipes'
   rewrites read again.
+- **The tenth review** (October 10, 2026): five reviewers, and Rowan's four
+  calls (thawing, a signed-out phone asks, a cook in progress per recipe,
+  the cart keeping until Done shopping), the meat dated by the day it was
+  checked off, the sign-in fixes above, a stir and a ring read together,
+  cook mode's buttons unstuck at 200% text (round 9's rule never applied:
+  it came before the rule it overrode), the plate above the dish's name at
+  200% zoom, and the tenth read-back's recipe fixes.

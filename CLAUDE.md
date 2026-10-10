@@ -22,7 +22,8 @@ These apply to every change.
   thrown while a file loads, before React is up: that is a blank page. So
   code at the top of a module only builds static data the unit tests import
   (the badges, the curriculum); anything a screen works out, it works out
-  while it renders.
+  while it renders. `supabase.ts` is the one exception: it reads the env and
+  the email link as it loads, so a missing env is a blank page.
 - Surgical changes. One responsibility per function. Fix root causes.
 - Let TypeScript catch it. The curriculum is typed data, so a misspelled skill
   or ingredient id is a compile error, not a runtime check.
@@ -107,27 +108,12 @@ docs/decisions.md              the record behind CLAUDE.md: what changed, when, 
 .github/workflows/deploy.yml   build job (lint, type check, test, e2e, build; read-only), deploy job
                                (Pages); a pull request runs the checks only, type check included.
                                Actions pinned to commits.
-.github/dependabot.yml         weekly, with a 7-day cooldown before a release is proposed: minor
-                               and patch dev tools in one pull request, a major on its own,
-                               @types/node held to the Node CI runs (24)
-supabase/migrations/           00001_phase1_foundation.sql (cook_logs + RLS)
-                               00002_chef.sql (chefs: one named chef per account)
-                               00003_chef_look.sql (skin, hair, and editing the chef)
-                               00004_shop_kit_and_cook_edits.sql (plan, pantry, checks,
-                                 prices, kit, finish_shopping(), editing the cook log)
-                               00005_chef_creator.sql (hairstyle, facial hair, glasses,
-                                 more colors, chosen extras)
-                               00006_keep_the_plan.sql (Done shopping marks the plan
-                                 shopped; saving a cook takes its recipe off)
-                               00007_shop_what_you_saw.sql (Done shopping changes only
-                                 the recipes and checks this device showed)
-                               00008_grants_and_limits.sql (the grants the migrations
-                                 meant, and limits on notes, ids, prices and dates)
-                               00009_shopped_on.sql (the day the groceries were bought;
-                                 finish_shopping takes it as a fourth argument)
-                               00010_kit_at_the_register.sql (Done shopping puts the
-                                 kit checked off into the kit; no new function exposed
-                                 by default; grocery_checks shut)
+.github/dependabot.yml         weekly, with a 7-day cooldown before a release is proposed: react
+                               and the two Supabase clients each as a group, minor and patch dev
+                               tools in one pull request, a major on its own, @types/node held to
+                               the Node CI runs (24)
+supabase/migrations/           00001 to 00010, all live: the result is "The schema today", and
+                               each one, and why, is under Migrations in docs/decisions.md
 app/
   playwright.config.ts         e2e: phone viewport, its own build against the fake
   e2e/                         fakeSupabase.ts, kitchen.ts (fixture), *.e2e.ts (weeknight.e2e.ts:
@@ -166,13 +152,15 @@ app/
       badges.ts                the 31 badges and the rule for each, read off the log
       notice.ts                what one cook earned: lines, level-up, promotion, badges, the usual
       timers.ts                cook-mode timers in localStorage, keyed by label
-      cooking.ts               the cook in progress on this phone, for the menu's way back to it
+      cooking.ts               the cooks in progress on this phone, one per recipe, for the menu's
+                                 way back to each
       cart.ts                  the cart, kept on this phone until Done shopping (settleCart): see
                                  "The cart lives on the phone"
       memoryStorage.ts         a Storage for the tests of what the phone keeps
       cost.ts                  cook cost, order cost, kept; packagePriceCents() is the one price read
       grocery.ts               the grocery list: whole packages per store section, checkout total
-      freshness.ts             the day a bought recipe's meat should be cooked by
+      freshness.ts             how bought groceries stand (boughtState: fresh, past, frozen,
+                                 thawing, old), the day their meat should be cooked by, dayName
       kit.ts                   what equipment a set of recipes needs, and what is missing
       extras.ts                the 8 extras, the track and good-cook count that earns each, what is worn
       spices.ts                the spice shelf: each spice under the course that first uses it
@@ -236,17 +224,11 @@ the masala base's cue. The courses hold 6, 7, 8 and 3 recipes, and the
 Fourth course adds no new kit or spice. The usual is not gated by course:
 a dish comes into reach when its skills are learned.
 
-**Every recipe is written, the usual included (31 recipes).** `content` is
-required on `Recipe`, so the type system rules out an unwritten recipe, and
-nothing in the app handles one. Once a dish of the usual is in reach, the
-menu says "In reach. Cook it any time" (row notes take no full stop).
-
-The usual sits below the Fourth course until one of its dishes is in reach,
-then moves above the First course (Rowan's call; docs/decisions.md), so a
-beginner meets what they can cook before seven locked plates.
-
-From here, real cooks should shape the recipes: when a step reads wrong at
-the stove, change it under the rules below.
+**Every recipe is written** (`content` is required on `Recipe`). The usual
+sits below the Fourth course until one of its dishes is in reach ("In reach.
+Cook it any time"), then moves above the First course (Rowan's call;
+docs/decisions.md), so a beginner meets what they can cook before seven
+locked plates.
 
 ### Writing a recipe
 
@@ -266,18 +248,24 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   of at most 90 characters that never says the time is up (the app says
   "Rice: time is up." before it), naming oven mitts where a pan comes out;
   where the ring only asks for a look, the check ("Check it: the sauce
-  should coat a spoon."). Cook mode shows it under the clock and beside the
-  chip on any other step, and reads it out with the ring (tested: the
-  shape). Labels are permanent once shipped, since phones store running
-  timers by label (tested: pinned). Where the cook should judge by eye,
+  should coat a spoon."). It never sends a fork or a thermometer into food
+  in a hot oven: the pan comes out with oven mitts first ("With oven mitts,
+  pull the pan out and check a potato with a fork."), and a ring that starts
+  a setup repeats what matters from its step ("pan upside down on the
+  second-lowest rack"), since the cook may act on it from another step
+  (tested: the shape). Labels are permanent once shipped, since phones store
+  running timers by label (tested: pinned). Where the cook should judge by eye,
   leave it `null` and describe the cue. The recipe page prints each timer
   under its step ("Timer: 15 minutes"), so a timer runs in whole minutes.
 - No timer may ring while the cook's hands are in raw meat: a ring stops
   only at a tap on the phone. Before raw meat is unwrapped, a step waits
-  for any timer still running ("Wait for the rice timer, if it has not rung
-  yet…") and says what to do at its ring, while the hands are clean. A
-  rice step says "turn the heat to its lowest setting, then start the
-  timer", so the boil-up is not counted.
+  for any timer still running, and covers one already silenced: "If the
+  rice timer has rung, check that its burner is off. If not, wait for it,
+  then turn off the rice burner and leave the lid on." A rice step says
+  "turn the heat to its lowest setting, then start the timer", so the
+  boil-up is not counted. Never promise rice stays hot for a set time; rice
+  cooked first has been warm since the start, so its leftovers go into the
+  fridge before the cook sits down.
 - A step that says "while that cooks" is fine: timers keep running across
   steps in cook mode.
 - New ingredients go in `ingredients.ts` with a section, one unit, a package
@@ -345,13 +333,17 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   - Hands washed after shaping raw meat never touch it again: smash balls go
     into the pan with the tongs, the parchment pressed on a patty comes off
     with the tongs onto the raw-meat plate (and into the trash at the
-    clean-up), and the tongs join the final wash. Raw meat
+    clean-up), and the tongs join the final wash. Cooked food is moved with
+    a named tool that never touched raw meat ("onto bottom buns with the
+    spatula, never the tongs"). Raw meat
     going into a hot pan: the heat goes to medium-low, the meat is tipped in,
     the package goes in the trash, and hands are washed before they touch
     the spatula or the salt bowl; the next step brings the heat back up.
-    Hands that tip, hold or cover a bowl of raw meat are washed in the step
-    that puts the bowl in hot, soapy water, before they touch finished food
-    (basil, lime, peanuts), with the burner turned to low first if one is on.
+    Hands that tip, hold or cover a bowl of raw meat or its marinade are
+    washed in the step that puts the bowl in hot, soapy water, before they
+    touch finished food (basil, lime, peanuts), the oil bottle, the oven
+    mitts or the phone, with the burner turned to low first if one is on.
+    The oil goes into the pan before the raw bowl comes out of the fridge.
   - Cut vegetables before raw meat, and move whatever was cut off the
     board, onto a plate or into a bowl, before the meat lands on it.
   - A utensil that touched raw meat (tongs, a spatula that spread it in the
@@ -376,12 +368,25 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   tilts, the other spoons. Never tip a hot skillet onto a plate: lift the
   food out with the spatula. Never tip or tilt a full skillet over a
   saucepan, even resting on its rim: a cast-iron one weighs about 8 pounds
-  and can knock the saucepan over. Turn off the burner, set the saucepan on
-  a cool burner beside it, ladle across, and lift the brown bits with the
-  liquid already in the pan or ¼ cup of water; the skillet never leaves its
-  burner. Sauce goes over pasta by the ladle too, and the ladle is in the
-  equipment list. A skillet that toasted buns in butter is wiped out (a
-  paper towel held in the tongs) before it goes to high heat.
+  and can knock the saucepan over. Turn off the burner, lift the brown bits
+  with the liquid already in the pan or ¼ cup of water while the food is
+  still in it (¼ cup in an empty skillet is a film a ladle cannot lift), set
+  the saucepan on a cool burner beside it, and ladle across; the skillet
+  never leaves its burner. Sauce goes over pasta by the ladle too, and the
+  ladle is in the equipment list. A skillet that toasted buns in butter is
+  wiped out (a paper towel held in the tongs) before it goes to high heat.
+  A skillet stirred or scraped after 10 minutes or more on the heat
+  (caramelized onions) is steadied with an oven mitt on the handle; to empty
+  it, turn off the burner, then, mitt on, scrape the food out.
+- Smoke and fire. The stove fan comes on in or before the first step of
+  high heat: a burner at medium-high or high (not water coming to a boil),
+  the broiler, or an oven at 450°F or more (tested), and one why says "If the
+  smoke alarm goes off anyway, turn the heat down; never leave the pan to
+  deal with it" (an oven: open a window). A broiling recipe says what to do
+  if a flame leaps up: door shut, oven off, never water. A towel pressed on
+  hot metal is dry: a recipe that wets towels sets out a dry one, since a
+  damp towel on a hot blade turns to steam. Water that goes into hot oil
+  under a lid is measured into a bowl first, with the lid set by the stove.
 - Say "turn off the burner" (and "turn off the oven") where the heat is done,
   once for each pan that was heated ("both burners" counts twice), and in the
   same step that drains a pot (tested, all three).
@@ -445,16 +450,19 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - Every ingredient lists its `allergens` from the FDA's nine (milk, egg,
   fish, shellfish, tree nuts, peanuts, wheat, soy, sesame) for a typical US
   supermarket product; where brands differ, the one most contain (curry
-  paste: shellfish). The recipe page says "Contains …" from them
-  (`lib/allergens.ts`). A dish commonly topped with a major allergen
-  (peanuts) offers it on the side, and a why names one a label may hide
+  paste: shellfish), erring toward a warning (oyster sauce keeps
+  "shellfish", though the FDA's means crustaceans). The recipe page says
+  "Contains …" from them (`lib/allergens.ts`). A dish commonly topped with a
+  major allergen (peanuts) serves it on the side, and its prep note says so
+  ("leave them out for a peanut allergy"); a why names one a label may hide
   (shrimp in curry paste).
 - Say how to keep a leftover part of a package: half a can of tomatoes
   keeps a week in the fridge or 3 months frozen; leftover raw chicken can
   be frozen; the rest of a can of broth keeps 4 days in a lidded jar, or 3
   months frozen; bacon keeps a week from when it was bought, or freezes; the
   loaf lives in the freezer. Leftover rice is spread in a lidded container
-  and in the fridge within an hour. Say "a lidded container", always.
+  and in the fridge within an hour. A sauce to freeze goes in the freezer
+  within 2 hours, once it stops steaming. Say "a lidded container", always.
 - A recipe that makes 3 or more servings says how to keep the leftovers in
   its last step (a lidded container, in the fridge within 2 hours, 4 days),
   and how to reheat them in `leftovers.reheat`, safely: chicken to at least
@@ -467,7 +475,12 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
   weight with a picture ("2 ounces, a quarter of a new 8-ounce block"),
   never as a fraction of the package, which may be part used.
 - A knife is washed by hand and set in the dish rack, never left in a sink
-  of soapy water, where a hand reaching in finds the edge.
+  of soapy water, where a hand reaching in finds the edge: "Wash the knife by
+  hand and set it in the dish rack.", never "wash the board and knife in hot,
+  soapy water" (tested). Round food (a potato, a carrot, a tomato) gets a
+  flat side before it is cut: halved, set on the flat, held in the claw.
+- Something made earlier and put away is named with where it is when it
+  comes back: "Take the burger sauce from the fridge".
 - Nonstick stays at medium-high at most and never meets a metal tool. The
   `spatula` is silicone, heatproof to 500°F (it meets cast iron on high),
   and the `tongs` are silicone-tipped; the stiff metal spatula does not
@@ -528,12 +541,14 @@ Fill in `content` for a recipe in `recipes.ts`. Rules:
 - `recipeState(recipe, logs)`: `locked` if any required skill is unlearned;
   else `ready` with no cooks; else `mastered` at 3 good cooks including a
   "Nailed it"; else `cooked`.
-- `nextRecipe(logs, plan, shopped, cookBy, today)`: the first unlocked
-  recipe on this week's plan, groceries bought before groceries still to
-  buy; among the bought, the one whose meat should be cooked soonest first
-  (`cookBy`, by recipe id: `lib/freshness.ts`), then those with no day to
-  cook by, in the order added, then those whose meat is past its day (the
-  menu labels it "Groceries bought" or "On this week's plan"); else the
+- `nextRecipe(logs, plan, bought, today)`: the first unlocked recipe on
+  this week's plan, groceries bought before groceries still to buy; among
+  the bought (`bought`, how each stands, from `boughtGroceries` in
+  `shop.ts`), fresh meat first, the soonest due leading, then fresh
+  groceries with no day, in the order added, then groceries to ask about,
+  meat thawing, meat in the freezer, and meat past its days (the card's
+  label says which: "Groceries bought", "Bought Sunday", "Thawing in the
+  fridge", "In the freezer", or "On this week's plan"); else the
   first in suggestion order, which `readyToPlan` shares: a dish of the usual
   that has come into reach without a good cook yet (what everything builds
   toward), then, in menu order, recipes without a good cook (a Rough one
@@ -797,23 +812,17 @@ console errors. When a migration changes a table, change `TABLES` in the fake
 to match. Reads are checked too: a column in `select` or `order` that the
 table does not have answers 400, as PostgREST does, and every read stops at
 1,000 rows (`MAX_ROWS`), as the Data API does, so a read that needs more
-has to page. Besides `failNext` (tables, `rpc/<function>`, or `auth/<path>`
-such as `auth/logout`), the fake can carry out a request and lose its answer
-(`loseNextAnswer`), carry it out and answer only when the test says
-(`holdNext`, weak signal: a read answers with what the database held when it
-arrived), never let one request reach it (`dropNext`, no signal for one
-request), fail every request as the browser does with no signal until the
-test says (`loseSignal`, `restoreSignal`), and write or delete rows as
-another device would (`writeElsewhere`, `deleteElsewhere`). `recoveryHash()`,
-`signupHash()` and `strangerHash()` (another account's link) make an email
-link's landing. The fake can also drop one kind of call until told otherwise
-(`dropEvery`, `letThrough`: a renewal that never gets through), end every
-session as a sign-out on every device would (`endSessions`: a renewal is
-refused), and records each sign-out's scope (`logouts`). A table it does not
-know fails the test. A seed's `sessionExpired` stores a session whose hour is up,
-so the auth client must renew it before any read, and its `checks` and
-`kitChecks` go into the phone's storage as the app keeps them, checked for
-the seeded plan's list. Playwright will not tap a control marked
+has to page. Besides `failNext` (tables, `rpc/<function>`, or `auth/<path>`),
+the fake plays weak signal and other devices (`loseNextAnswer`, `holdNext`,
+`dropNext`, `dropEvery` and `letThrough`, `loseSignal` and `restoreSignal`,
+`writeElsewhere`, `deleteElsewhere`, `endSessions`; each is described where
+it is defined), records each sign-out's scope (`logouts`), and makes an
+email link's landing (`recoveryHash()`, `signupHash()`, `strangerHash()`).
+A table it does not know fails the test. A seed's `sessionExpired` stores a session whose hour
+is up, so the auth client must renew it before any read, and its `checks`
+and `kitChecks` go into the phone's storage as the app keeps them, checked
+for the seeded plan's list as the page opens (or at `checkedSince`). The
+seeded account's email is long on purpose. Playwright will not tap a control marked
 `aria-disabled`; a test that means a finger's tap passes `force: true`. A
 request to any other site fails the test too. `kitchen.ts` is the fixture
 (`kitchen.open(route, seed)`), the seeds and the shared steps; open a
@@ -821,10 +830,8 @@ seed once per test. A test that jumps the clock (`fastForward`) waits for
 the page to load first: the 15-second request limit runs on the page's
 clock, so a jump while the opening reads are out fails them; a test that
 needs the clock past a renewal jumps once, then lets the reads go out on the
-running clock. The fake has no `grocery_checks`: 00010 shut it, so a request
-for it fails the test. The
-deploy workflow runs the suite before the build; a failed run keeps its
-traces as an artifact.
+running clock. The deploy workflow runs the suite before the build; a
+failed run keeps its traces as an artifact.
 
 ## Things to know before changing them
 
@@ -843,9 +850,12 @@ traces as an artifact.
   only while it is on screen, so set the phone's own timer too: no web page
   can ring from a locked phone. The beeps carry no words, so a status says
   which timer ran out and what to do ("Potatoes: time is up. With oven
-  mitts, take the pan out and add the vegetables.", the timer's `done`), or
-  which simmer wants stirring. The `done` line also shows under the clock,
-  and beside the chip on any other step, while the time is up. "Start timer" is a full-width solid button above the Why and
+  mitts, take the pan out and add the vegetables.", the timer's `done`), and
+  which simmer wants stirring, in one message for whatever one check found,
+  cleared after 5 seconds (`SAID_FOR_MS`) so the next stir, in the same
+  words, is read again. The `done` line also shows under the clock, and
+  beside the chip on any other step, while the time is up. "Start timer" is
+  a full-width solid button above the Why and
   hands focus to "Stop timer", which asks first when more than a minute is
   left, hands focus back, and reads "Clear timer" once the time is up; a
   dashed chip hands focus to the chip that then counts it down. "Finish and
@@ -860,7 +870,8 @@ traces as an artifact.
   kept (`forgetOldTimers`, the signed-in account's only: another account's
   stored data is never read, so it cannot stop this one loading), and cook
   mode clears a recipe's stored timers when it opens a new cook of it (none
-  of that recipe in progress), so an old cook's never count as started. One check (`components/useCookTimers.ts`) plays every
+  of that recipe in progress), so an old cook's never count as started.
+  One check (`components/useCookTimers.ts`) plays every
   ring, so a timer that ran out while the phone was locked rings when the
   cook looks again. Sound needs a tap first: after a reload cook mode says
   "Tap anywhere so your timers can ring", hears the tap at its end
@@ -883,19 +894,21 @@ traces as an artifact.
   There is no service worker: the app needs the network for Supabase anyway,
   and a cache would serve stale deploys. Standalone mode has no browser Back
   button, so every screen keeps its own way back to the menu.
-- **A cook the phone interrupted comes back.** Cook mode keeps the cook in
-  progress on the phone (`lib/cooking.ts`: recipe, step, the step it began
-  at, how many cooks of it the log held then, when), and "Finish and log
-  it" marks it cooked. An installed app the phone closed reopens at the
-  menu, which says "You were cooking …: step 7 of 12" with "Back to step 7",
-  and any timer still on ("Potatoes timer: ends at 6:42 PM.", or "Potatoes:
-  time is up."; only cook mode can ring it), for 12 hours
-  (`RESUME_FOR_MS`), or "You finished …. How did it go?" with "Log it",
-  until the end of the next day; until "Leave cook mode", a saved cook,
-  "Not cooking it now", or one more cook of that recipe in the log than
-  when it began (logged on another device; a second cook of a dish the same
-  day still comes back). "Log it" the next morning dates the cook the day
-  it was finished, not today. "Log a cook" from the recipe page while a
+- **A cook the phone interrupted comes back.** Cook mode keeps each cook
+  in progress on the phone, one per recipe (`lib/cooking.ts`: step, the
+  step it began at, how many cooks of it the log held then, when), so a
+  main and its side each keep their place and timers (Rowan's call;
+  docs/decisions.md); "Finish and log it" marks it cooked. An installed app
+  the phone closed reopens at the menu, which says, for each, the latest
+  first, "You were cooking …: step 7 of 12" with "Back to step 7", and any
+  timer still on ("Potatoes timer: ends at 6:42 PM.", or "Potatoes: time is
+  up."; only cook mode can ring it), for 12 hours (`RESUME_FOR_MS`), or "You
+  finished …. How did it go?" with "Log it", until the end of the next day;
+  until "Leave cook mode", a saved cook, "Not cooking it now" (which asks
+  first while a timer counts), or one more cook of that recipe in the log
+  than when it began (logged on another device; a second cook of a dish the
+  same day still comes back). "Log it" the next morning dates the cook the
+  day it was finished, not today. "Log a cook" from the recipe page while a
   timer of the recipe runs asks before saving stops it. Cook
   mode's step counter is its live region, with the step's words hidden
   after it, so a screen reader hears each new step while focus stays on
@@ -906,8 +919,9 @@ traces as an artifact.
   `totalMinutes`), and so does step 0, whose "Read every step once first"
   opens the steps. When the suggestion needs no shop (bought and fresh, or
   the pantry covers it, `readyTonight`; how bought groceries stand is under
-  "Bought meat"), the card leads with Start cooking. Under the card, "Also ready tonight, with what you have"
-  lists up to three other such recipes, quickest first.
+  "Bought meat"), the card leads with Start cooking. Under the card, "Also
+  ready tonight, with what you have" lists up to three other such recipes,
+  quickest first.
 - **A cook can be logged without cook mode**: "Log a cook" on the recipe
   page opens the same form (`/cook/:id/log`, behind the same `cookable()`).
   The form has a "Cooked on" date, today in the cook's time zone by default
@@ -937,7 +951,8 @@ traces as an artifact.
   phone may have no signal." The Data API client's own retries are off
   (`retry: false`), or a minute would pass before "No connection". An error
   page from a gateway is never shown as HTML: `plainMessage` says "Supabase
-  is not answering. Try again in a minute." A request that must renew the session first
+  is not answering. Try again in a minute." A request that must renew the
+  session first
   can take longer: the auth client retries a renewal for up to about 30
   seconds. A request with no session never goes out as nobody:
   `fetchAsTheCook` fails it at once, as "No connection" when the session
@@ -961,8 +976,8 @@ traces as an artifact.
   Every write's change applies to the latest state, never to what a screen
   drew from, and `App.tsx` counts writes: a catch-up that was out while a
   write landed may have read the database before it, so it is thrown away
-  and read again. A cook deleted elsewhere
-  turns its change screen into "That cook is not in your log".
+  and read again. A cook deleted elsewhere turns its change screen into
+  "That cook is not in your log".
 - **A save is never logged twice.** The log form makes the cook's id once
   (`newCookId` in `cookLogs.ts`), and sends it with the insert. When a save
   lands but its answer is lost on weak signal, the retry hits the duplicate
@@ -992,20 +1007,27 @@ traces as an artifact.
   "Hide this". The reset email goes to the Supabase project's Site URL, the
   Pages URL, so a reset asked for on localhost lands on the live site.
   Supabase's built-in email sender allows only a few emails an hour.
-- **Another account's email link asks first.** A link carrying a different
-  account's tokens (anyone can send one) does not sign in on its own: the
-  app asks "Switch accounts?" with the current account as the default.
-  Whose link it is comes from Supabase (`linkOwner`: a plain request to
-  Auth's `/user` with the link's token, not the auth client, which signs
-  out the cook signed in here when the server refuses a token), never from
-  reading the token: a forged token could name any email in the prompt
-  (docs/decisions.md). A link Supabase refuses, or a token that is not a
-  token's shape, says "That email link did not work." and asks nothing. A
-  link that lands with no signal, while Supabase answers with a 5xx, or
-  while the sign-in already here cannot be renewed (so who is signed in
-  here is unknown) is kept in memory for Try again (`LinkUnreachable`),
-  never used to sign in without asking. Errors never repeat text from the
-  address bar (`recipeFromRoute`). The menu says "Signed in as …" beside
+- **An email link asks before it signs anyone in.** Anyone can send a link
+  carrying their own account's tokens, so a link signs in only when the
+  cook says so: "Switch accounts?", staying the default, when someone else
+  is signed in here; "Sign in with this link?", naming the account, with
+  Sign in and "Not now" on a phone signed out (Rowan's call;
+  docs/decisions.md); nothing to ask when it is the account
+  signed in here already. Whose link it is comes from Supabase (`linkOwner`:
+  a plain request to Auth's `/user` with the link's token, not the auth
+  client, which signs out the cook signed in here when the server refuses a
+  token), never from reading the token: a forged token could name any email
+  in the prompt (docs/decisions.md). `signInFromLink` checks that the
+  session it ends with is that account's (a renewal already on its way for
+  the account here would answer for it). A link Supabase refuses, a token
+  that is not a token's shape or over 8 KB, or a hash that carries an error
+  says "That email link did not work." (or that it expired) and signs no one
+  in. A link that lands with no signal, while Supabase answers with a 5xx, a
+  408 or a 429, while its answer stops arriving, or while the sign-in
+  already here cannot be renewed (so who is signed in here is unknown) is
+  kept in memory for Try again (`LinkUnreachable`), never used to sign in
+  without asking. Errors never repeat text from the address bar
+  (`recipeFromRoute`). The menu says "Signed in on this phone as …" beside
   Sign out, so a cook can see whose kitchen this is.
 - **A content security policy** is a meta tag in the built page
   (`vite.config.ts`): scripts, styles, fonts and images from the app itself,
@@ -1022,7 +1044,9 @@ traces as an artifact.
 - **The menu folds a course** whose every recipe is mastered, behind "All N
   recipes mastered". Its suggestion card leads with the move the week
   needs: "Add to this week" when the dish is not planned, "Shop for it"
-  when it is planned but not bought, "Start cooking" once it is. The card's
+  when it is planned but not bought, "Start cooking" once it is bought and
+  fresh or whenever the pantry covers it; bought groceries that are not
+  fresh lead with what settles them (under "Bought meat"). The card's
   heading is named with its label ("Cook this next: …").
 - **Focus follows the change.** A control that a write takes away hands
   focus to what replaced it (`focusAfter` and `useFocusTarget`): "Add"
@@ -1035,8 +1059,9 @@ traces as an artifact.
   beside it says what landed ("Added to this week."). The target is named
   only after the write succeeds (a failed one leaves focus on its button),
   only if the cook is still on the same screen, and only for 1.5 seconds;
-  navigating clears it. A button that cannot act yet (busy with its write, or a form not ready)
-  says so with `aria-disabled` rather than `disabled`, which would drop
+  navigating clears it. A button that cannot act yet (busy with its write,
+  or a form not ready) says so with `aria-disabled` rather than `disabled`,
+  which would drop
   focus to the top of the page, and ignores the tap (`useWrite`): Save this
   cook with no rating moves focus to the ratings, Create chef with no name
   to the name. Tapping a price puts the cursor in it, and closing the form
@@ -1051,11 +1076,15 @@ traces as an artifact.
 - **Zoomed far in** (a page about 200 CSS pixels wide, as at 200% on a
   phone), the gutters slim down and cook mode's buttons, the price lines and
   the chef sheet's head stack; cook mode's buttons stop sticking to the
-  bottom, where stacked they would hold a third of the screen, and the
-  full-screen moment's plate and art shrink (the art at a whole 4 pixels a
-  pixel). With text at 200% instead, rows wrap: a price under its name,
-  cook mode's buttons a row each, the chef sheet's record fewer across.
-  The e2e suite checks that no screen runs off the side, both ways. The
+  bottom, where stacked they would hold a third of the screen, the
+  suggestion's and the recipe page's plate take a row above the dish's
+  name, and the full-screen moment's plate and art shrink (the art at a
+  whole 4 pixels a pixel). With text at 200% instead, rows wrap: a price
+  under its name, cook mode's buttons a row each and unstuck (a container
+  query, `@container cook`, after the `.cook-nav` rule it overrides), the
+  chef sheet's record fewer across, the quick links. The e2e suite checks
+  that no screen runs off the side, both ways, and that cook mode's
+  buttons scroll at 200% text. The
   installed app turns with the phone (no `orientation` in the manifest).
 - **A cook can be changed or deleted** at `/cook-log/:id`, reached from
   "Your cooks" on the recipe page. The date, rating and notes change; the
@@ -1089,17 +1118,26 @@ traces as an artifact.
   cost is that a second device does not see checks live, and that a phone
   that closed the app needs signal to load the list again, which the list
   says (share it to Notes first). The cart keeps the recipes its list was
-  for and when a check last changed, and settles to the list on every load
+  for, and when the first grocery in it that is not a staple was checked off
+  (`since`): Done shopping dates the shop by that day (`boughtDay`), not the
+  day it is tapped, so meat checked off Saturday and put away Monday keeps
+  from Saturday, and Done shopping names a cook-by day for meat checked off
+  for a recipe that stays on the list. It settles to the list on every load
   and every change of the shop (`settleCart`): what it holds stays bought,
   so a checked staple stays until Done shopping puts it in the pantry and
   checked kit until it is in the kit, even when the recipe it was for was
-  cooked first (This week then offers Done shopping for them); a check on
+  cooked first (This week shows them as "Also in the cart", where one can
+  be unchecked, with Done shopping when nothing else is listed); a check on
   anything else stays only on a line still listed and not used by a recipe
-  new to the list (planned on another device, say). A cart nobody has
-  checked anything in for two days (`CART_KEEPS_MS`) is forgotten. Its
-  checks never say "Saving…": nothing is sent. Every other shop write (the pantry, the kit screen, the
-  plan, prices) changes the screen only after Supabase says it succeeded,
-  and says "Saving…" until then. The `grocery_checks` table is shut (00010).
+  new to the list (planned on another device, say). It keeps until Done
+  shopping, or "Clear the cart", which asks first (Rowan's call;
+  docs/decisions.md); the list says when the first check was made once that
+  is before today ("The first was checked off Saturday."). A cart kept
+  before it knew `since` (October 9, 2026) is forgotten. Its checks never
+  say "Saving…": nothing is sent. Every other shop write (the pantry, the
+  kit screen, the plan, prices) changes the screen only after Supabase says
+  it succeeded, and says "Saving…" until then. The `grocery_checks` table
+  is shut (00010).
 - **The chef can be changed but not deleted.** Name, look and extras are
   editable at `/chef/edit`. The grant is column-level, so `user_id` and
   `created_at` cannot be updated even by the owner. Supabase refuses an
@@ -1112,11 +1150,6 @@ traces as an artifact.
   when it is earned again. The editor shows locked extras with how to earn
   them, the chef sheet counts progress, and the after-cook notice names a
   new one.
-- **All ten migrations are applied to the live project** (00001 to 00010;
-  what each changed, when it went live, why, and what its test checked are
-  in docs/decisions.md, and the result is under "The schema today"). Rowan
-  pushes each migration before the app code that needs it deploys: a
-  migration always goes first.
 - **Testing a migration on a throwaway stack.** Before the push, run the
   migration on a throwaway local Supabase stack (Postgres 17, PostgREST,
   Auth) and have a script make the app's calls through supabase-js as two
@@ -1127,9 +1160,8 @@ traces as an artifact.
   already hold the default ports; leave it running. Set
   `auto_expose_new_tables = false` under `[api]` in the scratch config:
   without it the local stack grants everything to `anon` and
-  `authenticated`, and the grant checks fail for the wrong reason. (00008,
-  00009 and 00010 were checked on a stack left at the exposing default
-  instead, as the live project is.) The script can use the app's own
+  `authenticated`, and the grant checks fail for the wrong reason. The
+  script can use the app's own
   `@supabase/auth-js` and `@supabase/postgrest-js`, built as `supabase.ts`
   builds them.
 - **Upserting a price override needs the update grant on `ingredient_id`**,
@@ -1145,11 +1177,9 @@ traces as an artifact.
   Signing in before the link is clicked fails with "Email not confirmed",
   and the screen offers "Send the confirmation email again" (`auth.resend`).
   An expired link's message comes with how to get a new one. The e2e fake
-  does this with `confirmEmail: true` (and `unconfirmed: true` for the
-  seeded account) in the seed and otherwise behaves like development
-  (confirmation off).
-- **Security: open items**, from the reviews of October 6 and 9, 2026 (what
-  they found and fixed is in docs/decisions.md).
+  does this when its seed says so (`confirmEmail`, `unconfirmed`).
+- **Security: open items**, from the reviews of October 6, 9 and 10, 2026
+  (what they found and fixed is in docs/decisions.md).
   - The app is served from `rowanflynnpilot.github.io`, an origin it shares
     with about 40 of Rowan's other Pages sites, some loading third-party
     scripts. localStorage, and so the session, is per origin: a compromised
@@ -1163,6 +1193,12 @@ traces as an artifact.
     live minimum password length should be 8 (the server default is 6; the
     app checks 8 only in the browser), with "secure password change" and
     "secure email change" on.
+  - A renewal Supabase refuses for a passing reason (429, its per-address
+    limit) is final to the auth client, which then signs the phone out;
+    an email link would then ask "Sign in with this link?" like any other.
+  - Sign out with no signal and a token past its hour changes nothing (the
+    auth client must renew before it can sign out), and the expired-sign-in
+    screen has no Sign out: on a shared phone, sign out with signal.
   - What going public needs is under "Going public", in "Later,
     unscheduled".
 - **Generating the database types.** `src/database.types.ts` is generated
@@ -1196,8 +1232,10 @@ traces as an artifact.
 
 ## The schema today
 
-The result of the ten migrations (what each changed, and why: Migrations, in
-docs/decisions.md). Every table is keyed by `user_id` with own-rows RLS; only
+The result of the ten migrations, all live (what each changed, and why:
+Migrations, in docs/decisions.md). Rowan pushes each migration before the
+app code that needs it deploys: a migration always goes first. Every table
+is keyed by `user_id` with own-rows RLS; only
 `authenticated` has grants, exactly the ones the app uses, and nothing new is
 exposed by default (tables since 00008, functions since 00010). The live
 project was made exposing new tables, which 00008 took back.
@@ -1211,13 +1249,14 @@ project was made exposing new tables, which 00008 took back.
   duplicates, so adding twice is harmless), delete. The plan also updates
   `shopped` and `shopped_on`, both cleared by "Put it back on the list"; the
   app reads `shopped_on` only while `shopped` is true, as an app from before
-  00009 clears only the mark. `price_overrides`: select, insert, update,
-  delete.
+  00009 clears only the mark. `shopped_on` is the day the meat's days count
+  from: tomorrow, once frozen meat is moved to the fridge ("thawing").
+  `price_overrides`: select, insert, update, delete.
 - `finish_shopping(bought_staples, shopped_recipes, bought_on, bought_kit,
   seen_checks)`, `authenticated` only: Done shopping in one transaction.
   Staples into the pantry, kit into the kit, the listed recipes marked
-  shopped on `bought_on`, the cook's local date; a recipe shopped already
-  keeps its first date. `seen_checks` is ignored and everything after
+  shopped on `bought_on`, the cook's local date the cart began; a recipe
+  shopped already keeps its first date. `seen_checks` is ignored and everything after
   `shopped_recipes` has a default, so apps from before 00010 still find it.
 - `grocery_checks` is shut (00010): no grants; its rows stay.
 - Limits (00008): notes at most 2,000 characters, ids in the curriculum's
@@ -1245,22 +1284,30 @@ from links on the menu (This week, Pantry, Kit, Spices).
   the fridge the night before you cook."), the plan row and the recipe page
   say "Groceries bought. Cook it by Tuesday", and the menu suggests the
   bought recipe whose meat is due soonest first, with "Cook it by tomorrow,
-  while the meat is fresh." How bought groceries stand (`boughtState`;
-  `groceryState` in `shop.ts`) is one of four, and only `fresh` is ready
-  tonight:
-  - `past`: past the meat's day, the card is labelled "Bought Sunday" and
-    says "Unless you froze it, the meat is past its days: throw it out and
-    put it back on the list", with that button and "I froze it", and no way
-    to start cooking; the suggestion puts it after fresh meat.
-  - `frozen`: meat that keeps only days and no date, which is what "I froze
-    it" leaves (the recipe stays bought; a recipe bought before 00009 reads
-    the same). The card is labelled "In the freezer": "Move it to the fridge
-    tonight, and cook it tomorrow." Start cooking is there, not leading.
-  - `old`: bought more than a week ago (`ASK_AFTER_DAYS`) with no such meat.
-    The card is labelled "Bought Oct 4" and asks "Still have everything it
-    needs?", with "Still have them" (it counts from today then) and "Put it
-    back on the list", and no way to start cooking until then (Rowan's
-    call; docs/decisions.md). The plan row asks too.
+  while the meat is fresh." and a quiet "I froze it", as on the plan row.
+  How bought groceries stand (`boughtState`; `groceryState` in `shop.ts`,
+  where a recipe the pantry covers is always fresh) is one of five, and only
+  `fresh` is ready tonight:
+  - `past`: past the meat's days (any meat: the smoked sausage, with no
+    cook-by day, is past after its 14), the card is labelled "Bought Sunday"
+    and says "Unless you froze it, the meat is past its days: throw it out
+    and put it back on the list", with that button and "I froze it", and no
+    way to start cooking.
+  - `frozen`: meat and no date, which is what "I froze it" leaves (the
+    recipe stays bought; a recipe bought before 00009 reads the same). The
+    card is labelled "In the freezer": "The night before you cook it, move
+    the meat to the fridge to thaw.", with "Moved it to the fridge" and no
+    way to start cooking.
+  - `thawing`: "Moved it to the fridge" dates it tomorrow, when it will have
+    thawed, and its days count from then (Rowan's call; docs/decisions.md).
+    The card is labelled "Thawing in the fridge": "Ready to cook tomorrow,
+    and by Sunday." Tomorrow it is fresh.
+  - `old`: bought more than a week ago (`ASK_AFTER_DAYS`) with no meat. Meat
+    is never asked about: "Still have them" would count it from today. The
+    card is labelled "Bought Oct 4" and asks "More than a week ago. Still
+    have everything it needs?", with "Still have them" (it counts from today
+    then) and "Put it back on the list", and no way to start cooking until
+    then (Rowan's call; docs/decisions.md). The plan row asks too.
 - **Grocery list** (`lib/grocery.ts`, `/shop`). In the store the list comes
   first (the count, Share, the aisles, the kit the plan still needs as a
   last aisle, then Done shopping), then the plan; at home, the plan first.
@@ -1282,7 +1329,8 @@ from links on the menu (This week, Pantry, Kit, Spices).
   phone", above). "Done shopping" asks first if anything is unchecked,
   naming it and the recipes that stay on the list for it, then
   `finish_shopping()` puts the checked-off staples in the pantry and the
-  checked-off kit in the kit, and marks shopped only the recipes the shop
+  checked-off kit in the kit (past three things, the question gives the
+  kit's count, not its names), and marks shopped only the recipes the shop
   covered, every ingredient checked off or in the pantry (`boughtFor` in
   `grocery.ts`), in one transaction. A recipe with a line left unchecked
   (the store was out of chicken) stays on the list with that line's check,
@@ -1330,11 +1378,11 @@ from links on the menu (This week, Pantry, Kit, Spices).
 
 ## Where things stand, and what comes next
 
-As of October 9, 2026: Phases 1 to 3 are built and deployed, all 31
+As of October 10, 2026: Phases 1 to 3 are built and deployed, all 31
 recipes are written (four courses and the usual), all ten migrations
-(00001 to 00010) are on the live project, and every push runs 198 unit
-tests and 226 e2e tests before it deploys. How the project got here,
-decision by decision, is in docs/decisions.md.
+(00001 to 00010) are on the live project, and every push runs the unit and
+e2e tests before it deploys (the counts are in the README). How the project
+got here, decision by decision, is in docs/decisions.md.
 
 What comes next, in order:
 
