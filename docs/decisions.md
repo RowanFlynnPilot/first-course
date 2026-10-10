@@ -81,6 +81,31 @@ read-back found:
   broth cans with no can opener; a second sheet pan the kit does not have;
   and stated times an experienced cook's. Each became a rule in "Writing a
   recipe", and the cans, the rice and the times a test.
+- **The rewrites, read again** (October 9, 2026, the ninth review): the
+  smash burgers' parchment still peeled off raw beef by hand; timers that
+  rang while the cook's hands were in raw meat (the rice in three recipes,
+  the double smash's fries); round 8's own fix, tilting the skillet on the
+  saucepan's rim, which can tip the saucepan; the ragù's broth never opened
+  or measured; the pan-sauce chicken's oven left on; hot tap water to soak
+  potatoes, which another recipe warns against. Each became a rule, and
+  the cans a stricter test.
+
+### What a timer says when it rings (Rowan's call, October 9, 2026)
+
+Every timer carries `done`, what the cook does at the ring ("Turn off its
+burner and leave the lid on."), shown under the clock, beside the chip on
+any other step, and read out with the ring. Before, "turn off the burner"
+lived only on the step that started the timer, long gone from the screen
+when it rang, and a rice burner or a 425°F oven was left on.
+
+### Allergens (Rowan's call, October 9, 2026)
+
+Every ingredient is tagged with the FDA's nine major allergens for a
+typical US supermarket product, and the recipe page says "Contains …" from
+them, with a note that products vary. Brand-dependent calls (curry paste
+with shrimp, sandwich bread with soy, coconut not a tree nut since the
+FDA's January 2025 guidance, refined oils exempt) are explained in
+ingredients.ts. Pad thai's peanuts go on the side for anyone who avoids them.
 
 ## The menu's suggestion and the plan
 
@@ -115,6 +140,16 @@ throw it out", since the app's own rule already said when to cook it by and
 a sell-by date often runs past it, and "I froze it" clears the day (Done
 shopping advises freezing, and the app had no way to hear it).
 
+### Groceries that age (Rowan's call, October 9, 2026)
+
+Coming back after weeks away, the plan still said "Groceries bought" and
+led with cooking. Groceries with no meat that keeps only days are asked
+about once they are a week old ("Still have everything it needs?"), and a
+bought recipe with such meat and no date is taken as frozen: not ready
+tonight, with "Move it to the fridge tonight, and cook it tomorrow." Frozen
+is the absence of a date, which only "I froze it" leaves now, rather than a
+stored state.
+
 ### Planning ahead of what is open (Rowan's call, October 9, 2026)
 
 `plannable` lets a locked recipe on the plan once every recipe on its way
@@ -138,9 +173,10 @@ reaches level 2, mastering the First course lands at line cook (1,660 XP,
 level 6), every recipe cooked once reaches level 9, and a perfect run tops
 out at 18,990 XP, still level 19. Everyone was re-scored, with no migration.
 
-### Pacing as simulated (October 6, 2026)
+### Pacing as simulated (October 6, 2026; at 50 XP a skill, not re-run at 80)
 
-Over a year, five seeds each:
+Over a year, five seeds each, at 50 XP a skill. It was not re-run when
+skills went to 80 on October 9, 2026.
 
 - At 2 to 3 cooks a week (about a third Nailed it): line cook in weeks 8 to
   11, sous chef in weeks 22 to 31, head chef in weeks 43 to 50. A stricter
@@ -244,12 +280,66 @@ longest timer plus 5 minutes.
 
 ## Migrations
 
+CLAUDE.md keeps only the result, under "The schema today". What each
+migration changed, and why, is here.
+
 ### When each went live
 
 00001 to 00005 on October 4, 2026, 00006 and 00007 on October 5, 00008 on
 October 6, and 00009 and 00010 on October 9. A schema dump after 00008
 showed `anon` with no table grants, `authenticated` with exactly the grants
 CLAUDE.md describes, and the limits in place.
+
+### What each one changed
+
+- **00001** (Phase 1): `cook_logs`, the only table with state; select and
+  insert for `authenticated`, own rows only.
+- **00002**: `chefs`, one named chef per account.
+- **00003**: the chef's skin tone and hair color, and editing the chef
+  (update of the name, skin and hair).
+- **00004** (Phase 2): `plan_items`, `pantry_items`, `grocery_checks`,
+  `price_overrides` and `kit_items`, each keyed by `user_id` and its id, with
+  the same own-rows RLS and explicit grants as `cook_logs` (select, insert
+  and delete; `price_overrides` also update).
+  `finish_shopping(bought_staples)` was "Done shopping" in one transaction
+  (security invoker, `authenticated` only): the bought staples into the
+  pantry, then the checks and the plan cleared. The cook log became editable: update of `cooked_on`, `rating` and
+  `notes` (never `recipe_id`), and delete (see "The cook log is editable").
+- **00005**: hairstyle, facial hair, glasses, more skin and hair colors, and
+  `extras text[]`, the extras the chef wears.
+- **00006**: `plan_items.shopped` (update granted on that column only), and
+  `finish_shopping` marks the plan shopped instead of deleting it. An `after
+  insert` trigger on `cook_logs` (security invoker, execute revoked from
+  everyone) deletes the cook's plan row for that recipe in the same
+  transaction, whatever the rating. Why: "Done shopping keeps the plan",
+  under The shop.
+- **00007**: `finish_shopping(bought_staples, shopped_recipes, seen_checks)`.
+  The function had marked every plan row shopped and deleted every check, so
+  with the app open on two devices a recipe added on the laptop after the
+  phone loaded its list was marked bought without ever being on a list, and
+  a check made elsewhere was wiped. Since then it marks shopped only the
+  recipes the list covered and clears only the checks it showed.
+- **00008**: the grants the migrations meant, and limits on notes, ids,
+  prices and dates (see "Why 00008").
+- **00009**: `plan_items.shopped_on` (update granted; a four-digit year) and
+  `finish_shopping(bought_staples, shopped_recipes, seen_checks, bought_on)`,
+  the cook's local date as a fourth argument with a default, so an installed
+  app still running the code before it kept working. "Put it back on the
+  list" clears both the mark and the date. Nothing ties the date to the
+  mark, because the old app cleared only the mark, so the app reads
+  `shopped_on` only while `shopped` is true. Why: "Dating the shop", under
+  The shop.
+- **00010**: `finish_shopping(bought_staples, shopped_recipes, bought_on,
+  bought_kit, seen_checks)`: the kit checked off in the list's kit aisle
+  goes into the kit in the same transaction as the pantry and the plan, and
+  a recipe shopped already keeps its first date (a retry, or a second
+  device). `seen_checks` is ignored, and everything after `shopped_recipes`
+  has a default, so the two apps before it still find the function. `alter
+  default privileges for role postgres revoke execute on functions from
+  public`, so a new function is callable only by those it is granted to.
+  Every grant on `grocery_checks` goes; the table and its rows stay. Why:
+  "Why 00010", and "The kit's checks live on the phone too", under The
+  shop.
 
 ### Why 00010 (October 9, 2026)
 
@@ -288,7 +378,7 @@ Row-level security kept every cook to their own rows throughout.
   only column that updates, the trigger function is not callable, anon
   refused).
 - **00007**: 14 checks: only the listed recipes are marked shopped and only
-  the seen ticks cleared, a recipe and a tick added elsewhere survive, the
+  the seen checks cleared, a recipe and a check added elsewhere survive, the
   one-argument function is gone, anon refused, the 00006 trigger still fires,
   and a cook can carry its own id, which a second insert refuses with 23505.
 - **00008**: checked on a throwaway stack left at the exposing default, as
@@ -326,17 +416,26 @@ Row-level security kept every cook to their own rows throughout.
 Email confirmation was turned on for the live project on October 4, 2026, by
 pushing a throwaway `config.toml` that declared only that setting.
 
-### The security review (October 6, 2026)
+### The security reviews (October 6 and 9, 2026)
 
-Its findings and open items stay in CLAUDE.md, under "Security, as reviewed
-on October 6, 2026".
+The open items from both stay in CLAUDE.md, under "Security: open items",
+and what going public needs, under "Going public" in "Later, unscheduled".
+The October 9 review's finding about new functions is under "Why 00010".
+
+### Sign out is this phone only (Rowan's call, October 9, 2026)
+
+The auth client's default signed out every device (`scope: 'global'`),
+while the screen spoke of this phone. Now `scope: 'local'`; and the menu
+says "Signed in as …" beside Sign out, since a signed-out phone takes a
+link's account without asking.
 
 ### Whose link it is (October 9, 2026)
 
 Until October 9, 2026 the app decoded a link's token to name its account in
 the "Switch accounts?" prompt, so a forged token could name any email there.
-Since then whose link it is comes from Supabase (`linkOwner`, `auth.getUser`
-with the link's token).
+Since then whose link it is comes from Supabase (`linkOwner`, a plain request
+to Auth's `/user` with the link's token; why not the auth client is under
+"The Supabase clients, reviewed").
 
 ### The Supabase clients, reviewed (October 9, 2026)
 
@@ -354,15 +453,48 @@ their source. Four things changed:
   session is gone: anyone could send a link that signed the phone out. It is
   a plain request now.
 - A request with no session to send went out with the publishable key
-  instead, and came back as a raw permission error: it now fails as "No
-  connection".
+  instead, and came back as a raw permission error. Now it never goes out
+  as nobody: `fetchAsTheCook` fails it at once, as "No connection" when the
+  session could not be renewed for want of signal, and as "You are signed
+  out on this phone." when there is none.
+
+### The ninth review's sign-in fixes (October 9, 2026)
+
+Two reviewers each found that an email link landing while the stored
+sign-in could not be renewed (no signal, an hour past last use) skipped
+"Switch accounts?": the auth client reports no session then, and for a
+minute after a failed renewal it answers from that failure without asking
+again. The link now waits for Try again until it is known who is signed in
+here. Also: a 5xx or a stalled answer keeps a link for Try again instead of
+calling it bad; a token not shaped like one is refused before the request
+(some characters make the browser refuse to send it, which looked like no
+signal for ever); the expired-sign-in screen's Try again reloads the page,
+since the auth client would not ask again for a minute; a sign-out heard
+meanwhile goes to Sign in; a gateway's HTML error page reads "Supabase is
+not answering"; another account's stored timers can no longer stop this
+one loading; and `.env` is ignored anywhere in the repo.
 
 ## Build history
 
 - **Phase 2**, the shop and the kit, was built on October 4, 2026.
-- **Phase 3**, cook mode hardened and leveling, was built on October 4, 2026.
+- **Phase 3**, cook mode hardened and leveling, was built on October 4,
+  2026: timers that survive a reload and chime when the cook comes back,
+  installing to the home screen, and the leveling layer (the promotion
+  moment and the usual's moments, the level-up beat, the idle sprite, the
+  streak and the badges).
+- **A folder hidden by `.gitignore`** (October 4, 2026): an unanchored entry
+  (`screens`, meant for the screenshot folder) hid `src/screens/`, and the
+  CI build broke on screens that were never committed. The Playwright
+  entries in `app/.gitignore` are anchored now (`/screens`). Run `git
+  status` after committing a new folder.
 - **The eighth review** (October 9, 2026): five reviewers (logic, security,
   what a beginner sees, the recipes, tests and docs) and the fixes above:
   the Supabase clients, meat past its day, the kit's checks on the phone,
   leftovers, the cook in progress, timers kept per account, a beginner's
   times, 80 XP a skill, and migration 00010.
+- **The ninth review** (October 9, 2026): five reviewers again, and the fixes
+  above: the email link in a dead spot, timer instructions, allergens,
+  groceries that age, the cart keeping staples and kit until Done shopping
+  and forgetting itself after two days, the cook in progress counted by
+  cooks rather than dates, sign-out on this phone only, and the recipes'
+  rewrites read again.

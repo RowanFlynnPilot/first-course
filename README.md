@@ -20,18 +20,19 @@ things they currently order. Built so far:
 - **Recipes.** All 31 are written: four courses and the seven dishes of the
   usual.
 - **A real week.** Planning ahead of what is open, checks that work in a
-  store with no signal (the kit's too, which needs migration 00010), Done
-  shopping that marks bought only what was, when to cook bought meat by and
-  "I froze it", what is ready tonight, leftovers and how to reheat them,
-  stir reminders, and a cook the phone interrupted coming back, timers and
-  all.
+  store with no signal (the kit's too), Done shopping that marks bought only
+  what was, when to cook bought meat by and "I froze it", what is ready
+  tonight, leftovers and how to reheat them, stir reminders, and a cook the
+  phone interrupted coming back, timers and all.
 
 Read `CLAUDE.md` for the brief, the locked decisions and how everything works
 before changing anything.
 
 ## Prerequisites
 
-- Node 24 (22.22 or later also works: React Router needs 22.22, and `npm run icons` runs a `.ts` file directly)
+- Node 24, or 22.22 or later except 25: React Router needs 22.22, Vitest 5
+  supports ^22.12, ^24 and >=26, and `npm run icons` runs a `.ts` file
+  directly. CI runs 24.
 - A Supabase project (free tier). The Supabase CLI runs through `npx supabase`;
   a global npm install of it is not supported.
 - For the e2e suite, Playwright's Chromium, once: `npx playwright install chromium`
@@ -66,7 +67,7 @@ a cook touches only their own rows:
 - `00006_keep_the_plan.sql`: Done shopping marks the plan shopped instead of
   clearing it, and saving a cook takes its recipe off the plan
 - `00007_shop_what_you_saw.sql`: Done shopping changes only the recipes and
-  ticks the device showed, so another device's additions are left alone
+  checks the device showed, so another device's additions are left alone
 - `00008_grants_and_limits.sql`: takes back the everything-to-everyone grants
   a project made with the dashboard's defaults has, grants exactly what the
   app uses, and limits notes, ids, prices and dates
@@ -128,7 +129,7 @@ npm run screens
 
 The deploy workflow runs these, and nothing deploys unless all pass:
 
-- [x] `npm test`: 189 unit tests. The curriculum's graph rules, raw-meat
+- [x] `npm test`: 198 unit tests. The curriculum's graph rules, raw-meat
       safety, burners turned off, step length, the serial comma and names
       without commas, cans and rice and beginner times, XP and levels,
       costs and corrected prices, the grocery list and the cart, the kit,
@@ -136,7 +137,7 @@ The deploy workflow runs these, and nothing deploys unless all pass:
 - [x] `npx tsc -b`, the type check.
 - [x] `npm run lint`, where a warning fails like an error.
 - [x] `npm run build`.
-- [x] `npm run e2e`: 213 tests that drive the built app at phone size against
+- [x] `npm run e2e`: 226 tests that drive the built app at phone size against
       a fake Supabase that enforces the real grants. They cover:
   - signing in and up, a password reset, an expired or forged email link, creating
     and changing the chef, the character
@@ -227,5 +228,5 @@ Live at `https://rowanflynnpilot.github.io/first-course/`.
 
 Email confirmation is on and the Site URL is the Pages URL. Until going
 public, turn "Allow new users to sign up" off in the Supabase dashboard (see
-"Security" in CLAUDE.md): sign-ups are open, and nothing limits rows per
+"Security: open items" in CLAUDE.md): sign-ups are open, and nothing limits rows per
 account.
