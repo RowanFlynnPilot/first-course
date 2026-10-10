@@ -525,6 +525,40 @@ describe('written recipes', () => {
     }
   })
 
+  it('turn on the stove fan by the first high heat: a burner at medium-high or high, the broiler, or an oven at 450°F or more', () => {
+    // Shimmering oil, a broiler, and a very hot oven all smoke, and a smoke alarm going off
+    // mid-sear pulls a beginner away from the pan. Water brought to a boil and a sauce brought
+    // to a bubble on high do not smoke, so a step that boils or bubbles is not counted.
+    const burnerHigh = (text: string) => /\b(?:medium-high|high)\b/i.test(text) && !/\b(?:boil|bubbles?)\b/i.test(text)
+    const hot = (text: string) => burnerHigh(text) || /\bbroil/i.test(text) || /\b(?:4[5-9]\d|[5-9]\d\d)°F/.test(text)
+    let checked = 0
+    for (const { id, content } of written) {
+      const texts = content.steps.map((step) => step.text)
+      const first = texts.findIndex(hot)
+      if (first === -1) continue
+      checked++
+      const fan = texts.findIndex((text) => /\bstove fan\b/i.test(text))
+      expect(fan, `${id}: step ${first + 1} turns the heat up and no step turns on the stove fan`).toBeGreaterThanOrEqual(0)
+      expect(fan, `${id}: the stove fan comes on after step ${first + 1} turns the heat up`).toBeLessThanOrEqual(first)
+    }
+    // The checks above find something to check: the seared thighs, the smash burgers, the pizzas, the broiled tikka.
+    expect(checked).toBeGreaterThan(10)
+  })
+
+  it('wash a knife by hand and set it in the dish rack, never in a sink of soapy water', () => {
+    // A hand reaching into soapy water finds the edge. "Wash the board, knife, and fork in hot,
+    // soapy water" reads as a sink of them, so a step that washes a knife says how, in the same step.
+    for (const { id, content } of written) {
+      for (const [index, step] of content.steps.entries()) {
+        const words = `${step.text} ${step.why ?? ''}`
+        const sentences = words.split(/(?<=[.;!?])\s+/)
+        if (!sentences.some((sentence) => /\bwash/i.test(sentence) && /\bknife\b/i.test(sentence))) continue
+        expect(words, `${id} step ${index + 1}`).toMatch(/\bknife by hand\b/)
+        expect(words, `${id} step ${index + 1}`).toMatch(/\bdish rack\b/)
+      }
+    }
+  })
+
   it('never call a staple something one recipe uses up', () => {
     // A staple is used a little at a time. A recipe that needs a whole package of it is shopping for it each time.
     for (const { id, content } of written) {

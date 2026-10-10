@@ -593,6 +593,9 @@ export const INGREDIENTS = {
     unit: 'tbsp',
     staple: true,
     // Oyster extract and wheat flour in every common brand; many add soy sauce.
+    // Oysters are mollusks, and the FDA's "shellfish" is crustaceans only, so a
+    // label need not name them. The tag stays anyway, erring toward a warning:
+    // many people allergic to shellfish avoid mollusks too.
     allergens: ['shellfish', 'wheat', 'soy'],
     package: { label: '9 oz bottle', priceCents: 349, units: 14 },
   },
