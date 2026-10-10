@@ -70,6 +70,17 @@ read-back found:
 - **The spice guide**: it contradicted the recipes on blooming times, where
   cumin goes in the dal, and how much pepper flakes the aglio uses, plus a
   Diamond Crystal salt conversion that was too high.
+- **All 31, again** (October 9, 2026): smash-burger hands that pressed and
+  seasoned raw beef then built the burger; a spatula that spread raw beef
+  stirring the cooked sauce unwashed, and the cook at the sink with the
+  burner on medium-high; hands not washed after tipping a raw-meat bowl;
+  paper towels pulled off the roll with raw-chicken hands; an 8-pound
+  cast-iron skillet tipped one-handed over a saucepan; "within 2 days" counted
+  from the wrong day; rice reheated more than once; a 20-minute simmer with
+  no timer, and "stir halfway" on one timer that rings only at the end;
+  broth cans with no can opener; a second sheet pan the kit does not have;
+  and stated times an experienced cook's. Each became a rule in "Writing a
+  recipe", and the cans, the rice and the times a test.
 
 ## The menu's suggestion and the plan
 
@@ -87,6 +98,23 @@ As CLAUDE.md had it: "A recipe cooked well (Decent or better) in the last
 well yesterday; a recipe with only Rough cooks skips the rest, since its
 skill is still the way on (Rowan's call, October 9, 2026)."
 
+The eighth review (October 9, 2026) found the words wider than the code, and
+the code kept: a recipe rests once it has any good cook, counted from its
+last cook of any rating (a Rough cook yesterday of a dish learned in August
+rests it too), and a Rough cook keeps its menu-order place among the recipes
+without a good cook rather than jumping ahead of an earlier one never
+cooked. Tests now tell the two readings apart.
+
+### Meat past its day (October 9, 2026)
+
+Bought recipes are suggested fresh meat first, soonest due leading, then
+those with no day, then meat past its day, which is never "ready tonight":
+before, a past date sorted first and the card nagged about it while fresh
+meat waited. The card says "Unless you froze it, the meat is past its days:
+throw it out", since the app's own rule already said when to cook it by and
+a sell-by date often runs past it, and "I froze it" clears the day (Done
+shopping advises freezing, and the app had no way to hear it).
+
 ### Planning ahead of what is open (Rowan's call, October 9, 2026)
 
 `plannable` lets a locked recipe on the plan once every recipe on its way
@@ -101,6 +129,14 @@ Only a recipe's best 5 cooks earn XP (`XP_COOKS_PER_RECIPE`). With the first
 five counting, a cook who rated each recipe Decent four times and Nailed it
 once topped out at 14,510 XP, level 17, short of executive chef at 15,300,
 and the keen cook's XP stopped by week 40.
+
+### Skills earn 80 XP (Rowan's call, October 9, 2026)
+
+At 50 XP a skill, night one (the eggs, a Decent cook) earned 70 XP, 30 short
+of level 2: the first cook had no level-up. At 80, any first good cook
+reaches level 2, mastering the First course lands at line cook (1,660 XP,
+level 6), every recipe cooked once reaches level 9, and a perfect run tops
+out at 18,990 XP, still level 19. Everyone was re-scored, with no migration.
 
 ### Pacing as simulated (October 6, 2026)
 
@@ -185,15 +221,47 @@ Migration `00009_shopped_on.sql` (October 9, 2026) dates the shop, because
 "Groceries bought" had no date: chicken bought ten days ago still said "Start
 cooking", and raw meat could wait until the end of the week.
 
+### The kit's checks live on the phone too (Rowan's call, October 9, 2026)
+
+The list's kit aisle saved each check to Supabase at once, so in a store with
+no signal it said "Saving…" for 15 seconds and then failed, under a note that
+the list works with no signal. Kit checks now stay on the phone with the
+groceries, and `finish_shopping` puts them in the kit (00010). The cart also
+keeps the recipes it was checked for, so checks never stand for a different
+list: a recipe planned on another device found its chicken already checked
+off, and Done shopping marked it bought.
+
+## Times
+
+### A beginner's pace (Rowan's call, October 9, 2026)
+
+The recipe review of October 9, 2026 found 13 recipes a beginner would
+overrun by 15 minutes or more (the salad's 15 minutes is 25 to 30 for a
+first knife; General Tso's 75 is 90 to 95), so "start now and eat around"
+ran early. Rowan chose a beginner's pace over a range: those totals, and
+the work minutes with them, were raised, and every total is at least its
+longest timer plus 5 minutes.
+
 ## Migrations
 
 ### When each went live
 
 00001 to 00005 on October 4, 2026, 00006 and 00007 on October 5, 00008 on
-October 6. A schema dump afterwards showed `anon` with no table grants,
-`authenticated` with exactly the grants CLAUDE.md describes, and the limits
-in place. 00009 was written and tested on October 9, 2026, and is not yet
-live.
+October 6, and 00009 on October 9. A schema dump after 00008 showed `anon`
+with no table grants, `authenticated` with exactly the grants CLAUDE.md
+describes, and the limits in place. 00010 was written and tested on October
+9, 2026, and is not yet live.
+
+### Why 00010 (October 9, 2026)
+
+The security review of October 9, 2026 found 00008's "no new function
+exposed by default" did not hold: a per-schema default privilege can only
+add to the built-in one, which grants execute on every new function to
+PUBLIC, so a future function that forgot its own revoke would be callable
+by anyone through `/rpc`. 00010 revokes it for the role that runs the
+migrations, with no schema. It also shuts `grocery_checks`, which nothing
+reads or writes since the cart moved to the phone but which anyone signed in
+could still fill, and takes the kit at the register.
 
 ### Why 00008 (October 6, 2026)
 
@@ -238,6 +306,19 @@ Row-level security kept every cook to their own rows throughout.
   and new "Put it back on the list" both working, `recipe_id`, `added_at` and
   `user_id` still refused, the 00006 trigger still firing, and 00008's limits
   intact.
+- **00010** (October 9, 2026): on a throwaway stack left at the exposing
+  default, 8 checks before it and 56 after, all passing: the live app's
+  four-argument call and the one before it still work (seen checks
+  ignored); the new call puts staples in the pantry and kit in the kit, as
+  the caller's own rows, ignoring duplicates, and an id outside 00008's shape
+  rolls the whole call back; a recipe already shopped keeps its first date,
+  and a frozen one (no date) stays without; only the new signature exists,
+  for `authenticated` only; `grocery_checks` refuses every privilege to
+  `anon` and `authenticated` while its rows stay; a new function created by
+  `postgres` is executable by neither, and a new table is exposed to nobody;
+  and every other call the app makes, the 00006 trigger and 00008's limits
+  still hold. The harness used the app's own `@supabase/auth-js` and
+  `@supabase/postgrest-js`.
 
 ## Auth and security
 
@@ -258,7 +339,31 @@ the "Switch accounts?" prompt, so a forged token could name any email there.
 Since then whose link it is comes from Supabase (`linkOwner`, `auth.getUser`
 with the link's token).
 
+### The Supabase clients, reviewed (October 9, 2026)
+
+The eighth review checked the two clients that replaced supabase-js against
+their source. Four things changed:
+
+- The Data API client retried a failed read three more times, a timeout
+  included, so a read on weak signal took a minute to fail: `retry: false`.
+- With no signal and a session past its hour, the auth client reported no
+  session, and the app showed "Sign in" to a cook still signed in: the app
+  now asks again, sees the renewal failed for want of signal, and says "No
+  connection", opening by itself once the session renews.
+- `linkOwner` asked the auth client about a link's token, and the auth
+  client signs out the cook signed in here when the server says a token's
+  session is gone: anyone could send a link that signed the phone out. It is
+  a plain request now.
+- A request with no session to send went out with the publishable key
+  instead, and came back as a raw permission error: it now fails as "No
+  connection".
+
 ## Build history
 
 - **Phase 2**, the shop and the kit, was built on October 4, 2026.
 - **Phase 3**, cook mode hardened and leveling, was built on October 4, 2026.
+- **The eighth review** (October 9, 2026): five reviewers (logic, security,
+  what a beginner sees, the recipes, tests and docs) and the fixes above:
+  the Supabase clients, meat past its day, the kit's checks on the phone,
+  leftovers, the cook in progress, timers kept per account, a beginner's
+  times, 80 XP a skill, and migration 00010.
