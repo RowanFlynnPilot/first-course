@@ -94,7 +94,7 @@ In UI copy say "ordering" or "delivered", never a delivery brand name.
 
 ## Stack and layout
 
-React 19, Vite 8, TypeScript 6, React Router 8 (imports come from
+React 19, Vite 8, TypeScript 7 (the native compiler), React Router 8 (imports come from
 `react-router`), Supabase (Postgres, Auth) through `@supabase/auth-js` and
 `@supabase/postgrest-js`, the two parts of supabase-js the app calls,
 Vitest, Playwright (dev only), oxlint. Deployed by GitHub Actions to GitHub
