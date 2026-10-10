@@ -28,6 +28,36 @@ const STOVETOP: readonly EquipmentId[] = [
   'large-pot',
 ]
 
+/** Every timer label that has shipped, by recipe. A recipe with no timers is left out. */
+const SHIPPED_TIMER_LABELS: Readonly<Record<string, readonly string[]>> = {
+  'aglio-e-olio': ['Pasta'],
+  'grilled-cheese': ['Softening', 'First side', 'Second side', 'Rest'],
+  'fried-egg-rice-bowl': ['Rice', 'Rice rest'],
+  'sheet-pan-sausage': ['Potatoes', 'Roasting', 'Second half'],
+  'marinara-pasta': ['Sauce', 'Pasta'],
+  'pasta-al-limone': ['Pasta'],
+  'seared-chicken-thighs': ['Broccoli', 'Chicken rest'],
+  'egg-fried-rice': ['Rice', 'Rice chilling'],
+  'onion-melt': ['First side', 'Second side', 'Rest'],
+  'red-lentil-dal': ['Rice', 'Lentils'],
+  'oven-fries-aioli': ['Soak', 'Fries', 'Fries, flipped'],
+  'chicken-pan-sauce': ['Potatoes'],
+  'weeknight-meat-sauce': ['Sauce', 'Pasta'],
+  'chicken-broccoli-stir-fry': ['Rice', 'Broccoli'],
+  'chana-masala': ['Rice', 'Chickpeas'],
+  'pan-pizza': ['Kneading', 'First rise', 'Sauce', 'Second rise', 'Pizza', 'Rest'],
+  'chicken-tikka': ['Oil cooling', 'Marinade', 'Rice', 'Chicken rest'],
+  carbonara: ['Pasta', 'Last minute'],
+  'thai-green-curry': ['Rice'],
+  'beef-and-broccoli': ['Freezer', 'Rice', 'Beef', 'Broccoli'],
+  'double-smash-burger': ['Soak', 'Fries', 'Fries, flipped'],
+  'margherita-pizza': ['Kneading', 'Rise', 'Sauce', 'Dough rest', 'First pizza', 'Second pizza'],
+  'ragu-bolognese': ['Ragù', 'Ragù, last 15', 'Pasta'],
+  'pad-thai': ['Noodles'],
+  'general-tsos-chicken': ['Rice'],
+  'chicken-tikka-masala': ['Oil cooling', 'Marinade', 'Rice', 'Chicken rest'],
+}
+
 function teacherOf(technique: TechniqueId) {
   const teachers = RECIPES.filter((recipe) => recipe.teaches.includes(technique))
   if (teachers.length !== 1) {
@@ -63,6 +93,23 @@ describe('the menu', () => {
     // The chef sheet lists skills in this order, course by course.
     const order = techniqueIds.map((technique) => RECIPES.indexOf(teacherOf(technique)))
     expect(order).toEqual(order.toSorted((a, b) => a - b))
+  })
+
+  it('tags the allergens a typical product’s label names, each once', () => {
+    expect(INGREDIENTS.butter.allergens).toContain('milk')
+    expect(INGREDIENTS.eggs.allergens).toContain('egg')
+    expect(INGREDIENTS['pasteurized-eggs'].allergens).toContain('egg')
+    expect(INGREDIENTS['soy-sauce'].allergens).toContain('soy')
+    expect(INGREDIENTS['soy-sauce'].allergens).toContain('wheat')
+    expect(INGREDIENTS['roasted-peanuts'].allergens).toContain('peanut')
+    expect(INGREDIENTS['fish-sauce'].allergens).toContain('fish')
+    expect(INGREDIENTS['oyster-sauce'].allergens).toContain('shellfish')
+    expect(INGREDIENTS['sesame-oil'].allergens).toContain('sesame')
+    expect(INGREDIENTS.tagliatelle.allergens).toContain('egg')
+    expect(INGREDIENTS['rice-noodles'].allergens).toEqual([])
+    for (const [id, ingredient] of Object.entries(INGREDIENTS) as [IngredientId, Ingredient][]) {
+      expect(new Set(ingredient.allergens).size, id).toBe(ingredient.allergens.length)
+    }
   })
 
   it('says how every meat is made safe, and nothing else claims to', () => {
@@ -158,6 +205,32 @@ describe('written recipes', () => {
     }
   })
 
+  it('say what to do when each timer rings, in one short sentence', () => {
+    // Shown on the timer's chip and read out after "Rice: time is up.", so it never says that again.
+    for (const { id, content } of written) {
+      for (const step of content.steps) {
+        if (step.timer === null) continue
+        const { label, done } = step.timer
+        expect(done.length, `${id}: ${label}`).toBeGreaterThan(0)
+        expect(done.length, `${id}: ${label}: ${done}`).toBeLessThanOrEqual(90)
+        expect(done, `${id}: ${label}`).toMatch(/^\p{Lu}/u)
+        expect(done, `${id}: ${label}`).toMatch(/\.$/)
+        expect(done, `${id}: ${label}`).not.toMatch(/time is up/i)
+      }
+    }
+  })
+
+  it('keep every timer label that has shipped', () => {
+    // A phone keeps a running timer by its label (lib/timers.ts), so a label renamed by a deploy
+    // loses the timer of a cook in progress. Never rename one. A new timer's label goes in this
+    // list in the commit that ships it; taking a timer out takes its label out here too.
+    for (const recipe of RECIPES) {
+      const labels = recipe.content.steps.flatMap((step) => (step.timer === null ? [] : [step.timer.label]))
+      expect(labels.toSorted(), recipe.id).toEqual([...(SHIPPED_TIMER_LABELS[recipe.id] ?? [])].toSorted())
+    }
+    expect(Object.keys(SHIPPED_TIMER_LABELS).filter((id) => !RECIPES.some((recipe) => recipe.id === id))).toEqual([])
+  })
+
   it('remind the cook to stir a simmer on the schedule its step gives, and only there', () => {
     // "stirring every 5 minutes" on a timed step: cook mode says "stir" every 5 minutes, on whatever step
     // the cook has moved on to. A schedule judged by eye (no timer) has nothing to count from.
@@ -194,15 +267,31 @@ describe('written recipes', () => {
     }
   })
 
-  it('open every can with the can opener, and say so in a step', () => {
+  it('open every can with the can opener, in a step before the one that first uses it', () => {
     // An ingredient whose package is a can: "28 oz can", "14.5 oz can".
     const canned = (Object.keys(INGREDIENTS) as IngredientId[]).filter((ingredientId) => /\bcan\b/.test(INGREDIENTS[ingredientId].package.label))
     expect(canned.length).toBeGreaterThan(0)
+    // "Open both cans" counts for a recipe with two cans, "open all three cans" for one with three.
+    const COUNTED: Record<number, string> = { 2: 'both cans', 3: 'all three cans', 4: 'all four cans' }
     for (const { id, content } of written) {
-      if (!content.ingredients.some((line) => canned.includes(line.ingredientId))) continue
+      const lines = content.ingredients.filter((line) => canned.includes(line.ingredientId))
+      if (lines.length === 0) continue
       expect(content.equipment, id).toContain('can-opener')
-      const text = content.steps.map((step) => step.text).join(' ')
-      expect(text, id).toMatch(/\bopen (?:the can\b|both cans\b|all \w+ cans\b)/i)
+      const texts = content.steps.map((step) => step.text)
+      const cans = lines.reduce((sum, line) => sum + Math.ceil(line.qty / INGREDIENTS[line.ingredientId].package.units), 0)
+      const counted = COUNTED[cans]
+      const opensAll = counted === undefined ? -1 : texts.findIndex((text) => new RegExp(String.raw`\bopen ${counted}\b`, 'i').test(text))
+      for (const line of lines) {
+        // The last word of the name, leaving out any parentheses: "Full-fat coconut milk (13.5 oz can)" is "milk".
+        const noun = INGREDIENTS[line.ingredientId].name.replace(/\s*\(.*?\)/g, '').toLowerCase().split(' ').at(-1)
+        if (noun === undefined) throw new Error(`${line.ingredientId} has no name`)
+        // "Open the can of tomatoes", "open the coconut milk": one "open the can" cannot stand for two cans.
+        const named = texts.findIndex((text) => new RegExp(String.raw`\bopen the (?:can of |\w+ )?${noun}\b`, 'i').test(text))
+        const opened = Math.min(...[named, opensAll].filter((index) => index >= 0))
+        const used = texts.findIndex((text) => new RegExp(String.raw`\b${noun}\b`, 'i').test(text))
+        expect(Number.isFinite(opened), `${id}: no step opens the ${noun}`).toBe(true)
+        expect(opened, `${id}: the ${noun} is used in step ${used + 1} before it is opened`).toBeLessThanOrEqual(used)
+      }
     }
   })
 
@@ -467,6 +556,7 @@ describe('the copy', () => {
       ...recipe.content.steps.flatMap((step, index): Copy[] => [
         [`${recipe.id} step ${index + 1}`, step.text],
         [`${recipe.id} step ${index + 1} why`, step.why ?? ''],
+        [`${recipe.id} step ${index + 1} done`, step.timer?.done ?? ''],
       ]),
     ]),
     ...Object.entries(TECHNIQUES).map(([id, technique]): Copy => [id, technique.summary]),

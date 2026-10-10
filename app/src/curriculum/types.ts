@@ -23,8 +23,18 @@ export interface Step {
    * `stirEvery` (seconds) is for a simmer the step says to stir on a
    * schedule: cook mode beeps softly and says "stir" each time, on whatever
    * step the cook has moved on to, while the timer runs.
+   * `done` is what the cook does when it rings, shown on its chip and read
+   * out with the ring, after "Rice: time is up.": a short imperative, at
+   * most 90 characters, such as "Turn off its burner and leave the lid on."
+   * Where the ring only asks for a look, it says the check ("Check it: the
+   * sauce should coat a spoon.").
    */
-  readonly timer: { readonly seconds: number; readonly label: string; readonly stirEvery?: number } | null
+  readonly timer: {
+    readonly seconds: number
+    readonly label: string
+    readonly stirEvery?: number
+    readonly done: string
+  } | null
 }
 
 export interface Pairing {

@@ -11,9 +11,23 @@ export type Unit = 'each' | 'clove' | 'slice' | 'bunch' | 'cup' | 'tbsp' | 'tsp'
 /** Store order: the grocery list walks the aisles in this order. */
 export type Section = 'produce' | 'meat' | 'dairy' | 'bakery' | 'pantry' | 'frozen'
 
+/**
+ * The US FDA's nine major food allergens. Since the FDA's January 2025
+ * guidance, coconut is not a tree nut.
+ */
+export type Allergen = 'milk' | 'egg' | 'fish' | 'shellfish' | 'peanut' | 'tree-nut' | 'wheat' | 'soy' | 'sesame'
+
 interface IngredientBase {
   /** The product, as the grocery list and the pantry name it, and as a recipe lists one of it or less. */
   readonly name: string
+  /**
+   * The major allergens a typical US supermarket product contains; empty
+   * when it has none. Where brands differ, the
+   * allergen most of them contain is listed (shrimp paste in curry paste),
+   * so the list errs toward a warning. Highly refined oils are exempt from
+   * allergen labeling, so soybean "vegetable oil" lists no soy.
+   */
+  readonly allergens: readonly Allergen[]
   /**
    * Used a little at a time and keeps for weeks once bought, so it belongs in
    * the pantry. Something a recipe uses up whole (a can, a pack of meat) is not.
@@ -87,6 +101,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 vine tomato', priceCents: 90, units: 1 },
   },
   cucumber: {
@@ -95,6 +110,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 cucumber', priceCents: 149, units: 1 },
   },
   'red-onion': {
@@ -103,6 +119,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 red onion', priceCents: 129, units: 1 },
   },
   lemon: {
@@ -111,6 +128,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 lemon', priceCents: 79, units: 1 },
   },
   garlic: {
@@ -118,6 +136,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'clove',
     staple: true,
+    allergens: [],
     package: { label: '1 head', priceCents: 79, units: 10 },
   },
   parsley: {
@@ -125,6 +144,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'bunch',
     staple: false,
+    allergens: [],
     package: { label: '1 bunch', priceCents: 149, units: 1 },
   },
   scallion: {
@@ -133,6 +153,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 bunch (about 6)', priceCents: 129, units: 6 },
   },
   'baby-potatoes': {
@@ -140,6 +161,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'lb',
     staple: false,
+    allergens: [],
     package: { label: '1.5 lb bag', priceCents: 399, units: 1.5 },
   },
   broccoli: {
@@ -148,6 +170,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 crown', priceCents: 199, units: 1 },
   },
   'bell-pepper': {
@@ -156,6 +179,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 pepper', priceCents: 129, units: 1 },
   },
   'yellow-onion': {
@@ -164,6 +188,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 yellow onion', priceCents: 99, units: 1 },
   },
   ginger: {
@@ -171,6 +196,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     // A 1-inch piece grates to about 1 tablespoon.
     package: { label: '1 knob, about 3 inches', priceCents: 99, units: 3 },
   },
@@ -179,6 +205,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'lb',
     staple: false,
+    allergens: [],
     package: { label: '1 large russet', priceCents: 90, units: 0.75 },
   },
   lime: {
@@ -187,6 +214,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 lime', priceCents: 50, units: 1 },
   },
   basil: {
@@ -194,6 +222,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'bunch',
     staple: false,
+    allergens: [],
     package: { label: '1 bunch', priceCents: 249, units: 1 },
   },
   carrot: {
@@ -202,6 +231,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '1 lb bag (about 6)', priceCents: 129, units: 6 },
   },
   'bean-sprouts': {
@@ -209,6 +239,7 @@ export const INGREDIENTS = {
     section: 'produce',
     unit: 'cup',
     staple: false,
+    allergens: [],
     package: { label: '8 oz bag (about 4 cups)', priceCents: 199, units: 4 },
   },
 
@@ -219,6 +250,7 @@ export const INGREDIENTS = {
     section: 'meat',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '13 oz rope', priceCents: 449, units: 1 },
     safeTempF: 'fully-cooked',
     fridgeDays: 14,
@@ -228,6 +260,7 @@ export const INGREDIENTS = {
     section: 'meat',
     unit: 'lb',
     staple: false,
+    allergens: [],
     package: { label: '1.5 lb pack', priceCents: 599, units: 1.5 },
     safeTempF: 165,
     fridgeDays: 2,
@@ -237,6 +270,7 @@ export const INGREDIENTS = {
     section: 'meat',
     unit: 'lb',
     staple: false,
+    allergens: [],
     package: { label: '1 lb pack', priceCents: 649, units: 1 },
     safeTempF: 160,
     fridgeDays: 2,
@@ -246,6 +280,7 @@ export const INGREDIENTS = {
     section: 'meat',
     unit: 'lb',
     staple: false,
+    allergens: [],
     package: { label: '1.5 lb pack (about 2 large)', priceCents: 749, units: 1.5 },
     safeTempF: 165,
     fridgeDays: 2,
@@ -256,6 +291,7 @@ export const INGREDIENTS = {
     section: 'meat',
     unit: 'lb',
     staple: false,
+    allergens: [],
     package: { label: '1 steak, about 1¼ lb', priceCents: 1249, units: 1.25 },
     safeTempF: 145,
     fridgeDays: 3,
@@ -266,6 +302,7 @@ export const INGREDIENTS = {
     section: 'meat',
     unit: 'oz',
     staple: false,
+    allergens: [],
     package: { label: '16 oz pack', priceCents: 749, units: 16 },
     safeTempF: 'cured',
     fridgeDays: 7,
@@ -278,6 +315,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'each',
     staple: true,
+    allergens: ['egg'],
     package: { label: '1 dozen', priceCents: 349, units: 12 },
   },
   butter: {
@@ -285,6 +323,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'tbsp',
     staple: true,
+    allergens: ['milk'],
     package: { label: '1 lb (4 sticks)', priceCents: 449, units: 32 },
   },
   feta: {
@@ -292,6 +331,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'oz',
     staple: false,
+    allergens: ['milk'],
     package: { label: '4 oz tub, crumbled', priceCents: 349, units: 4 },
   },
   parmesan: {
@@ -299,6 +339,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'oz',
     staple: true,
+    allergens: ['milk'],
     package: { label: '5 oz wedge', priceCents: 599, units: 5 },
   },
   cheddar: {
@@ -307,6 +348,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'oz',
     staple: true,
+    allergens: ['milk'],
     package: { label: '8 oz block', priceCents: 349, units: 8 },
   },
   'american-cheese': {
@@ -314,6 +356,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'slice',
     staple: false,
+    allergens: ['milk'],
     package: { label: '12-slice pack', priceCents: 299, units: 12 },
   },
   'pasteurized-eggs': {
@@ -324,6 +367,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'each',
     staple: true,
+    allergens: ['egg'],
     package: { label: '1 dozen, pasteurized in the shell', priceCents: 549, units: 12 },
   },
   mozzarella: {
@@ -331,6 +375,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'oz',
     staple: false,
+    allergens: ['milk'],
     package: { label: '8 oz block', priceCents: 349, units: 8 },
   },
   yogurt: {
@@ -338,6 +383,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'cup',
     staple: false,
+    allergens: ['milk'],
     package: { label: '16 oz tub (2 cups)', priceCents: 279, units: 2 },
   },
   'fresh-mozzarella': {
@@ -345,6 +391,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'oz',
     staple: false,
+    allergens: ['milk'],
     package: { label: '8 oz ball', priceCents: 499, units: 8 },
   },
   'heavy-cream': {
@@ -352,6 +399,7 @@ export const INGREDIENTS = {
     section: 'dairy',
     unit: 'cup',
     staple: false,
+    allergens: ['milk'],
     package: { label: '½ pint (1 cup)', priceCents: 249, units: 1 },
   },
 
@@ -362,6 +410,8 @@ export const INGREDIENTS = {
     section: 'bakery',
     unit: 'slice',
     staple: true,
+    // Most loaves carry soy flour or lecithin; some add milk too.
+    allergens: ['wheat', 'soy'],
     package: { label: '1 loaf (about 20 slices)', priceCents: 349, units: 20 },
   },
   'burger-buns': {
@@ -370,6 +420,8 @@ export const INGREDIENTS = {
     section: 'bakery',
     unit: 'each',
     staple: false,
+    // Plain buns; brioche adds milk and egg, and a seeded bun sesame.
+    allergens: ['wheat', 'soy'],
     package: { label: '8-pack', priceCents: 299, units: 8 },
   },
 
@@ -379,6 +431,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '16.9 fl oz bottle', priceCents: 899, units: 33 },
   },
   'neutral-oil': {
@@ -386,6 +439,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '48 fl oz bottle', priceCents: 499, units: 96 },
   },
   'sesame-oil': {
@@ -393,6 +447,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: ['sesame'],
     package: { label: '5 fl oz bottle', priceCents: 499, units: 30 },
   },
   'soy-sauce': {
@@ -400,6 +455,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: ['wheat', 'soy'],
     package: { label: '10 fl oz bottle', priceCents: 349, units: 20 },
   },
   'kosher-salt': {
@@ -407,6 +463,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '3 lb box', priceCents: 449, units: 280 },
   },
   'black-pepper': {
@@ -414,6 +471,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '1.24 oz grinder', priceCents: 399, units: 16 },
   },
   'red-pepper-flakes': {
@@ -421,6 +479,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '1.5 oz jar', priceCents: 299, units: 22 },
   },
   spaghetti: {
@@ -428,6 +487,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'oz',
     staple: false,
+    allergens: ['wheat'],
     package: { label: '16 oz box', priceCents: 179, units: 16 },
   },
   'jasmine-rice': {
@@ -435,6 +495,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'cup',
     staple: true,
+    allergens: [],
     package: { label: '5 lb bag', priceCents: 749, units: 11 },
   },
   'crushed-tomatoes': {
@@ -442,6 +503,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'oz',
     staple: false,
+    allergens: [],
     package: { label: '28 oz can', priceCents: 249, units: 28 },
   },
   'tomato-paste': {
@@ -449,6 +511,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '4.5 oz tube (about 8 tbsp)', priceCents: 299, units: 8 },
   },
   'chicken-broth': {
@@ -456,6 +519,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'cup',
     staple: false,
+    allergens: [],
     package: { label: '14.5 oz can', priceCents: 129, units: 1.75 },
   },
   'red-lentils': {
@@ -463,6 +527,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'cup',
     staple: true,
+    allergens: [],
     package: { label: '1 lb bag (about 2¼ cups)', priceCents: 279, units: 2.25 },
   },
   chickpeas: {
@@ -471,6 +536,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'each',
     staple: false,
+    allergens: [],
     package: { label: '15.5 oz can', priceCents: 109, units: 1 },
   },
   turmeric: {
@@ -478,6 +544,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '1 oz jar', priceCents: 299, units: 10 },
   },
   'cumin-seeds': {
@@ -485,6 +552,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '1.5 oz jar', priceCents: 399, units: 20 },
   },
   coriander: {
@@ -492,6 +560,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '1.25 oz jar', priceCents: 349, units: 18 },
   },
   'garam-masala': {
@@ -499,6 +568,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '1.5 oz jar', priceCents: 449, units: 18 },
   },
   sugar: {
@@ -506,6 +576,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '4 lb bag', priceCents: 399, units: 145 },
   },
   cornstarch: {
@@ -513,6 +584,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '16 oz box', priceCents: 249, units: 56 },
   },
   'oyster-sauce': {
@@ -520,6 +592,8 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    // Oyster extract and wheat flour in every common brand; many add soy sauce.
+    allergens: ['shellfish', 'wheat', 'soy'],
     package: { label: '9 oz bottle', priceCents: 349, units: 14 },
   },
   'dill-pickles': {
@@ -528,6 +602,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'each',
     staple: true,
+    allergens: [],
     package: { label: '16 oz jar (about 60 chips)', priceCents: 299, units: 60 },
   },
   ketchup: {
@@ -535,6 +610,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '20 oz bottle', priceCents: 279, units: 33 },
   },
   'dijon-mustard': {
@@ -542,6 +618,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '8 oz jar', priceCents: 299, units: 45 },
   },
   'all-purpose-flour': {
@@ -549,6 +626,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'cup',
     staple: true,
+    allergens: ['wheat'],
     package: { label: '5 lb bag (about 18 cups)', priceCents: 349, units: 18 },
   },
   'instant-yeast': {
@@ -557,6 +635,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'each',
     staple: true,
+    allergens: [],
     package: { label: '1 strip of 3 packets', priceCents: 199, units: 3 },
   },
   panko: {
@@ -564,6 +643,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'cup',
     staple: true,
+    allergens: ['wheat'],
     package: { label: '8 oz box (about 4 cups)', priceCents: 299, units: 4 },
   },
   paprika: {
@@ -571,6 +651,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tsp',
     staple: true,
+    allergens: [],
     package: { label: '2.1 oz jar', priceCents: 299, units: 26 },
   },
   'coconut-milk': {
@@ -579,6 +660,8 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'each',
     staple: false,
+    // Coconut has not been a tree nut on the FDA's list since 2025.
+    allergens: [],
     package: { label: '13.5 oz can', priceCents: 249, units: 1 },
   },
   'green-curry-paste': {
@@ -586,6 +669,8 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    // Thai-made pastes (Mae Ploy, Maesri) are made with shrimp paste; Thai Kitchen is not. Listed, to warn.
+    allergens: ['shellfish'],
     package: { label: '4 oz jar (about 7 tbsp)', priceCents: 349, units: 7 },
   },
   'fish-sauce': {
@@ -593,6 +678,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: ['fish'],
     package: { label: '6.76 fl oz bottle', priceCents: 349, units: 13 },
   },
   'rice-vinegar': {
@@ -600,6 +686,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '12 fl oz bottle', priceCents: 279, units: 24 },
   },
   sriracha: {
@@ -607,6 +694,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '17 oz bottle', priceCents: 449, units: 30 },
   },
   tamarind: {
@@ -615,6 +703,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'tbsp',
     staple: true,
+    allergens: [],
     package: { label: '8 oz jar (about 14 tbsp), at an Asian grocery', priceCents: 349, units: 14 },
   },
   'rice-noodles': {
@@ -622,6 +711,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'oz',
     staple: true,
+    allergens: [],
     package: { label: '14 oz box', priceCents: 299, units: 14 },
   },
   tagliatelle: {
@@ -629,6 +719,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'oz',
     staple: false,
+    allergens: ['egg', 'wheat'],
     package: { label: '8.8 oz bag of nests', priceCents: 349, units: 8.8 },
   },
   'roasted-peanuts': {
@@ -636,6 +727,7 @@ export const INGREDIENTS = {
     section: 'pantry',
     unit: 'cup',
     staple: true,
+    allergens: ['peanut'],
     package: { label: '16 oz jar (about 3 cups)', priceCents: 329, units: 3 },
   },
 
@@ -645,6 +737,7 @@ export const INGREDIENTS = {
     section: 'frozen',
     unit: 'cup',
     staple: true,
+    allergens: [],
     package: { label: '12 oz bag (about 2½ cups)', priceCents: 179, units: 2.5 },
   },
 } as const satisfies Record<string, Ingredient>
