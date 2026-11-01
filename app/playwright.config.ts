@@ -7,8 +7,9 @@
 import { defineConfig } from '@playwright/test'
 import { SUPABASE_KEY, SUPABASE_URL } from './e2e/fakeSupabase'
 
-// Not 4173, which `npm run preview` takes by default: the two can run at once.
-const PORT = 4183
+// Not 4173, which `npm run preview` takes by default: the two can run at once. E2E_PORT lets two
+// checkouts run their suites side by side.
+const PORT = Number(process.env.E2E_PORT ?? 4183)
 
 export default defineConfig({
   testDir: 'e2e',
